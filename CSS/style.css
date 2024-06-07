@@ -1,0 +1,28 @@
+body {
+    display: flex;
+    min-height: 100vh;
+    margin: 0;
+}
+
+#navbar {
+    width: 200px; /* 너비를 설정 */
+    background-color: #f4f4f4; /* 배경 색상 */
+    padding: 20px; /* 여백 */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* 그림자 효과 */
+}
+
+#navbar a {
+    display: block;
+    color: #333;
+    padding: 10px;
+    text-decoration: none;
+}
+
+#navbar a:hover {
+    background-color: #ddd;
+}
+
+.content {
+    flex: 1;
+    padding: 20px;
+}
