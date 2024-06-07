@@ -1,0 +1,30 @@
+<!-- ./HTML/search_by_small_category.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search by Small Category</title>
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>소분류로 상품 검색</h1>
+        <form id="searchForm">
+            <label for="smallCategory">소분류명:</label>
+            <input type="text" id="smallCategory" name="smallCategory" required>
+            <button type="submit">Search</button>
+        </form>
+        <div id="result"></div>
+        <div id="message"></div> <!-- messageDiv 요소 추가 -->
+    </div>
+    <!-- Firebase 라이브러리 로드 (비모듈 형식) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="../JS/firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
+    <script src="../JS/loadNavbar.js"></script>
+    <script src="../JS/search_by_small_category.js"></script>
+</body>
+</html>
