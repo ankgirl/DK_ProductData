@@ -1,5 +1,4 @@
 //displayProductData.js
-
 function generateProductDetailsHTML(data) {
     return `
         <p><strong>SellerCode:</strong> ${data.SellerCode || ''}</p>
@@ -44,14 +43,8 @@ function generateProductDetailsHTML(data) {
     `;
 }
 
-
-
-
-
-
-function displayProductData(data) {
-    const resultDiv = document.getElementById("result");
-    resultDiv.innerHTML = generateProductDetailsHTML(data);
+function displayProductData(data, container = document.getElementById("result")) {
+    container.innerHTML = generateProductDetailsHTML(data);
 
     document.getElementById('updateForm').addEventListener('submit', async function (event) {
         event.preventDefault();
