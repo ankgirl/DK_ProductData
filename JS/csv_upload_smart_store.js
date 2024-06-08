@@ -21,9 +21,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 for (let product of data) {
                     const sellerCode = product["판매자상품코드"];
                     const productNumber = product["상품번호(스마트스토어)"];
+                    const storeKeywordName = product["상품명"];
                     
-                    if (!sellerCode || !productNumber) {
-                        messageDiv.innerHTML += `<p>상품번호 또는 판매자상품코드가 누락된 항목이 있습니다. 건너뜁니다.</p>`;
+                    if (!sellerCode || !productNumber || !storeKeywordName) {
+                        messageDiv.innerHTML += `<p>상품번호, 판매자상품코드 또는 상품명이 누락된 항목이 있습니다. 건너뜁니다.</p>`;
                         continue;
                     }
 
@@ -32,7 +33,8 @@ document.addEventListener("DOMContentLoaded", function() {
                     const productData = {
                         SellerCode: sellerCode,
                         ProductNumber: productNumber,
-                        SmartStoreURL: smartStoreURL
+                        SmartStoreURL: smartStoreURL,
+                        스토어키워드네임: storeKeywordName
                     };
                     
                     try {

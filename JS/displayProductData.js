@@ -1,12 +1,12 @@
-//displayProductData.js
+// displayProductData.js
 function generateProductDetailsHTML(data) {
     return `
         <p><strong>SellerCode:</strong> ${data.SellerCode || ''}</p>
         <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>
-        <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}">${data.스토어링크 || ''}</a></p>
-        <p><strong>SmartStoreURL:</strong> <a href="${data.SmartStoreURL || '#'}">${data.SmartStoreURL || ''}</a></p>
-        <p><strong>ShopURL:</strong> <a href="${data.ShopURL || '#'}">${data.ShopURL || ''}</a></p>
-        <p><strong>SellingPrice:</strong> ${data.SellingPrice || ''}</p>
+        <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}" target="_blank">${data.스토어링크 || ''}</a></p>
+        <p><strong>SmartStoreURL:</strong> <a href="${data.SmartStoreURL || '#'}" target="_blank">${data.SmartStoreURL || ''}</a></p>
+        <p><strong>ShopURL:</strong> <a href="${data.ShopURL || '#'}" target="_blank">${data.ShopURL || ''}</a></p>
+        <p><strong>SellingPrice:</strong> ${data.DiscountedPrice || ''}</p>
         <p><strong>Option Datas:</strong></p>
         <form id="updateForm">
             <table>

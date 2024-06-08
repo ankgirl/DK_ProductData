@@ -5,26 +5,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search by Small Category</title>
+    <title>소분류별 상품 검색</title>
     <link rel="stylesheet" href="../CSS/style.css">
 </head>
 <body>
     <div id="navbar"></div>
     <div class="content">
-        <h1>소분류로 상품 검색</h1>
+        <h1>소분류별 상품 검색</h1>
         <form id="searchForm">
-            <label for="smallCategory">소분류명:</label>
+            <label for="smallCategory">Small Category:</label>
             <input type="text" id="smallCategory" name="smallCategory" required>
             <button type="submit">Search</button>
+            <button type="button" id="downloadExcel">엑셀 다운로드</button>
         </form>
         <div id="result"></div>
-        <div id="message"></div> <!-- messageDiv 요소 추가 -->
     </div>
     <!-- Firebase 라이브러리 로드 (비모듈 형식) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script src="../JS/firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
     <script src="../JS/loadNavbar.js"></script>
-    <script src="../JS/search_by_small_category.js"></script>
+    <script src="../JS/search_by_small_category.js"></script> <!-- search_by_small_category.js 파일 로드 -->
 </body>
 </html>
