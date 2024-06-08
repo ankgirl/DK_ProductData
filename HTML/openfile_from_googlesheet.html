@@ -1,31 +1,29 @@
-<!-- ./HTML/search_by_barcode.html -->
+<!-- ./HTML/openfile_from_googlesheet.html -->
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search by Barcode</title>
+    <title>구글시트 데이터 추가</title>
     <link rel="stylesheet" href="../CSS/style.css">
 </head>
 <body>
     <div id="navbar"></div>
     <div class="content">
-        <h1>바코드로 상품 검색</h1>
-        <form id="searchForm">
-            <label for="barcode">Barcode:</label>
-            <input type="text" id="barcode" name="barcode" required>
-            <button type="submit">Search</button>
+        <h1>구글시트 데이터 추가</h1>
+        <form id="uploadForm">
+            <label for="csvFile">CSV 파일 업로드:</label>
+            <input type="file" id="csvFile" name="csvFile" accept=".csv" required>
+            <button type="submit">업로드</button>
         </form>
-        <div id="result"></div>
-        <div id="message"></div> <!-- messageDiv 요소 추가 -->
+        <div id="message"></div>
     </div>
     <!-- Firebase 라이브러리 로드 (비모듈 형식) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="../JS/firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
     <script src="../JS/loadNavbar.js"></script>
-    <script src="../JS/displayProductData.js"></script> <!-- displayProductData.js 파일 로드 -->
-    <script src="../JS/search_by_barcode.js"></script>
+    <script src="../JS/csv_upload.js"></script> <!-- csv_upload.js 파일 로드 -->
 </body>
 </html>

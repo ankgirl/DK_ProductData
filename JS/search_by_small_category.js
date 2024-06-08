@@ -52,7 +52,7 @@ function generateTableHTML(products) {
 
     products.forEach(product => {
         const sellerCode = product.SellerCode || '';
-        const image = product.대표이미지 || '';
+        const image = product.Cafe24URL || '';
         const shopURL = product.ShopURL || '';
         const optionDatas = product.OptionDatas || {};
 
