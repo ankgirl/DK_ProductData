@@ -2,8 +2,9 @@
 function generateProductDetailsHTML(data) {
     return `
         <p><strong>SellerCode:</strong> ${data.SellerCode || ''}</p>
-        <p><strong>대표이미지:</strong> <img src="${data.대표이미지 || ''}" alt="대표이미지" width="100"></p>
+        <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>
         <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}">${data.스토어링크 || ''}</a></p>
+        <p><strong>SmartStoreURL:</strong> <a href="${data.SmartStoreURL || '#'}">${data.SmartStoreURL || ''}</a></p>
         <p><strong>ShopURL:</strong> <a href="${data.ShopURL || '#'}">${data.ShopURL || ''}</a></p>
         <p><strong>SellingPrice:</strong> ${data.SellingPrice || ''}</p>
         <p><strong>Option Datas:</strong></p>

@@ -41,6 +41,7 @@ function generateTableHTML(products) {
                     <th>SellerCode</th>
                     <th>Image</th>
                     <th>ShopURL</th>
+                    <th>SmartStoreURL</th>
                     <th>Option Name</th>
                     <th>Counts</th>
                     <th>Price</th>
@@ -54,6 +55,7 @@ function generateTableHTML(products) {
         const sellerCode = product.SellerCode || '';
         const image = product.Cafe24URL || '';
         const shopURL = product.ShopURL || '';
+        const smartStoreURL = product.SmartStoreURL || '';
         const optionDatas = product.OptionDatas || {};
 
         // Option Name을 오름차순으로 정렬
@@ -64,6 +66,7 @@ function generateTableHTML(products) {
                 <td rowspan="${sortedOptionNames.length}">${sellerCode}</td>
                 <td rowspan="${sortedOptionNames.length}"><img src="${image}" alt="대표이미지" width="100"></td>
                 <td rowspan="${sortedOptionNames.length}"><a href="${shopURL}" target="_blank">${shopURL}</a></td>
+                <td rowspan="${sortedOptionNames.length}"><a href="${smartStoreURL}" target="_blank">${smartStoreURL}</a></td>
         `;
 
         let optionRows = '';
