@@ -9,9 +9,9 @@ const firebaseConfig = {
 };
 
 
-// Initialize Firebase
+// Firebase 초기화
 firebase.initializeApp(firebaseConfig);
-// Firestore 데이터베이스 초기화 및 전역 변수로 설정
-window.db = firebase.firestore();
-window.auth = firebase.auth();
- 
+
+// Firestore 및 Auth 초기화
+var db = firebase.firestore();
+var auth = firebase.auth();
