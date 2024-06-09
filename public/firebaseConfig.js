@@ -1,9 +1,3 @@
-// Import the functions you need from the SDKs you need
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAd55jS6ZBQS5HnwtxnCoxoqKKlBRZrZ-k",
   authDomain: "dakku-haru.firebaseapp.com",
@@ -17,9 +11,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-firebase.analytics();
 // Firestore 데이터베이스 초기화 및 전역 변수로 설정
 window.db = firebase.firestore();
-console.log("Firebase Firestore initialized:", window.db);
-
-
+window.auth = firebase.auth();
+ 
