@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "dakku-haru"
+  },
+  "targets": {},
+  "etags": {
+    "dakku-haru": {
+      "extensionInstances": {}
+    }
+  },
+  "dataconnectEmulatorConfig": {}
+}

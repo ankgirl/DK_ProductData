@@ -4,7 +4,7 @@
 
 async function fetchNavbar() {
     document.addEventListener("DOMContentLoaded", function () {
-        fetch("../HTML/navbar.html")        
+        fetch("./navbar.html")        
             .then(response => {
                 return response.text();
             })
