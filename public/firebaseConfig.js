@@ -14,8 +14,12 @@ const firebaseConfig = {
   measurementId: "G-T6X2CTEZVM"
 };
 
-firebase.initializeApp(firebaseConfig);
 
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+firebase.analytics();
 // Firestore 데이터베이스 초기화 및 전역 변수로 설정
 window.db = firebase.firestore();
 console.log("Firebase Firestore initialized:", window.db);
+
+
