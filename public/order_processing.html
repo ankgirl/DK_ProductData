@@ -21,8 +21,10 @@
         </div>
         <button id="printButton">Print</button>
         <div id="barcodeSection">
-            <label for="barcodeInput">바코드 입력:</label>
+            <label for="barcodeInput">구매 상품 바코드:</label>
             <input type="text" id="barcodeInput">
+            <label for="serviceBarcodeInput">서비스 상품 바코드:</label>
+            <input type="text" id="serviceBarcodeInput">
         </div>
         <div id="orderDetails"></div>
         <div id="message"></div>
@@ -34,12 +36,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
     <script src="firebaseConfig.js"></script>
     <script src="loadNavbar.js"></script>
-    <script src="order_upload.js"></script>
-    <script src="order_display.js"></script>
-    <script>
-        document.getElementById("printButton").addEventListener("click", function() {
-            window.print();
-        });
-    </script>
+    <script type="module" src="order_upload.js"></script>
+    <script type="module" src="order_display.js"></script>
+    <script type="module" src="order_print.js"></script>
 </body>
 </html>

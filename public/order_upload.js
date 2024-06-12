@@ -1,3 +1,5 @@
+import { generateImageURLs } from './generateImageURLs.js';
+
 document.addEventListener("DOMContentLoaded", function() {
     const uploadForm = document.getElementById("uploadForm");
     const messageDiv = document.getElementById("message");
@@ -95,20 +97,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     }
 
                     // 입고차수정보에 따른 이미지명 생성
-                    const optionNumber = option.replace("옵션", "").padStart(3, '0');
-                    const 입고차수정보 = parseInt(입고차수, 10);
-                    let 이미지명 = '';
-
-                    if (입고차수정보 <= 23) {
-                        이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
-                    } else {
-                        이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
-                    }
-
-                    // 이미지 URL 생성
-                    const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${입고차수}/${sellerCode}`;
-                    const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
-                    const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
+                    const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수);
 
                     orderData.Counts = counts;
                     orderData.바코드 = barcode;
