@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Processing</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>Order Processing</h1>
+        <form id="uploadForm">
+            <label for="xlsxFile">Upload XLSX File:</label>
+            <input type="file" id="xlsxFile" accept=".xlsx" required>
+            <button type="submit">Upload</button>
+        </form>
+        <div>
+            <label for="orderDropdown">Select Order Number:</label>
+            <select id="orderDropdown"></select>
+        </div>
+        <button id="printButton">Print</button>
+        <div id="barcodeSection">
+            <label for="barcodeInput">바코드 입력:</label>
+            <input type="text" id="barcodeInput">
+        </div>
+        <div id="orderDetails"></div>
+        <div id="message"></div>
+    </div>
+    
+    <!-- Firebase 라이브러리 로드 (비모듈 형식) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+    <script src="firebaseConfig.js"></script>
+    <script src="loadNavbar.js"></script>
+    <script src="order_upload.js"></script>
+    <script src="order_display.js"></script>
+    <script>
+        document.getElementById("printButton").addEventListener("click", function() {
+            window.print();
+        });
+    </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-/* style.css */
+/* 기본 레이아웃 스타일 */
 body {
     display: flex;
     min-height: 100vh;
@@ -6,8 +6,8 @@ body {
 }
 
 #navbar {
-    width: 200px; /* 너비를 설정 */
-    min-width: 200px; /* 최소 너비를 설정 */
+    width: 200px; /* 너비 설정 */
+    min-width: 200px; /* 최소 너비 설정 */
     background-color: #f4f4f4; /* 배경 색상 */
     padding: 20px; /* 여백 */
     box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* 그림자 효과 */
@@ -118,5 +118,22 @@ body {
         padding-left: 15px;
         font-weight: bold;
         text-align: left;
+    }
+}
+
+/* 프린트 스타일 */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .content, .content * {
+        visibility: visible;
+    }
+    .content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        display: block;
     }
 }
