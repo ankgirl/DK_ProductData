@@ -1,4 +1,5 @@
 import { generateImageURLs } from './generateImageURLs.js';
+import { loadOrderNumbers, checkServiceBarcode, checkBarcode } from './orderHelpers.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -8,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const barcodeInput = document.getElementById("barcodeInput");
     const serviceBarcodeInput = document.getElementById("serviceBarcodeInput");
 
-    loadOrderNumbers();
+    loadOrderNumbers(orderDropdown, messageDiv);
 
     orderDropdown.addEventListener("change", displayOrderDetails);
 
@@ -16,45 +17,24 @@ document.addEventListener("DOMContentLoaded", function() {
         if (event.key === 'Enter') {
             const barcode = barcodeInput.value.trim();
             if (barcode) {
-                checkBarcode(barcode);
+                checkBarcode(barcode, orderDetails);
                 barcodeInput.value = '';  // 입력 후 입력란 지우기
             }
         }
     });
 
-    serviceBarcodeInput.addEventListener("keypress", function(event) {
+    serviceBarcodeInput.addEventListener("keypress", async function(event) {
         if (event.key === 'Enter') {
             const barcode = serviceBarcodeInput.value.trim();
             if (barcode) {
-                checkServiceBarcode(barcode);
+                const orderData = await checkServiceBarcode(barcode, orderDropdown, messageDiv);
+                if (orderData) {
+                    displayOrderDetails();
+                }
                 serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
             }
         }
     });
-
-    async function loadOrderNumbers() {
-        try {
-            const ordersSnapshot = await firebase.firestore().collection('Orders').get();
-            orderDropdown.innerHTML = "<option value=''>주문 번호 선택</option>";
-            
-            if (ordersSnapshot.empty) {
-                console.log("No orders found");
-                messageDiv.innerHTML += `<p>주문 번호가 없습니다.</p>`;
-                return;
-            }
-
-            ordersSnapshot.forEach(doc => {
-                const option = document.createElement("option");
-                option.value = doc.id;
-                option.textContent = doc.id;
-                orderDropdown.appendChild(option);
-            });
-
-        } catch (error) {
-            console.error("Error loading order numbers: ", error);
-            messageDiv.innerHTML += `<p>주문번호 로드 중 오류 발생: ${error.message}</p>`;
-        }
-    }
 
     async function displayOrderDetails() {
         const orderNumber = orderDropdown.value;
@@ -72,7 +52,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
                 // 주문원가합산금액 계산
                 const totalCost = serviceTotalCost + (parseFloat(orderData.총원가금액) || 0);
-
 
                 // 판매자 상품코드 내림차순 및 옵션 정보 오름차순으로 정렬
                 const sortedProductOrders = Object.values(productOrders).sort((a, b) => {
@@ -107,6 +86,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                 <th>입고차수</th>
                                 <th>옵션정보</th>
                                 <th>수량</th>
+                                <th>포장수량</th>
                                 <th>총가격</th>
                                 <th>원가</th>
                                 <th>Counts</th>
@@ -128,13 +108,14 @@ document.addEventListener("DOMContentLoaded", function() {
                             <td>${order.입고차수}</td>
                             <td>${order.옵션정보}</td>
                             <td style="${quantityStyle}">${order.상품수량}</td>
+                            <td><input type="number" class="packingQuantity" min="0" max="${order.상품수량}" value="0"></td>
                             <td>${order.상품별총주문금액}</td>
                             <td>${order.원가}</td>
                             <td>${order.Counts}</td>
                             <td>${order.바코드}</td>
                             <td><img src="${order.옵션이미지URL}" alt="옵션이미지" width="50"></td>
                             <td><img src="${order.실제이미지URL}" alt="실제이미지" width="50"></td>
-                            <td><input type="checkbox" class="barcodeCheck"></td>
+                            <td><input type="checkbox" class="barcodeCheck" disabled></td>
                         </tr>
                     `;
                 });
@@ -152,6 +133,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         <thead>
                             <tr>
                                 <th>판매자 상품코드</th>
+                                <th>바코드</th>
                                 <th>Discounted Price</th>
                                 <th>원가</th>
                                 <th>옵션이미지</th>
@@ -165,6 +147,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     serviceDetailsHTML += `
                         <tr>
                             <td>${service.판매자상품코드}</td>
+                            <td>${service.바코드}</td>
                             <td>${service.DiscountedPrice}</td>
                             <td>${service.원가}</td>
                             <td><img src="${service.옵션이미지URL}" alt="옵션이미지" width="50"></td>
@@ -192,110 +175,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    function checkBarcode(barcode) {
-        const rows = orderDetails.querySelectorAll("tbody tr");
-        let found = false;
-
-        rows.forEach(row => {
-            const barcodeCell = row.cells[8];
-            if (barcodeCell && barcodeCell.textContent === barcode) {
-                const checkbox = row.querySelector(".barcodeCheck");
-                if (checkbox) {
-                    checkbox.checked = true;
-                }
-                found = true;
-            }
-        });
-
-        if (!found) {
-            alert("일치하는 바코드를 찾을 수 없습니다.");
-        }
-    }
-
-    async function checkServiceBarcode(barcode) {
-        try {
-            let productSnapshot = await firebase.firestore().collection('Products').where('바코드', '==', barcode).get();
-            let productData;
-
-            if (productSnapshot.empty) {
-                // OptionDatas 내부에서 바코드를 검색
-                productSnapshot = await firebase.firestore().collection('Products').get();
-                productSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.OptionDatas) {
-                        for (let optionKey in data.OptionDatas) {
-                            if (data.OptionDatas[optionKey].바코드 === barcode) {
-                                productData = {
-                                    ...data,
-                                    optionKey,
-                                    바코드: data.OptionDatas[optionKey].바코드,
-                                    원가: data.원가,
-                                    입고차수: data.소분류명,
-                                };
-
-                                const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(data.SellerCode, optionKey, data.소분류명);
-
-                                productData.옵션이미지URL = 옵션이미지URL;
-                                productData.실제이미지URL = 실제이미지URL;
-                            }
-                        }
-                    }
-                });
-
-                if (!productData) {
-                    alert("일치하는 서비스를 찾을 수 없습니다.");
-                    return;
-                }
-            } else {
-                const productDoc = productSnapshot.docs[0];
-                productData = productDoc.data();
-
-                const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, productData.optionKey, productData.소분류명);
-
-                productData.옵션이미지URL = 옵션이미지URL;
-                productData.실제이미지URL = 실제이미지URL;
-            }
-
-            const orderNumber = orderDropdown.value;
-
-            if (!orderNumber) {
-                alert("먼저 주문 번호를 선택해주세요.");
-                return;
-            }
-
-            const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-            const orderDoc = await orderDocRef.get();
-
-            if (orderDoc.exists) {
-                const orderData = orderDoc.data();
-                if (!orderData.ProductService) {
-                    orderData.ProductService = [];
-                }
-
-                const serviceData = {
-                    원가: productData.원가 || 0,
-                    입고차수: productData.소분류명 ? productData.소분류명.replace("차입고", "") : '',
-                    판매자상품코드: productData.SellerCode || '',
-                    옵션정보: productData.optionKey || '',
-                    실제이미지URL: productData.실제이미지URL || '',
-                    옵션이미지URL: productData.옵션이미지URL || '',
-                    DiscountedPrice: productData.DiscountedPrice
-                };
-
-                orderData.ProductService.push(serviceData);
-                await orderDocRef.set(orderData, { merge: true });
-
-                messageDiv.innerHTML += `<p>서비스 상품 바코드 ${barcode} 저장 성공!</p>`;
-                displayOrderDetails();  // 데이터 저장 후 상세 정보 다시 표시
-            } else {
-                alert("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
-            }
-        } catch (error) {
-            console.error("Error processing service barcode: ", error);
-            messageDiv.innerHTML += `<p>서비스 상품 바코드 처리 중 오류 발생: ${error.message}</p>`;
-        }
-    }
-
     document.getElementById('printButton').addEventListener('click', function() {
         printOrderDetails();
     });
@@ -315,3 +194,4 @@ document.addEventListener("DOMContentLoaded", function() {
         printWindow.print();
     }
 });
+
