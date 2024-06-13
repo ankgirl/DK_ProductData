@@ -1,5 +1,6 @@
 import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers, checkServiceBarcode, checkBarcode } from './orderHelpers.js';
+import { updateProductCounts } from './barcode_search.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -8,6 +9,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const messageDiv = document.getElementById("message");
     const barcodeInput = document.getElementById("barcodeInput");
     const serviceBarcodeInput = document.getElementById("serviceBarcodeInput");
+    const packingCompleteButton = document.getElementById("packingCompleteButton");
+    const manualBarcodeButton = document.getElementById("manualBarcodeButton");
 
     loadOrderNumbers(orderDropdown, messageDiv);
 
@@ -34,6 +37,32 @@ document.addEventListener("DOMContentLoaded", function() {
                 serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
             }
         }
+    });
+
+    manualBarcodeButton.addEventListener("click", function() {
+        // 상품정보 테이블의 모든 행에 대해 수량값을 포장수량에 입력하고 체크박스를 true로 변경
+        const productRows = orderDetails.querySelectorAll("tbody tr");
+        productRows.forEach(row => {
+            const quantityCell = row.querySelector('[data-label="수량"]');
+            const packingQuantityInput = row.querySelector('.packingQuantity');
+            const checkbox = row.querySelector(".barcodeCheck");
+
+            if (quantityCell && packingQuantityInput && checkbox) {
+                packingQuantityInput.value = quantityCell.textContent;
+                checkbox.checked = true;
+            }
+        });
+
+        // 서비스 상품 정보 테이블의 모든 행에 대해 수량값을 포장수량에 입력하고 체크박스를 true로 변경
+        const serviceRows = serviceDetails.querySelectorAll("tbody tr");
+        serviceRows.forEach(row => {
+            const quantityInput = row.querySelector('.serviceQuantity');
+            const checkbox = row.querySelector(".barcodeCheck");
+
+            if (quantityInput && checkbox) {
+                checkbox.checked = true;
+            }
+        });
     });
 
     async function displayOrderDetails() {
@@ -104,19 +133,19 @@ document.addEventListener("DOMContentLoaded", function() {
                     const quantityStyle = order.상품수량 !== 1 ? "font-weight: bold; color: red;" : "";
                     orderDetailsHTML += `
                         <tr>
-                            <td>${order.상품주문번호}</td>
-                            <td>${order.판매자상품코드}</td>
-                            <td>${order.입고차수}</td>
-                            <td>${order.옵션정보}</td>
-                            <td style="${quantityStyle}">${order.상품수량}</td>
-                            <td><input type="number" class="packingQuantity" min="0" max="${order.상품수량}" value="0"></td>
-                            <td>${order.상품별총주문금액}</td>
-                            <td>${order.원가}</td>
-                            <td>${order.Counts}</td>
-                            <td>${order.바코드}</td>
-                            <td><img src="${order.옵션이미지URL}" alt="옵션이미지" width="50"></td>
-                            <td><img src="${order.실제이미지URL}" alt="실제이미지" width="50"></td>
-                            <td><input type="checkbox" class="barcodeCheck" disabled></td>
+                            <td data-label="상품주문번호">${order.상품주문번호}</td>
+                            <td data-label="판매자상품코드">${order.판매자상품코드}</td>
+                            <td data-label="입고차수">${order.입고차수}</td>
+                            <td data-label="옵션정보">${order.옵션정보}</td>
+                            <td data-label="수량" style="${quantityStyle}">${order.상품수량}</td>
+                            <td><input type="number" class="packingQuantity" min="0" max="${order.상품수량}" value="0" data-label="포장수량"></td>
+                            <td data-label="총가격">${order.상품별총주문금액}</td>
+                            <td data-label="원가">${order.원가}</td>
+                            <td data-label="Counts">${order.Counts}</td>
+                            <td data-label="바코드">${order.바코드}</td>
+                            <td data-label="옵션이미지"><img src="${order.옵션이미지URL}" alt="옵션이미지" width="50"></td>
+                            <td data-label="실제이미지"><img src="${order.실제이미지URL}" alt="실제이미지" width="50"></td>
+                            <td><input type="checkbox" class="barcodeCheck"></td>
                         </tr>
                     `;
                 });
@@ -137,6 +166,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                 <th>바코드</th>
                                 <th>Discounted Price</th>
                                 <th>원가</th>
+                                <th>수량</th> <!-- 수량 추가 -->
                                 <th>옵션이미지</th>
                                 <th>실제이미지</th>
                             </tr>
@@ -147,12 +177,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 productServices.forEach(service => {
                     serviceDetailsHTML += `
                         <tr>
-                            <td>${service.판매자상품코드}</td>
-                            <td>${service.바코드}</td>
-                            <td>${service.DiscountedPrice}</td>
-                            <td>${service.원가}</td>
-                            <td><img src="${service.옵션이미지URL}" alt="옵션이미지" width="50"></td>
-                            <td><img src="${service.실제이미지URL}" alt="실제이미지" width="50"></td>
+                            <td data-label="판매자상품코드">${service.판매자상품코드}</td>
+                            <td data-label="바코드">${service.바코드}</td>
+                            <td data-label="Discounted Price">${service.DiscountedPrice}</td>
+                            <td data-label="원가">${service.원가}</td>
+                            <td><input type="number" class="serviceQuantity" min="1" value="1" data-label="수량"></td> <!-- 수량 입력란 추가 -->
+                            <td data-label="옵션이미지"><img src="${service.옵션이미지URL}" alt="옵션이미지" width="50"></td>
+                            <td data-label="실제이미지"><img src="${service.실제이미지URL}" alt="실제이미지" width="50"></td>
                         </tr>
                     `;
                 });
@@ -176,6 +207,52 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    packingCompleteButton.addEventListener('click', async function() {
+        try {
+            const orderNumber = orderDropdown.value;
+
+            // 상품정보 테이블의 체크된 행만 처리
+            const productRows = orderDetails.querySelectorAll("tbody tr");
+            for (const row of productRows) {
+                const checkbox = row.querySelector(".barcodeCheck");
+                if (checkbox && checkbox.checked) {
+                    const barcode = row.querySelector('[data-label="바코드"]').textContent;
+                    const quantity = parseInt(row.querySelector('.packingQuantity').value, 10);
+                    await updateProductCounts(barcode, quantity, firebase.firestore());
+                }
+            }
+
+            // 서비스 상품 정보 모든 행 처리
+            const serviceRows = serviceDetails.querySelectorAll("tbody tr");
+            for (const row of serviceRows) {
+                const barcode = row.querySelector('[data-label="바코드"]').textContent;
+                const quantity = parseInt(row.querySelector('[data-label="수량"]').value, 10);
+                await updateProductCounts(barcode, quantity, firebase.firestore());
+            }
+
+            // 주문 데이터를 CompletedOrders로 이동하고 Orders에서 삭제
+            const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+            const orderDoc = await orderDocRef.get();
+            if (orderDoc.exists) {
+                await firebase.firestore().collection('CompletedOrders').doc(orderNumber).set(orderDoc.data());
+                await orderDocRef.delete();
+            }
+
+            // 화면 초기화
+            orderDetails.innerHTML = "";
+            serviceDetails.innerHTML = "";
+            orderDropdown.value = "";
+            messageDiv.innerHTML = "<p>모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.</p>";
+
+            // 주문 목록 갱신
+            loadOrderNumbers(orderDropdown, messageDiv);
+
+        } catch (error) {
+            console.error("Error completing packing: ", error);
+            messageDiv.innerHTML = `<p>포장 완료 중 오류 발생: ${error.message}</p>`;
+        }
+    });
+
     document.getElementById('printButton').addEventListener('click', function() {
         printOrderDetails();
     });
@@ -195,4 +272,3 @@ document.addEventListener("DOMContentLoaded", function() {
         printWindow.print();
     }
 });
-
