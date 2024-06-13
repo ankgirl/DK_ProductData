@@ -1,3 +1,6 @@
+import { searchByBarcode } from './barcode_search.js';
+import { displayProductData } from './displayProductData.js';
+
 document.addEventListener("DOMContentLoaded", function() {
     const searchForm = document.getElementById("searchForm");
 
@@ -7,28 +10,9 @@ document.addEventListener("DOMContentLoaded", function() {
         const resultDiv = document.getElementById("result");
 
         try {
-            // Firestore에서 모든 제품 문서를 가져옴
-            const allDocsSnapshot = await db.collection('Products').get();
-            let productsFound = [];
+            const productsFound = await searchByBarcode(barcode, db);
 
-            allDocsSnapshot.forEach(doc => {
-                const data = doc.data();
-                // 제품의 바코드 필드 확인
-                if (data.Barcode === barcode) {
-                    productsFound.push(data);
-                }
-                // 각 옵션의 바코드 필드 확인
-                if (data.OptionDatas) {
-                    for (let option in data.OptionDatas) {
-                        if (data.OptionDatas[option].바코드 === barcode) {
-                            productsFound.push(data);
-                            break;
-                        }
-                    }
-                }
-            });
-
-            if (productsFound.length === 0) {
+            if (!productsFound) {
                 resultDiv.innerHTML = "<p>No product found with the given barcode!</p>";
             } else if (productsFound.length === 1) {
                 displayProductData(productsFound[0]);

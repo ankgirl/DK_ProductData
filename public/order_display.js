@@ -78,6 +78,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 `;
 
                 orderDetailsHTML += `
+                    <h3>상품 정보</h3>
                     <table>
                         <thead>
                             <tr>

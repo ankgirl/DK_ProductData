@@ -13,5 +13,5 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 // Firestore 및 Auth 초기화
-//var db = firebase.firestore();
+var db = firebase.firestore();
 //var auth = firebase.auth();

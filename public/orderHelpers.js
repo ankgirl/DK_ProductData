@@ -1,4 +1,5 @@
 import { generateImageURLs } from './generateImageURLs.js';
+import { searchByBarcode } from './barcode_search.js';
 
 export async function loadOrderNumbers(orderDropdown, messageDiv) {
     try {
@@ -26,42 +27,14 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
 
 export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
     try {
-        let productSnapshot = await firebase.firestore().collection('Products').where('바코드', '==', barcode).get();
+        const productsFound = await searchByBarcode(barcode, firebase.firestore());
         let productData;
 
-        if (productSnapshot.empty) {
-            // OptionDatas 내부에서 바코드를 검색
-            productSnapshot = await firebase.firestore().collection('Products').get();
-            productSnapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.OptionDatas) {
-                    for (let optionKey in data.OptionDatas) {
-                        if (data.OptionDatas[optionKey].바코드 === barcode) {
-                            productData = {
-                                ...data,
-                                optionKey,
-                                바코드: data.OptionDatas[optionKey].바코드,
-                                원가: data.원가,
-                                입고차수: data.소분류명,
-                            };
-
-                            const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(data.SellerCode, optionKey, data.소분류명);
-
-                            productData.옵션이미지URL = 옵션이미지URL;
-                            productData.실제이미지URL = 실제이미지URL;
-                        }
-                    }
-                }
-            });
-
-            if (!productData) {
-                alert("일치하는 서비스를 찾을 수 없습니다.");
-                return;
-            }
+        if (!productsFound) {
+            alert("일치하는 서비스를 찾을 수 없습니다.");
+            return;
         } else {
-            const productDoc = productSnapshot.docs[0];
-            productData = productDoc.data();
-
+            productData = productsFound[0];
             const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, productData.optionKey, productData.소분류명);
 
             productData.옵션이미지URL = 옵션이미지URL;
@@ -119,7 +92,6 @@ export function checkBarcode(barcode, orderDetails) {
         const packingQuantityInput = row.querySelector(".packingQuantity");
         const quantityCell = row.cells[4];
         const checkbox = row.querySelector(".barcodeCheck");
-
 
         if (barcodeCell) {
             console.log(`Checking barcode: ${barcodeCell.textContent} against input barcode: ${barcode}`);
