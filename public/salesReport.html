@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Report</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>    
+    <div id="navbar"></div>
+    <div class="main-content">
+        <div class="content">
+            <h1>Sales Report</h1>
+            <label for="yearDropdown">Select Year:</label>
+            <select id="yearDropdown">
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+                <option value="2027">2027</option>
+                <!-- Add more years as needed -->
+            </select>
+            <label for="monthDropdown">Select Month:</label>
+            <select id="monthDropdown">
+                <option value="1">1월</option>
+                <option value="2">2월</option>
+                <option value="3">3월</option>
+                <option value="4">4월</option>
+                <option value="5">5월</option>
+                <option value="6">6월</option>
+                <option value="7">7월</option>
+                <option value="8">8월</option>
+                <option value="9">9월</option>
+                <option value="10">10월</option>
+                <option value="11">11월</option>
+                <option value="12">12월</option>
+            </select>
+            <button id="generateReportButton">Generate Report</button>    
+        </div>
+        <div class="report-container">
+            <h2 id="reportTitle"></h2>
+            <div id="salesReport"></div>
+        </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
+    <script src="./loadNavbar.js"></script>
+    <script src="salesReport.js"></script>
+</body>
+</html>

@@ -1,8 +1,10 @@
 import { generateImageURLs } from './generateImageURLs.js';
+import { loadOrderNumbers } from './orderHelpers.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const uploadForm = document.getElementById("uploadForm");
     const messageDiv = document.getElementById("message");
+    const orderDropdown = document.getElementById("orderDropdown");
 
     uploadForm.addEventListener("submit", function(event) {
         event.preventDefault();
@@ -118,32 +120,8 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
-        loadOrderNumbers();
+        loadOrderNumbers(orderDropdown, messageDiv);
     }
 
-    async function loadOrderNumbers() {
-        try {
-            const ordersSnapshot = await firebase.firestore().collection('Orders').get();
-            const orderDropdown = document.getElementById("orderDropdown");
-            orderDropdown.innerHTML = "<option value=''>주문 번호 선택</option>";
-
-            if (ordersSnapshot.empty) {
-                console.log("No orders found");
-                messageDiv.innerHTML += `<p>주문 번호가 없습니다.</p>`;
-                return;
-            }
-
-            ordersSnapshot.forEach(doc => {
-                const option = document.createElement("option");
-                option.value = doc.id;
-                option.textContent = doc.id;
-                orderDropdown.appendChild(option);
-            });
-
-            orderDropdown.addEventListener("change", displayOrderDetails);
-        } catch (error) {
-            console.error("Error loading order numbers: ", error);
-            messageDiv.innerHTML += `<p>주문번호 로드 중 오류 발생: ${error.message}</p>`;
-        }
-    }
+    loadOrderNumbers(orderDropdown, messageDiv);
 });
