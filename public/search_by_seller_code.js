@@ -1,4 +1,4 @@
-import { displayProductData } from './displayProductData.js';
+//import { displayProductData } from './displayProductData.js';
 //search_by_seller_code.js
 document.addEventListener("DOMContentLoaded", function() {
     console.log("DOMContentLoaded event fired");

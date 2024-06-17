@@ -58,10 +58,12 @@ body {
 
 .styled-table th, .styled-table td {
     padding: 12px 15px;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.styled-table th {
+    background-color: #f2f2f2;
 }
 
 .styled-table tbody tr {
@@ -82,15 +84,35 @@ body {
 }
 
 .styled-table .fixed-width {
-    flex: 0 0 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    width: 300px;
 }
 
 .styled-table .flexible-width {
-    flex: 1;
+    width: 300px; /* 이 부분을 조정하여 폭을 넓히기 */
 }
+
+.styled-table .store-keyword-width {
+    width: 250px; /* store-keyword-width */
+    min-width: 100px; /* 최소 폭 설정 */
+    max-width: 250px; /* 최대 폭 설정 */
+}
+
+.styled-table .url-width {
+    width: 300px; /* ShopURL과 SmartStoreURL의 폭 조정 */
+    min-width: 100px; /* 최소 폭 설정 */
+    max-width: 400px; /* 최대 폭 설정 */
+    word-wrap: break-word; /* 긴 단어(링크) 줄바꿈 */
+    overflow-wrap: break-word; /* 긴 단어(링크) 줄바꿈 */
+    word-break: break-all; /* 단어 내에서 줄바꿈 허용 */
+}
+
+
+.styled-table .option-width {
+    width: 120px; /* Option Name, Counts, Price, Barcode의 폭 조정 */
+    min-width: 120px; /* 최소 폭 설정 */
+    max-width: 120px; /* 최대 폭 설정 */
+}
+
 
 .styled-table .flexible-width a {
     display: inline-block;

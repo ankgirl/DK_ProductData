@@ -1,5 +1,5 @@
 import { searchByBarcode } from './barcode_search.js';
-import { displayProductData } from './displayProductData.js';
+//import { displayProductData } from './displayProductData.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const searchForm = document.getElementById("searchForm");

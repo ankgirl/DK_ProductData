@@ -1,5 +1,3 @@
-// displayProductData.js
-
 function generateProductDetailsHTML(data) {
     return `
         <p><strong>SellerCode:</strong> ${data.SellerCode || ''}</p>
@@ -14,6 +12,8 @@ function generateProductDetailsHTML(data) {
                 <thead>
                     <tr>
                         <th>옵션명</th>
+                        <th>옵션이미지</th>
+                        <th>실제이미지</th>
                         <th>Price</th>
                         <th>Counts</th>
                         <th>새로운 Counts</th>
@@ -25,9 +25,12 @@ function generateProductDetailsHTML(data) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${(data.OptionDatas ? Object.entries(data.OptionDatas).sort(([a], [b]) => a.localeCompare(b)).map(([optionName, optionValues], index, array) => `
+                    ${(data.OptionDatas ? Object.entries(data.OptionDatas).sort(([a], [b]) => a.localeCompare(b)).map(([optionName, optionValues], index, array) => {                        
+                        return `
                         <tr>
                             <td>${optionName}</td>
+                            <td><img src="${optionValues.옵션이미지URL}" alt="옵션이미지" width="150"></td>
+                            <td><img src="${optionValues.실제이미지URL}" alt="실제이미지" width="150"></td>
                             <td>${optionValues.Price || ''}</td>
                             <td id="${optionName}_Counts">${optionValues.Counts || ''}</td>
                             <td><input type="number" name="${optionName}_newCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newCount" class="input-field"></td>
@@ -37,7 +40,7 @@ function generateProductDetailsHTML(data) {
                             <td><input type="text" name="${optionName}_newBarcode" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newBarcode" class="input-field"></td>
                             <td><button type="button" class="clear-barcode" data-option="${optionName}">지우기</button></td>
                         </tr>
-                    `).join('') : '')}
+                    `}).join('') : '')}
                 </tbody>
             </table>
             <button type="submit">적용</button>
@@ -45,7 +48,21 @@ function generateProductDetailsHTML(data) {
     `;
 }
 
-export function displayProductData(data, container = document.getElementById("result")) {
+function displayProductData(data, container = document.getElementById("result")) {
+    if (!data || !data.OptionDatas) {
+        console.error("Invalid data:", data);
+        return;
+    }
+
+    // Add option images URLs to data
+    for (let optionName in data.OptionDatas) {
+        const option = optionName.replace("선택: ", "");
+        if (option) {
+            const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(data.SellerCode, option, data.소분류명);
+            data.OptionDatas[optionName].옵션이미지URL = 옵션이미지URL;
+            data.OptionDatas[optionName].실제이미지URL = 실제이미지URL;
+        }
+    }    
     container.innerHTML = generateProductDetailsHTML(data);
 
     document.getElementById('updateForm').addEventListener('submit', async function (event) {
@@ -207,4 +224,29 @@ async function updateProductCountsAndBarcode(sellerCode, updatedOptionDatas) {
         console.error("Error updating document:", error);
         messageDiv.innerHTML = '<p>옵션 Counts와 바코드 업데이트 중 오류가 발생했습니다.</p>';
     }
+}
+
+
+function generateImageURLs(sellerCode, option, 입고차수) {
+    if (!입고차수) {
+        console.error("입고차수가 정의되지 않았습니다.");
+        return { 옵션이미지URL: '', 실제이미지URL: '' };
+    }
+
+    const cleaned입고차수 = 입고차수.replace("차입고", "");
+    const optionNumber = option.replace("옵션", "").padStart(3, '0');
+    const 입고차수정보 = parseInt(cleaned입고차수, 10);
+    let 이미지명 = '';
+
+    if (입고차수정보 <= 23) {
+        이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
+    } else {
+        이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
+    }
+
+    const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
+    const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
+    const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
+
+    return { 옵션이미지URL, 실제이미지URL };
 }

@@ -4,26 +4,30 @@ document.addEventListener("DOMContentLoaded", function () {
     searchForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         const smallCategoryInput = document.getElementById("smallCategory").value.trim();
-        const smallCategory = smallCategoryInput === "" ? null : smallCategoryInput + "차입고";
         const resultDiv = document.getElementById("result");
 
         try {
-            // 사용자 인증 확인
-            //await checkUserAuthentication(resultDiv);
-
             // Firestore에서 모든 제품 문서를 가져옴
             const allDocsSnapshot = await firebase.firestore().collection('Products').get();
             let productsFound = [];
 
             allDocsSnapshot.forEach(doc => {
                 const data = doc.data();
+                let 소분류명 = data.소분류명 || "";
+
+                // "차입고"를 제거한 나머지 부분
+                let strippedCategory = 소분류명.replace("차입고", "").trim();
+
                 // 소분류명이 없거나 빈 문자열인 제품을 찾음
-                if (smallCategory === null) {
-                    if (!data.소분류명 || data.소분류명 === "") {
+                if (smallCategoryInput === "") {
+                    if (소분류명 === "") {
                         productsFound.push(data);
                     }
-                } else if (data.소분류명 && data.소분류명.includes(smallCategory)) {
-                    productsFound.push(data);
+                } else {
+                    // 정확한 일치를 확인
+                    if (strippedCategory === smallCategoryInput) {
+                        productsFound.push(data);
+                    }
                 }
             });
 
@@ -80,22 +84,22 @@ function generateTableHTML(products) {
         if (sortedOptionNames.length === 0) {
             tableHTML += `
                 <tr>
-                    <td class="fixed-width" data-label="SellerCode">${sellerCode}</td>
-                    <td class="fixed-width" data-label="Image"><img src="${image}" alt="대표이미지" width="100"></td>
-                    <td class="flexible-width" data-label="스토어키워드네임">${storeKeywordName}</td>
-                    <td class="flexible-width" data-label="ShopURL"><a href="${shopURL}" target="_blank">${shopURL}</a></td>
-                    <td class="flexible-width" data-label="SmartStoreURL"><a href="${smartStoreURL}" target="_blank">${smartStoreURL}</a></td>
+                    <td class="option-width" data-label="SellerCode">${sellerCode}</td>
+                    <td class="option-width" data-label="Image"><img src="${image}" alt="대표이미지" width="100"></td>
+                    <td class="store-keyword-width" data-label="스토어키워드네임">${storeKeywordName}</td>
+                    <td class="url-width" data-label="ShopURL"><a href="${shopURL}" target="_blank">${shopURL}</a></td>
+                    <td class="url-width" data-label="SmartStoreURL"><a href="${smartStoreURL}" target="_blank">${smartStoreURL}</a></td>
                     <td colspan="4" class="no-options">No Option Data</td>
-                </tr>
+                </tr>                
             `;
         } else {
             const productInfoRow = `
                 <tr>
-                    <td rowspan="${sortedOptionNames.length}" class="fixed-width" data-label="SellerCode">${sellerCode}</td>
-                    <td rowspan="${sortedOptionNames.length}" class="fixed-width" data-label="Image"><img src="${image}" alt="대표이미지" width="100"></td>
-                    <td rowspan="${sortedOptionNames.length}" class="flexible-width" data-label="스토어키워드네임">${storeKeywordName}</td>
-                    <td rowspan="${sortedOptionNames.length}" class="flexible-width" data-label="ShopURL"><a href="${shopURL}" target="_blank">${shopURL}</a></td>
-                    <td rowspan="${sortedOptionNames.length}" class="flexible-width" data-label="SmartStoreURL"><a href="${smartStoreURL}" target="_blank">${smartStoreURL}</a></td>
+                    <td rowspan="${sortedOptionNames.length}" class="option-width" data-label="SellerCode">${sellerCode}</td>
+                    <td rowspan="${sortedOptionNames.length}" class="option-width" data-label="Image"><img src="${image}" alt="대표이미지" width="100"></td>
+                    <td rowspan="${sortedOptionNames.length}" class="store-keyword-width" data-label="스토어키워드네임">${storeKeywordName}</td>
+                    <td rowspan="${sortedOptionNames.length}" class="url-width" data-label="ShopURL"><a href="${shopURL}" target="_blank">${shopURL}</a></td>
+                    <td rowspan="${sortedOptionNames.length}" class="url-width" data-label="SmartStoreURL"><a href="${smartStoreURL}" target="_blank">${smartStoreURL}</a></td>
             `;
 
             let optionRows = '';
@@ -106,11 +110,11 @@ function generateTableHTML(products) {
                 const barcode = optionData.바코드 || '';
 
                 optionRows += `
-                    ${index === 0 ? productInfoRow : '<tr>'}
-                        <td data-label="Option Name">${optionName}</td>
-                        <td data-label="Counts">${counts}</td>
-                        <td data-label="Price">${price}</td>
-                        <td data-label="Barcode">${barcode}</td>
+                     ${index === 0 ? productInfoRow : '<tr>'}
+                        <td class="option-width" data-label="Option Name">${optionName}</td>
+                        <td class="option-width" data-label="Counts">${counts}</td>
+                        <td class="option-width" data-label="Price">${price}</td>
+                        <td class="option-width" data-label="Barcode">${barcode}</td>
                     </tr>
                 `;
             });

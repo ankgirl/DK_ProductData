@@ -1,4 +1,3 @@
-import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers, checkServiceBarcode, checkBarcode } from './orderHelpers.js';
 import { updateProductCounts } from './barcode_search.js';
 
