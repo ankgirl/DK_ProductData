@@ -214,9 +214,24 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
             };
 
             orderData.ProductService.push(serviceData);
+
+              // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
+              const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.원가) || 0), 0);
+              orderData.서비스총원가금액 = newServiceTotalCost;
+  
+              // 주문원가합산금액 업데이트
+              const productTotalCost = parseFloat(orderData.총원가금액) || 0;
+              const newOrderTotalCost = productTotalCost + newServiceTotalCost;
+              orderData.주문원가합산금액 = newOrderTotalCost;
+
             await orderDocRef.set(orderData, { merge: true });
 
             messageDiv.innerHTML += `<p>서비스 상품 바코드 ${barcode} 저장 성공!</p>`;
+
+            await loadOrderNumbers(orderDropdown, messageDiv);
+            orderDropdown.value = orderNumber;
+            orderDropdown.dispatchEvent(new Event('change'));
+
             return orderData;  // 데이터 저장 후 상세 정보 반환
         } else {
             alert("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
