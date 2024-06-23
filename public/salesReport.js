@@ -24,21 +24,24 @@ document.getElementById('generateReportButton').addEventListener('click', async 
 
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            totalBasicShippingFee += parseFloat(data.기본배송비) || 0;
-            totalPaymentAmount += parseFloat(data.총결제금액) || 0;
-            totalCostAmount += parseFloat(data.총원가금액) || 0;
-            totalServiceProductAmount += parseFloat(data.서비스제품금액) || 0;
-            totalServiceCostAmount += parseFloat(data.서비스총원가금액) || 0;
-            totalOrderAmount += parseFloat(data.총주문금액) || 0;
+            totalBasicShippingFee += Math.floor(parseFloat(data.기본배송비) || 0);
+            totalPaymentAmount += Math.floor(parseFloat(data.총결제금액) || 0);
+            totalCostAmount += Math.floor(parseFloat(data.총원가금액) || 0);
+            totalServiceProductAmount += Math.floor(parseFloat(data.서비스제품금액) || 0);
+            totalServiceCostAmount += Math.floor(parseFloat(data.서비스총원가금액) || 0);
+            totalOrderAmount += Math.floor(parseFloat(data.총주문금액) || 0);
         });
 
+        const totalExpenses = totalCostAmount + totalServiceCostAmount + totalBasicShippingFee;
+
         salesReportDiv.innerHTML = `
-            <p><strong>기본배송비 합계:</strong> ${totalBasicShippingFee.toFixed(2)}</p>
-            <p><strong>총결제금액 합계:</strong> ${totalPaymentAmount.toFixed(2)}</p>
-            <p><strong>총원가금액 합계:</strong> ${totalCostAmount.toFixed(2)}</p>
-            <p><strong>서비스제품금액 합계:</strong> ${totalServiceProductAmount.toFixed(2)}</p>
-            <p><strong>서비스총원가금액 합계:</strong> ${totalServiceCostAmount.toFixed(2)}</p>
-            <p><strong>총주문금액 합계:</strong> ${totalOrderAmount.toFixed(2)}</p>
+            <p><strong>기본배송비 합계:</strong> ${totalBasicShippingFee.toLocaleString()}원</p>
+            <p><strong>총결제금액 합계:</strong> ${totalPaymentAmount.toLocaleString()}원</p>
+            <p><strong>총원가금액 합계:</strong> ${totalCostAmount.toLocaleString()}원</p>
+            <p><strong>서비스제품금액 합계:</strong> ${totalServiceProductAmount.toLocaleString()}원</p>
+            <p><strong>서비스총원가금액 합계:</strong> ${totalServiceCostAmount.toLocaleString()}원</p>
+            <p><strong>총주문금액 합계:</strong> ${totalOrderAmount.toLocaleString()}원</p>
+            <p><strong>총 비용:</strong> ${totalExpenses.toLocaleString()}원</p>
         `;
     } catch (error) {
         console.error("Error generating sales report: ", error);

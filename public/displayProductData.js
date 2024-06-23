@@ -1,6 +1,7 @@
 function generateProductDetailsHTML(data) {
     return `
         <p><strong>SellerCode:</strong> ${data.SellerCode || ''}</p>
+        <p><strong>입고차수:</strong> ${data.소분류명 || ''}</p>        
         <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>
         <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}" target="_blank">${data.스토어링크 || ''}</a></p>
         <p><strong>SmartStoreURL:</strong> <a href="${data.SmartStoreURL || '#'}" target="_blank">${data.SmartStoreURL || ''}</a></p>
@@ -11,7 +12,7 @@ function generateProductDetailsHTML(data) {
             <table>
                 <thead>
                     <tr>
-                        <th>옵션명</th>
+                        <th>옵션명</th>                        
                         <th>옵션이미지</th>
                         <th>실제이미지</th>
                         <th>Price</th>

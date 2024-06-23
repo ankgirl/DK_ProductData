@@ -1,5 +1,5 @@
 
-<!-- search_by_seller_code.html -->
+<!-- search_by_QR_code.html -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -14,8 +14,8 @@
     <div class="content">
         <h1>판매자 코드로 상품 검색</h1>
         <form id="searchForm">
-            <label for="sellerCode">Seller Code:</label>
-            <input type="text" id="sellerCode" name="sellerCode" required>
+            <label for="QRCode">QR Code:</label>
+            <input type="text" id="QRCode" name="QRCode" required>
             <button type="submit">Search</button>
         </form>
         <div id="result"></div>
@@ -27,7 +27,7 @@
     <script src="./firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
     <script src="./loadNavbar.js"></script>
     <script src="./displayProductData.js"></script> <!-- displayProductData.js 파일 로드 -->
-    <script type="module" src="./search_by_seller_code.js"></script>
+    <script type="module" src="./search_by_QR_code.js"></script>
 </body>
 </html>
 
