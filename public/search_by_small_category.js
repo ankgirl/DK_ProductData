@@ -79,7 +79,7 @@ function generateTableHTML(products) {
         const optionDatas = product.OptionDatas || {};
 
         // Option Name을 오름차순으로 정렬
-        const sortedOptionNames = Object.keys(optionDatas).sort((a, b) => a.localeCompare(b));
+        const sortedOptionNames = Object.keys(optionDatas).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
         if (sortedOptionNames.length === 0) {
             tableHTML += `

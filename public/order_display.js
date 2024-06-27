@@ -10,6 +10,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const serviceBarcodeInput = document.getElementById("serviceBarcodeInput");
     const packingCompleteButton = document.getElementById("packingCompleteButton");
     const manualBarcodeButton = document.getElementById("manualBarcodeButton");
+    const deleteOrderButton = document.getElementById("deleteOrderButton");
+    
 
     loadOrderNumbers(orderDropdown, messageDiv);
 
@@ -109,6 +111,44 @@ document.addEventListener("DOMContentLoaded", function() {
             messageDiv.innerHTML = `<p>포장 완료 중 오류 발생: ${error.message}</p>`;
         }
     });
+
+    
+    deleteOrderButton.addEventListener('click', async function() {
+        const orderNumber = orderDropdown.value;  // 드롭다운에서 선택된 주문서 번호 가져오기
+    
+        // 선택된 내용이 없으면 메시지 표시
+        if (!orderNumber) {
+            messageDiv.innerHTML = "<p>선택된 주문서가 없습니다.</p>";
+            return;
+        }
+    
+        try {
+            // Orders 컬렉션에서 해당 주문서 문서 참조 가져오기
+            const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+    
+            // 문서가 존재하는지 확인
+            const orderDoc = await orderDocRef.get();
+            if (orderDoc.exists) {
+                // 주문서 문서 삭제
+                await orderDocRef.delete();
+                messageDiv.innerHTML = `<p>주문서 ${orderNumber}가 성공적으로 삭제되었습니다.</p>`;
+    
+                // 화면 초기화
+                orderDetails.innerHTML = "";
+                serviceDetails.innerHTML = "";
+                orderDropdown.value = "";
+    
+                // 주문 목록 갱신
+                loadOrderNumbers(orderDropdown, messageDiv);
+            } else {
+                messageDiv.innerHTML = `<p>주문서 ${orderNumber}를 찾을 수 없습니다.</p>`;
+            }
+        } catch (error) {
+            console.error("Error deleting order: ", error);
+            messageDiv.innerHTML = `<p>주문서 삭제 중 오류 발생: ${error.message}</p>`;
+        }
+    });
+    
 
     document.getElementById('printButton').addEventListener('click', function() {
         printOrderDetails();

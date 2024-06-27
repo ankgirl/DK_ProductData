@@ -26,8 +26,8 @@ function generateProductDetailsHTML(data) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${(data.OptionDatas ? Object.entries(data.OptionDatas).sort(([a], [b]) => a.localeCompare(b)).map(([optionName, optionValues], index, array) => {                        
-                        return `
+                ${(data.OptionDatas ? Object.entries(data.OptionDatas).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([optionName, optionValues], index, array) => {
+                    return `
                         <tr>
                             <td>${optionName}</td>
                             <td><img src="${optionValues.옵션이미지URL}" alt="옵션이미지" width="150"></td>
@@ -41,7 +41,9 @@ function generateProductDetailsHTML(data) {
                             <td><input type="text" name="${optionName}_newBarcode" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newBarcode" class="input-field"></td>
                             <td><button type="button" class="clear-barcode" data-option="${optionName}">지우기</button></td>
                         </tr>
-                    `}).join('') : '')}
+                    `;
+                }).join('') : '')}
+                
                 </tbody>
             </table>
             <button type="submit">적용</button>
