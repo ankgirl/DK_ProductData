@@ -84,7 +84,7 @@ function generateTableHTML(products) {
         if (sortedOptionNames.length === 0) {
             tableHTML += `
                 <tr>
-                    <td class="option-width" data-label="SellerCode">${sellerCode}</td>
+                    <td class="option-width" data-label="SellerCode"><a href="search_by_seller_code.html?sellerCode=${sellerCode}" target="_blank">${sellerCode}</a></td>
                     <td class="option-width" data-label="Image"><img src="${image}" alt="대표이미지" width="100"></td>
                     <td class="store-keyword-width" data-label="스토어키워드네임">${storeKeywordName}</td>
                     <td class="url-width" data-label="ShopURL"><a href="${shopURL}" target="_blank">${shopURL}</a></td>
@@ -95,7 +95,7 @@ function generateTableHTML(products) {
         } else {
             const productInfoRow = `
                 <tr>
-                    <td rowspan="${sortedOptionNames.length}" class="option-width" data-label="SellerCode">${sellerCode}</td>
+                    <td rowspan="${sortedOptionNames.length}" class="option-width" data-label="SellerCode"><a href="search_by_seller_code.html?sellerCode=${sellerCode}" target="_blank">${sellerCode}</a></td>
                     <td rowspan="${sortedOptionNames.length}" class="option-width" data-label="Image"><img src="${image}" alt="대표이미지" width="100"></td>
                     <td rowspan="${sortedOptionNames.length}" class="store-keyword-width" data-label="스토어키워드네임">${storeKeywordName}</td>
                     <td rowspan="${sortedOptionNames.length}" class="url-width" data-label="ShopURL"><a href="${shopURL}" target="_blank">${shopURL}</a></td>
