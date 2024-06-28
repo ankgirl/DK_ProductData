@@ -30,9 +30,9 @@ document.addEventListener("DOMContentLoaded", function() {
             const barcode = serviceBarcodeInput.value.trim();
             if (barcode) {
                 const orderData = await checkServiceBarcode(barcode, orderDropdown, messageDiv);
-                if (orderData) {
-                    loadOrderNumbers(orderDropdown, messageDiv);
-                }
+                // if (orderData) {
+                //     loadOrderNumbers(orderDropdown, messageDiv);
+                // }
                 serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
             }
         }

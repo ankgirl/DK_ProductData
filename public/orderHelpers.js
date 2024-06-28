@@ -123,6 +123,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                                     <th>수량</th> <!-- 수량 추가 -->
                                     <th>옵션이미지</th>
                                     <th>실제이미지</th>
+                                    <th>삭제</th> <!-- 삭제 열 추가 -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -138,6 +139,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                                 <td><input type="number" class="serviceQuantity" min="1" value="1" data-label="수량"></td> <!-- 수량 입력란 추가 -->
                                 <td data-label="옵션이미지"><img src="${service.옵션이미지URL}" alt="옵션이미지" width="50"></td>
                                 <td data-label="실제이미지"><img src="${service.실제이미지URL}" alt="실제이미지" width="50"></td>
+                                <td><button class="deleteServiceButton" data-barcode="${service.바코드}">삭제</button></td>
                             </tr>
                         `;
                     });
@@ -150,6 +152,19 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                     const serviceDetails = document.createElement('div');
                     serviceDetails.innerHTML = serviceDetailsHTML;
                     document.getElementById('orderDetails').appendChild(serviceDetails);
+
+
+                            // 삭제 버튼 이벤트 리스너 추가
+                    document.querySelectorAll('.deleteServiceButton').forEach(button => {
+                        button.addEventListener('click', async function() {
+                            const barcode = this.getAttribute('data-barcode');
+                            const orderNumber = orderDropdown.value;
+                            if (orderNumber && barcode) {
+                                await deleteServiceProduct(orderNumber, barcode, messageDiv);
+                                orderDropdown.dispatchEvent(new Event('change')); // 주문서 다시 로드
+                            }
+                        });
+                    });
 
                 } else {
                     document.getElementById('orderDetails').innerHTML = "<p>주문 정보를 찾을 수 없습니다.</p>";
@@ -166,6 +181,42 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
         messageDiv.innerHTML += `<p>주문번호 로드 중 오류 발생: ${error.message}</p>`;
     }
 }
+
+// 서비스 상품 삭제 함수 정의
+export async function deleteServiceProduct(orderNumber, barcode, messageDiv) {
+    try {
+        const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+        const orderDoc = await orderDocRef.get();
+
+        if (orderDoc.exists) {
+            const orderData = orderDoc.data();
+            const updatedProductServices = orderData.ProductService.filter(service => service.바코드 !== barcode);
+            orderData.ProductService = updatedProductServices;
+
+            // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
+            const newServiceTotalCost = updatedProductServices.reduce((acc, service) => acc + (parseFloat(service.원가) || 0), 0);
+            orderData.서비스총원가금액 = newServiceTotalCost;
+
+            // 주문원가합산금액 업데이트
+            const productTotalCost = parseFloat(orderData.총원가금액) || 0;
+            const newOrderTotalCost = productTotalCost + newServiceTotalCost;
+            orderData.주문원가합산금액 = newOrderTotalCost;
+
+            await orderDocRef.set(orderData, { merge: true });
+
+            messageDiv.innerHTML += `<p>서비스 상품 바코드 ${barcode} 삭제 성공!</p>`;
+
+            return orderData;  // 데이터 저장 후 상세 정보 반환
+        } else {
+            alert("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
+        }
+    } catch (error) {
+        console.error("Error deleting service product: ", error);
+        messageDiv.innerHTML += `<p>서비스 상품 삭제 중 오류 발생: ${error.message}</p>`;
+    }
+    return null;
+}
+
 
 // checkServiceBarcode 함수 정의
 export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
