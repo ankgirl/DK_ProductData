@@ -1,7 +1,27 @@
 import { generateImageURLs } from './generateImageURLs.js';
 import { searchByBarcode } from './barcode_search.js';
 
-// loadOrderNumbers 함수 정의
+// 공통 계산 함수 정의
+function calculateTotals(orderData) {
+    // 모든 서비스 제품 판매가 합산 (숫자로 변환하여 합산)
+    const newServiceTotalSales = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.판매가) || 0), 0);
+    orderData.서비스총판매가금액 = newServiceTotalSales;
+                        
+    // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
+    const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.원가) || 0), 0);
+    orderData.서비스총원가금액 = newServiceTotalCost;
+
+    // 주문판매가합산금액 업데이트
+    const productTotalSales = parseFloat(orderData.총결제금액) || 0;
+    const newOrderTotalSales = productTotalSales + newServiceTotalSales;
+    orderData.주문판매가합산금액 = newOrderTotalSales;
+
+    // 주문원가합산금액 업데이트
+    const productTotalCost = parseFloat(orderData.총원가금액) || 0;
+    const newOrderTotalCost = productTotalCost + newServiceTotalCost;
+    orderData.주문원가합산금액 = newOrderTotalCost;
+}
+
 export async function loadOrderNumbers(orderDropdown, messageDiv) {
     try {
         const ordersSnapshot = await firebase.firestore().collection('Orders').get();
@@ -33,7 +53,10 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                     const productServices = orderData.ProductService || [];
 
                     // 서비스총원가금액 및 주문원가합산금액은 DB에서 가져옴
+                    const serviceTotalSales = orderData.서비스총판매가금액 || 0;
                     const serviceTotalCost = orderData.서비스총원가금액 || 0;
+                    
+                    const totalSales = orderData.주문판매가합산금액 || 0;
                     const totalCost = orderData.주문원가합산금액 || 0;
 
                     // 판매자 상품코드 내림차순 및 옵션 정보 오름차순으로 정렬
@@ -46,19 +69,22 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                     });
 
                     let orderDetailsHTML = `
-                        <h3>주문번호: ${orderNumber}</h3>
-                        <p><strong>기본배송비:</strong> ${orderData.기본배송비}</p>
-                        <p><strong>배송메세지:</strong> ${orderData.배송메세지}</p>
-                        <p><strong>수취인이름:</strong> ${orderData.수취인이름}</p>
-                        <p><strong>택배접수번호:</strong> ${orderData.택배접수번호}</p>
-                        <p><strong>총수량:</strong> ${orderData.총수량}</p>
-                        <p><strong>총주문금액:</strong> ${orderData.총주문금액}</p>
-                        <p><strong>총결제금액:</strong> ${orderData.총결제금액}</p>
-                        <p><strong>판매총원가금액:</strong> ${orderData.총원가금액}</p>
-                        <p><strong>서비스제품금액:</strong> ${orderData.서비스제품금액}</p>
-                        <p><strong>서비스총원가금액:</strong> ${serviceTotalCost}</p>
-                        <p><strong>주문원가합산금액:</strong> ${totalCost}</p>
-                    `;
+                    <h3>주문번호: ${orderNumber}</h3>
+                    <p><strong>기본배송비:</strong> ${orderData.기본배송비}</p>
+                    <p><strong>배송메세지:</strong> ${orderData.배송메세지}</p>
+                    <p><strong>수취인이름:</strong> ${orderData.수취인이름}</p>
+                    <p><strong>택배접수번호:</strong> ${orderData.택배접수번호}</p>
+                    <p><strong>총수량:</strong> ${orderData.총수량}</p>
+                    <p><strong>총주문금액:</strong> ${orderData.총주문금액}</p>
+                    <p><strong>총결제금액:</strong> ${orderData.총결제금액}</p>
+                    <p><strong>판매총원가금액:</strong> ${orderData.총원가금액}</p>
+                    <p><strong>서비스제품금액:</strong> ${orderData.서비스제품금액}</p>                        
+                    <p><strong><b style="color: blue;">서비스총판매가금액:</b></strong> ${serviceTotalSales}</p>
+                    <p><strong>서비스총원가금액:</strong> ${serviceTotalCost}</p>                        
+                    <p><strong>주문판매가합산금액:</strong> ${totalSales}</p>
+                    <p><strong>주문원가합산금액:</strong> ${totalCost}</p>
+                `;
+                
 
                     orderDetailsHTML += `
                         <h3>상품 정보</h3>
@@ -154,7 +180,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                     document.getElementById('orderDetails').appendChild(serviceDetails);
 
 
-                            // 삭제 버튼 이벤트 리스너 추가
+                    // 삭제 버튼 이벤트 리스너 추가
                     document.querySelectorAll('.deleteServiceButton').forEach(button => {
                         button.addEventListener('click', async function() {
                             const barcode = this.getAttribute('data-barcode');
@@ -193,14 +219,7 @@ export async function deleteServiceProduct(orderNumber, barcode, messageDiv) {
             const updatedProductServices = orderData.ProductService.filter(service => service.바코드 !== barcode);
             orderData.ProductService = updatedProductServices;
 
-            // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
-            const newServiceTotalCost = updatedProductServices.reduce((acc, service) => acc + (parseFloat(service.원가) || 0), 0);
-            orderData.서비스총원가금액 = newServiceTotalCost;
-
-            // 주문원가합산금액 업데이트
-            const productTotalCost = parseFloat(orderData.총원가금액) || 0;
-            const newOrderTotalCost = productTotalCost + newServiceTotalCost;
-            orderData.주문원가합산금액 = newOrderTotalCost;
+            calculateTotals(orderData);
 
             await orderDocRef.set(orderData, { merge: true });
 
@@ -255,6 +274,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
 
             const serviceData = {
                 원가: productData.원가 || 0,
+                판매가: productData.DiscountedPrice || 0,                
                 입고차수: productData.소분류명 ? productData.소분류명.replace("차입고", "") : '',
                 판매자상품코드: productData.SellerCode || '',
                 옵션정보: optionKey, // 일치하는 옵션의 키를 사용
@@ -266,14 +286,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
 
             orderData.ProductService.push(serviceData);
 
-              // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
-              const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.원가) || 0), 0);
-              orderData.서비스총원가금액 = newServiceTotalCost;
-  
-              // 주문원가합산금액 업데이트
-              const productTotalCost = parseFloat(orderData.총원가금액) || 0;
-              const newOrderTotalCost = productTotalCost + newServiceTotalCost;
-              orderData.주문원가합산금액 = newOrderTotalCost;
+            calculateTotals(orderData);
 
             await orderDocRef.set(orderData, { merge: true });
 
