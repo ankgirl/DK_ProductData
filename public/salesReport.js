@@ -1,3 +1,13 @@
+document.addEventListener('DOMContentLoaded', function() {
+    // 현재 날짜를 확인하여 드롭다운 기본값 설정
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // getMonth()는 0부터 시작하므로 1을 더함
+
+    document.getElementById('yearDropdown').value = currentYear;
+    document.getElementById('monthDropdown').value = currentMonth;
+});
+
 document.getElementById('generateReportButton').addEventListener('click', async function() {
     const year = document.getElementById('yearDropdown').value;
     const month = document.getElementById('monthDropdown').value;
