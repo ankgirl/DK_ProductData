@@ -30,8 +30,8 @@ function generateProductDetailsHTML(data) {
                     return `
                         <tr>
                             <td>${optionName}</td>
-                            <td><img src="${optionValues.옵션이미지URL}" alt="옵션이미지" width="150"></td>
-                            <td><img src="${optionValues.실제이미지URL}" alt="실제이미지" width="150"></td>
+                            <td class="image-container"><img src="${optionValues.옵션이미지URL}" alt="옵션이미지"></td>
+                            <td class="image-container"><img src="${optionValues.실제이미지URL}" alt="실제이미지"></td>
                             <td>${optionValues.Price || ''}</td>
                             <td id="${optionName}_Counts">${optionValues.Counts || ''}</td>
                             <td><input type="number" name="${optionName}_newCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newCount" class="input-field"></td>
@@ -46,6 +46,7 @@ function generateProductDetailsHTML(data) {
                 
                 </tbody>
             </table>
+            <br><br><br><br><br><br><br><br><br><br>
             <button type="submit">적용</button>
         </form>
     `;

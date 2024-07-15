@@ -184,3 +184,23 @@ body {
 .report-container {
     margin-top: 20px;
 }
+
+
+.image-container {
+    position: relative;
+    display: inline-block;
+}
+
+.image-container img {
+    width: 150px;
+    height: 150px;
+    transition: transform 0.3s ease;
+    transform-origin: center center; /* 확대할 때 중심을 기준으로 */
+}
+
+.image-container img.zoomed,
+.image-container img:hover {
+    transform: scale(3); /* 적절한 확대 비율로 조정 */
+    position: relative;
+    z-index: 10; /* 높은 z-index 값 설정 */
+}

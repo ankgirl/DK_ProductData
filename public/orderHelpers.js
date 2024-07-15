@@ -123,8 +123,8 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                                 <td data-label="원가">${order.원가}</td>
                                 <td data-label="Counts">${order.Counts}</td>
                                 <td data-label="바코드">${order.바코드}</td>
-                                <td data-label="옵션이미지"><img src="${order.옵션이미지URL}" alt="옵션이미지" width="50"></td>
-                                <td data-label="실제이미지"><img src="${order.실제이미지URL}" alt="실제이미지" width="50"></td>
+                                <td class="image-container"><img src="${order.옵션이미지URL}" alt="옵션이미지"></td>
+                                <td class="image-container"><img src="${order.실제이미지URL}" alt="실제이미지"></td>
                                 <td><input type="checkbox" class="barcodeCheck"></td>
                             </tr>
                         `;
@@ -163,8 +163,8 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                                 <td data-label="Discounted Price">${service.DiscountedPrice}</td>
                                 <td data-label="원가">${service.원가}</td>
                                 <td><input type="number" class="serviceQuantity" min="1" value="1" data-label="수량"></td> <!-- 수량 입력란 추가 -->
-                                <td data-label="옵션이미지"><img src="${service.옵션이미지URL}" alt="옵션이미지" width="50"></td>
-                                <td data-label="실제이미지"><img src="${service.실제이미지URL}" alt="실제이미지" width="50"></td>
+                                <td class="image-container"><img src="${service.옵션이미지URL}" alt="옵션이미지"></td>
+                                <td class="image-container"><img src="${service.실제이미지URL}" alt="실제이미지"></td>
                                 <td><button class="deleteServiceButton" data-barcode="${service.바코드}">삭제</button></td>
                             </tr>
                         `;
