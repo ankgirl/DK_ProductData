@@ -1,0 +1,32 @@
+<!-- ./openfile_for_update_option_for_smartstore.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트스토어 재고 수량 변경</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>스마트스토어 재고 수량 변경</h1>
+        <form id="uploadForm">
+            <label for="excelFile">Excel 파일 업로드:</label>
+            <input type="file" id="excelFile" name="excelFile" accept=".xlsx" required>
+            <button type="submit">업로드</button>
+        </form>
+        <div id="message"></div>
+        <button id="saveButton" style="display:none;">Excel 파일로 저장</button>
+        <div id="loading" style="display:none;">로딩 중...</div> <!-- 로딩 표시 추가 -->
+    </div>
+    <!-- Firebase 라이브러리 로드 (비모듈 형식) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script> <!-- XLSX 라이브러리 추가 -->
+    <script src="./firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
+    <script src="./loadNavbar.js"></script>
+    <script src="./xlsx_upload_smart_store_for_update_option_count.js"></script>
+</body>
+</html>

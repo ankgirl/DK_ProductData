@@ -48,6 +48,7 @@ function generateProductDetailsHTML(data) {
             </table>
             <br><br><br><br><br><br><br><br><br><br>
             <button type="submit">적용</button>
+            <br><br><br><br><br><br><br><br>
         </form>
     `;
 }
