@@ -1,10 +1,10 @@
-import { loadOrderNumbers, checkServiceBarcode, checkBarcode } from './orderHelpers.js';
+import { loadOrderNumbers, checkServiceBarcode, checkBarcode, getOrderData } from './orderHelpers.js';
 import { updateProductCounts } from './barcode_search.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
     const orderDetails = document.getElementById("orderDetails");
-    const serviceDetails = document.createElement("div");
+    const serviceDetails = document.getElementById("serviceDetails");
     const messageDiv = document.getElementById("message");
     const barcodeInput = document.getElementById("barcodeInput");
     const serviceBarcodeInput = document.getElementById("serviceBarcodeInput");
@@ -12,7 +12,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const manualBarcodeButton = document.getElementById("manualBarcodeButton");
     const deleteOrderButton = document.getElementById("deleteOrderButton");
     
-
     loadOrderNumbers(orderDropdown, messageDiv);
 
     barcodeInput.addEventListener("keypress", function(event) {
@@ -29,10 +28,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (event.key === 'Enter') {
             const barcode = serviceBarcodeInput.value.trim();
             if (barcode) {
-                const orderData = await checkServiceBarcode(barcode, orderDropdown, messageDiv);
-                // if (orderData) {
-                //     loadOrderNumbers(orderDropdown, messageDiv);
-                // }
+                await checkServiceBarcode(barcode, orderDropdown, messageDiv);
                 serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
             }
         }
@@ -67,6 +63,9 @@ document.addEventListener("DOMContentLoaded", function() {
     packingCompleteButton.addEventListener('click', async function() {
         try {
             const orderNumber = orderDropdown.value;
+            if (!orderNumber) return;
+
+            const orderData = await getOrderData(orderNumber);
 
             // 상품정보 테이블의 체크된 행만 처리
             const productRows = orderDetails.querySelectorAll("tbody tr");
@@ -75,23 +74,38 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (checkbox && checkbox.checked) {
                     const barcode = row.querySelector('[data-label="바코드"]').textContent;
                     const quantity = parseInt(row.querySelector('.packingQuantity').value, 10);
-                    await updateProductCounts(barcode, quantity, firebase.firestore());
+                    console.log(`Processing product with barcode: ${barcode}, quantity: ${quantity}`);
+                    try {
+                        await updateProductCounts(barcode, quantity, firebase.firestore());
+                        console.log(`Successfully updated product counts for barcode: ${barcode}`);
+                    } catch (error) {
+                        console.error(`Error updating product counts for barcode: ${barcode}`, error);
+                    }
+                } else {
+                    console.log(`Skipping unchecked product row: ${row}`);
                 }
             }
 
             // 서비스 상품 정보 모든 행 처리
-            const serviceRows = serviceDetails.querySelectorAll("tbody tr");
-            for (const row of serviceRows) {
-                const barcode = row.querySelector('[data-label="바코드"]').textContent;
-                const quantity = parseInt(row.querySelector('[data-label="수량"]').value, 10);
-                await updateProductCounts(barcode, quantity, firebase.firestore());
+            const serviceRows = orderData.ProductService || [];
+            console.log(`serviceRows count: ${serviceRows.length}`);
+            for (const service of serviceRows) {
+                const barcode = service.바코드;
+                const quantity = 1;
+                console.log(`Processing service product with barcode: ${barcode}, quantity: ${quantity}`);
+                try {
+                    await updateProductCounts(barcode, quantity, firebase.firestore());
+                    console.log(`Successfully updated service product counts for barcode: ${barcode}`);
+                } catch (error) {
+                    console.error(`Error updating service product counts for barcode: ${barcode}`, error);
+                }
             }
+
 
             // 주문 데이터를 CompletedOrders로 이동하고 Orders에서 삭제
             const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
             const orderDoc = await orderDocRef.get();
             if (orderDoc.exists) {
-                const orderData = orderDoc.data();
                 orderData.주문처리날짜 = new Date();  // 현재 날짜와 시간을 저장
                 await firebase.firestore().collection('CompletedOrders').doc(orderNumber).set(orderData);
                 await orderDocRef.delete();
@@ -112,7 +126,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
-    
     deleteOrderButton.addEventListener('click', async function() {
         const orderNumber = orderDropdown.value;  // 드롭다운에서 선택된 주문서 번호 가져오기
     
@@ -148,7 +161,6 @@ document.addEventListener("DOMContentLoaded", function() {
             messageDiv.innerHTML = `<p>주문서 삭제 중 오류 발생: ${error.message}</p>`;
         }
     });
-    
 
     document.getElementById('printButton').addEventListener('click', function() {
         printOrderDetails();
