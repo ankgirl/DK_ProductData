@@ -320,6 +320,8 @@ export function checkBarcode(barcode, orderDetails) {
 
             if (packingQuantityInput.value == quantityCell.textContent) {
                 checkbox.checked = true;
+            } else {
+                checkbox.checked = false;
             }
 
             const orderNumber = orderDropdown.value;
