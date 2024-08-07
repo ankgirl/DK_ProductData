@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", function() {
     const uploadForm = document.getElementById("uploadForm");
     const saveButton = document.getElementById("saveButton");
@@ -187,48 +188,112 @@ document.addEventListener("DOMContentLoaded", function() {
         console.log("불일치 리스트 표시 완료");
     }
 
+    // function updateExcelFile(mismatchList, originalData) {
+    //     console.log("updateExcelFile 함수 호출");
+
+    //     // 새로운 데이터 배열 생성
+    //     const updatedData = [originalData[0]]; // 헤더 추가
+
+    //     // SellerCode 기준으로 그룹화
+    //     const sellerCodeMap = new Map();
+
+    //     mismatchList.forEach((mismatch) => {
+    //         if (!sellerCodeMap.has(mismatch.sellerCode)) {
+    //             sellerCodeMap.set(mismatch.sellerCode, []);
+    //         }
+    //         sellerCodeMap.get(mismatch.sellerCode).push(mismatch);
+    //     });
+
+    //     // 각 SellerCode에 대해 한 번만 기록
+    //     sellerCodeMap.forEach((mismatches, sellerCode) => {
+    //         const mismatch = mismatches[0]; // 첫 번째 mismatch만 사용
+    //         const product = [...originalData[mismatch.index]]; // 원본 데이터 복사
+    //         const options = product[10].replace(/_x000d_/g, '').replace(/\r/g, '').split("\n");
+    //         let stockCounts = product[12].replace(/_x000d_/g, '').replace(/\r/g, '').split("\n");
+
+    //         console.log(`SellerCode: ${sellerCode}, 옵션 업데이트 전:`, options, stockCounts);
+
+    //         // DB 재고수량으로 업데이트
+    //         mismatches.forEach((mismatch) => {
+    //             const optionIdx = options.indexOf(mismatch.option);
+    //             if (optionIdx !== -1) {
+    //                 stockCounts[optionIdx] = mismatch.dbCount;
+    //             }
+    //         });
+
+    //         console.log(`SellerCode: ${sellerCode}, 옵션 업데이트 후:`, options, stockCounts);
+
+    //         product[10] = options.join("\n").replace(/_x000d_/g, '').replace(/\r/g, '');
+    //         product[12] = stockCounts.join("\n").replace(/_x000d_/g, '').replace(/\r/g, '');
+
+    //         updatedData.push(product);
+    //     });
+
+    //     // Excel 파일로 저장
+    //     const worksheet = XLSX.utils.aoa_to_sheet(updatedData);
+    //     const workbook = XLSX.utils.book_new();
+    //     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+    //     XLSX.writeFile(workbook, fileName);
+
+    //     console.log("Excel 파일 저장 완료");
+    // }
     function updateExcelFile(mismatchList, originalData) {
         console.log("updateExcelFile 함수 호출");
-
+    
         // 새로운 데이터 배열 생성
         const updatedData = [originalData[0]]; // 헤더 추가
-
+    
         // SellerCode 기준으로 그룹화
         const sellerCodeMap = new Map();
-
+    
         mismatchList.forEach((mismatch) => {
             if (!sellerCodeMap.has(mismatch.sellerCode)) {
                 sellerCodeMap.set(mismatch.sellerCode, []);
             }
             sellerCodeMap.get(mismatch.sellerCode).push(mismatch);
         });
-
+    
         // 각 SellerCode에 대해 한 번만 기록
         sellerCodeMap.forEach((mismatches, sellerCode) => {
             const mismatch = mismatches[0]; // 첫 번째 mismatch만 사용
             const product = [...originalData[mismatch.index]]; // 원본 데이터 복사
-            const options = product[10].split("\n");
-            const stockCounts = product[12].split("\n");
+            const options = product[10].replace(/_x000d_/g, '').replace(/\r/g, '').split("\n");
+            let stockCounts = product[12].replace(/_x000d_/g, '').replace(/\r/g, '').split("\n");
+    
+            console.log(`SellerCode: ${sellerCode}, 옵션 업데이트 전:`, options, stockCounts);
+    
+            // DB 재고수량으로 업데이트
+            mismatches.forEach((mismatch) => {
 
-            options.forEach((option, idx) => {
-                const dbOptionData = mismatches.find(m => m.option === option);
-                if (dbOptionData) {
-                    stockCounts[idx] = dbOptionData.dbCount; // DB 재고수량으로 업데이트
+                const trimmedOption = mismatch.option.trim().toLowerCase();
+                const optionIdx = options.findIndex(opt => opt.trim().toLowerCase() === trimmedOption);
+                if (optionIdx !== -1) {
+
+                    console.log(`stockCounts[optionIdx]: ${stockCounts[optionIdx]}, mismatch.dbCount`, mismatch.dbCount, stockCounts);
+                    stockCounts[optionIdx] = mismatch.dbCount.toString(); // 문자열로 변환하여 저장
+                    console.log(`stockCounts[optionIdx]: ${stockCounts[optionIdx]}, mismatch.dbCount`, mismatch.dbCount, stockCounts);
                 }
             });
+    
+            console.log(`SellerCode: ${sellerCode}, 옵션 업데이트 후:`, options, stockCounts);
+    
+            product[10] = options.join("\n").replace(/_x000d_/g, '').replace(/\r/g, '');
+            product[12] = stockCounts.join("\n").replace(/_x000d_/g, '').replace(/\r/g, '');
+            
+            product[11] = product[11].replace(/_x000d_/g, '').replace(/\r/g, ''); // 추가된 부분
+            product[13] = product[13].replace(/_x000d_/g, '').replace(/\r/g, ''); // 추가된 부분
 
-            product[12] = stockCounts.join("\n");
+    
             updatedData.push(product);
         });
-
+    
         // Excel 파일로 저장
         const worksheet = XLSX.utils.aoa_to_sheet(updatedData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
         XLSX.writeFile(workbook, fileName);
-
-        
-
+    
         console.log("Excel 파일 저장 완료");
     }
+    
 });
