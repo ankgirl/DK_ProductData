@@ -227,6 +227,8 @@ document.addEventListener("DOMContentLoaded", function() {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
         XLSX.writeFile(workbook, fileName);
 
+        
+
         console.log("Excel 파일 저장 완료");
     }
 });

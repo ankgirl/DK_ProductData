@@ -2,6 +2,7 @@ import { loadOrderNumbers, checkServiceBarcode, checkBarcode, getOrderData } fro
 import { updateProductCounts } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
+import { saveBarcodeInfoToDB } from './orderHelpers.js';
 
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -33,6 +34,27 @@ document.addEventListener("DOMContentLoaded", function() {
             if (barcode) {
                 await checkServiceBarcode(barcode, orderDropdown, messageDiv);
                 serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
+            }
+        }
+    });
+
+    // 포장수량 input 값 변경 이벤트 리스너 추가
+    orderDetails.addEventListener("keypress", async function(event) {
+        if (event.key === 'Enter' && event.target.classList.contains("packingQuantity")) {
+            const packingQuantityInput = event.target;
+            const row = packingQuantityInput.closest("tr");
+            const productOrderNumber = row.querySelector('[data-label="상품주문번호"]').textContent;
+            const orderNumber = orderDropdown.value;
+
+            if (orderNumber && productOrderNumber) {
+                try {
+                    const currentPackingQuantity = parseInt(packingQuantityInput.value, 10) || 0;
+                    await saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity);
+                    messageDiv.innerHTML += `<p>포장수량이 업데이트되었습니다: ${productOrderNumber} - ${currentPackingQuantity}</p>`;
+                } catch (error) {
+                    console.error("Error updating packing quantity: ", error);
+                    messageDiv.innerHTML += `<p>포장수량 업데이트 중 오류 발생: ${error.message}</p>`;
+                }
             }
         }
     });

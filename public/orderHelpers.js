@@ -340,7 +340,7 @@ export function checkBarcode(barcode, orderDetails) {
 }
 
 // Firestore에 데이터 저장 함수
-async function saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity) {
+export async function saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity) {
     try {
         const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
         const orderDoc = await orderDocRef.get();
