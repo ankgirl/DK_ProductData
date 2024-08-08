@@ -85,76 +85,6 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
-
-    
-
-    // packingCompleteButton.addEventListener('click', async function() {
-    //     try {
-    //         const orderNumber = orderDropdown.value;
-    //         if (!orderNumber) return;
-
-    //         const orderData = await getOrderData(orderNumber);
-
-    //         // 상품정보 테이블의 체크된 행만 처리
-    //         const productRows = orderDetails.querySelectorAll("tbody tr");
-    //         for (const row of productRows) {
-    //             const checkbox = row.querySelector(".barcodeCheck");
-    //             if (checkbox && checkbox.checked) {
-    //                 const barcode = row.querySelector('[data-label="바코드"]').textContent;
-    //                 const quantity = parseInt(row.querySelector('.packingQuantity').value, 10);
-    //                 console.log(`Processing product with barcode: ${barcode}, quantity: ${quantity}`);
-    //                 try {
-    //                     await updateProductCounts(barcode, quantity, firebase.firestore());
-    //                     console.log(`Successfully updated product counts for barcode: ${barcode}`);
-    //                 } catch (error) {
-    //                     console.error(`Error updating product counts for barcode: ${barcode}`, error);
-    //                 }
-    //             } else {
-    //                 console.log(`Skipping unchecked product row: ${row}`);
-    //             }
-    //         }
-
-    //         // 서비스 상품 정보 모든 행 처리
-    //         const serviceRows = orderData.ProductService || [];
-    //         console.log(`serviceRows count: ${serviceRows.length}`);
-    //         for (const service of serviceRows) {
-    //             const barcode = service.바코드;
-    //             const quantity = 1;
-    //             console.log(`Processing service product with barcode: ${barcode}, quantity: ${quantity}`);
-    //             try {
-    //                 await updateProductCounts(barcode, quantity, firebase.firestore());
-    //                 console.log(`Successfully updated service product counts for barcode: ${barcode}`);
-    //             } catch (error) {
-    //                 console.error(`Error updating service product counts for barcode: ${barcode}`, error);
-    //             }
-    //         }
-
-
-    //         // 주문 데이터를 CompletedOrders로 이동하고 Orders에서 삭제
-    //         const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-            
-    //         const orderDoc = await orderDocRef.get();
-    //         if (orderDoc.exists) {
-    //             orderData.주문처리날짜 = new Date();  // 현재 날짜와 시간을 저장
-    //             await firebase.firestore().collection('CompletedOrders').doc(orderNumber).set(orderData);
-    //             await orderDocRef.delete();
-    //         }
-
-    //         // 화면 초기화
-    //         orderDetails.innerHTML = "";
-    //         serviceDetails.innerHTML = "";
-    //         orderDropdown.value = "";
-    //         messageDiv.innerHTML = "<p>모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.</p>";
-
-    //         // 주문 목록 갱신
-    //         loadOrderNumbers(orderDropdown, messageDiv);
-
-    //     } catch (error) {
-    //         console.error("Error completing packing: ", error);
-    //         messageDiv.innerHTML = `<p>포장 완료 중 오류 발생: ${error.message}</p>`;
-    //     }
-    // });
-
     packingCompleteButton.addEventListener('click', async function() {
         try {
             const orderNumber = orderDropdown.value;
@@ -193,27 +123,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 
                 totalPackedQuantity += parseInt(product.currentPackingQuantity, 10) || 0;
             }
-
-            // const productRows = orderDetails.querySelectorAll("tbody tr");
-            // productRows.forEach(row => {
-            //     const packingQuantityInput = row.querySelector(".packingQuantity");
-
-            //     const checkbox = row.querySelector(".barcodeCheck");
-
-
-            //     console.log(`packingQuantityInput: ${packingQuantityInput}, checkbox: ${checkbox}`);
-
-            //     if (!packingQuantityInput || !checkbox) {
-            //         allChecked = false;
-            //         return;
-            //     }
-            //     if (!checkbox.checked) {
-            //         allChecked = false;
-            //     }
-            //     totalPackedQuantity += parseInt(packingQuantityInput.value, 10) || 0;
-            // });
-    
-            // 총 포장수량과 주문서 총수량 비교 및 체크 상태 확인
 
             console.log(`주문서 총 수량: ${totalQuantityFromOrder}`);
             console.log(`실재 포장 수량: ${totalPackedQuantity}`);

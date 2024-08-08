@@ -1,5 +1,3 @@
-<!-- ./set_discounted_price_for_smartstore.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,6 +10,18 @@
     <div id="navbar"></div>
     <div class="content">
         <h1>스마트스토어 할인가 변경</h1>
+        <h2>소분류별 상품 검색</h2>
+        <form id="searchForm">
+            <label for="smallCategory">Small Category:</label>
+            <input type="text" id="smallCategory" name="smallCategory" required>
+            <button type="submit">Search</button>
+            <br>
+            <label for="discountRate">할인률:</label>
+            <input type="number" id="discountRate" name="discountRate" min="0" max="100" value="50" required>
+        </form>
+        <br>
+        <div id="result"></div> 
+        <br>
         <form id="uploadForm">
             <label for="excelFile">Excel 파일 업로드:</label>
             <input type="file" id="excelFile" name="excelFile" accept=".xlsx" required>
@@ -27,6 +37,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script> <!-- XLSX 라이브러리 추가 -->
     <script src="./firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
     <script src="./loadNavbar.js"></script>
-    <script src="./xlsx_upload_smart_store_for_discounted_price.js"></script>
+    
+    <script type="module" src="xlsx_upload_smart_store_for_discounted_price.js"></script>
 </body>
 </html>
