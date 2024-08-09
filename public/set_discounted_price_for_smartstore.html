@@ -15,9 +15,18 @@
             <label for="smallCategory">Small Category:</label>
             <input type="text" id="smallCategory" name="smallCategory" required>
             <button type="submit">Search</button>
-            <br>
+            <br><br>
             <label for="discountRate">할인률:</label>
-            <input type="number" id="discountRate" name="discountRate" min="0" max="100" value="50" required>
+            <input type="number" id="discountRate" name="discountRate" min="0" max="100" value="50">
+            <button type="setDiscountRateData">체크 된 항목에 할인률 적용</button>            
+            <br><br>
+            <label for="discountPrice">할인가:</label>
+            <input type="number" id="discountPrice" name="discountPrice">
+            <button type="setDiscountPrideData">체크 된 항목에 할인가 적용</button>            
+            <br>
+            <br>
+            <button type="saveDiscountData">체크 된 항목 할인정보 저장</button>
+            <br>
         </form>
         <br>
         <div id="result"></div> 
