@@ -1,3 +1,6 @@
+<!-- set_discounted_price_for_smartstore.html -->
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,27 +18,28 @@
             <label for="smallCategory">Small Category:</label>
             <input type="text" id="smallCategory" name="smallCategory" required>
             <button type="submit">Search</button>
-            <br><br>
+        </form><br>
+        <form id="discountRateForm">
             <label for="discountRate">할인률:</label>
-            <input type="number" id="discountRate" name="discountRate" min="0" max="100" value="50">
+            <input type="number" id="discountRate" name="discountRate" min="0" max="100" value="50" required>
             <button type="setDiscountRateData">체크 된 항목에 할인률 적용</button>            
-            <br><br>
+        </form><br>
+        <form id="discountPriceForm">
             <label for="discountPrice">할인가:</label>
-            <input type="number" id="discountPrice" name="discountPrice">
-            <button type="setDiscountPrideData">체크 된 항목에 할인가 적용</button>            
-            <br>
-            <br>
+            <input type="number" id="discountPrice" name="discountPrice" required>
+            <button type="setDiscountPrideData">체크 된 항목에 할인가 적용</button>                    
+        </form><br>
+        <form id="saveDiscountDataForm">
             <button type="saveDiscountData">체크 된 항목 할인정보 저장</button>
-            <br>
-        </form>
-        <br>
+        </form><br>
+        <br><br>
         <div id="result"></div> 
         <br>
         <form id="uploadForm">
             <label for="excelFile">Excel 파일 업로드:</label>
             <input type="file" id="excelFile" name="excelFile" accept=".xlsx" required>
             <button type="submit">업로드</button>
-        </form>
+        </form><br><br>
         <div id="message"></div>
         <button id="saveButton" style="display:none;">Excel 파일로 저장</button>
         <div id="loading" style="display:none;">로딩 중...</div> <!-- 로딩 표시 추가 -->
@@ -47,6 +51,6 @@
     <script src="./firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
     <script src="./loadNavbar.js"></script>
     
-    <script type="module" src="xlsx_upload_smart_store_for_discounted_price.js"></script>
+    <script type="module" src="set_discounted_price_for_smartstore.js"></script>
 </body>
 </html>

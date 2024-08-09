@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         if (productData.OptionDatas && productData.OptionDatas[option]) {
                             counts = productData.OptionDatas[option].Counts || '';
                             barcode = productData.OptionDatas[option].바코드 || '';
-                            원가 = parseFloat(productData.원가) || 0;
+                            원가 = parseFloat(productData.PriceBuy_kr) || 0;
                         } else if (productData.Barcode) {
                             barcode = productData.Barcode;
                         }
@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     orderData.Counts = counts;
                     orderData.바코드 = barcode;
                     orderData.입고차수 = 입고차수;
-                    orderData.원가 = 원가;
+                    orderData.PriceBuy_kr = 원가;
                     orderData.옵션이미지URL = 옵션이미지URL;
                     orderData.실제이미지URL = 실제이미지URL;
 

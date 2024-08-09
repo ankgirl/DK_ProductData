@@ -6,11 +6,11 @@ import { playBeep } from './playsound.js';
 // 공통 계산 함수 정의
 function calculateTotals(orderData) {
     // 모든 서비스 제품 판매가 합산 (숫자로 변환하여 합산)
-    const newServiceTotalSales = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.판매가) || 0), 0);
+    const newServiceTotalSales = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.DiscountedPrice) || 0), 0);
     orderData.서비스총판매가금액 = newServiceTotalSales;
 
     // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
-    const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.원가) || 0), 0);
+    const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.PriceBuy_kr) || 0), 0);
     orderData.서비스총원가금액 = newServiceTotalCost;
 
     // 주문판매가합산금액 업데이트
@@ -128,7 +128,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                                 data-label="포장수량">
                         </td>
                         <td data-label="총가격">${order.상품별총주문금액}</td>
-                        <td data-label="원가">${order.원가}</td>
+                        <td data-label="원가">${order.PriceBuy_kr}</td>
                         <td data-label="Counts">${order.Counts}</td>
                         <td data-label="바코드">${order.바코드}</td>
                         <td class="image-container"><img src="${order.옵션이미지URL}" alt="옵션이미지"></td>
@@ -173,7 +173,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                             <td data-label="판매자상품코드">${service.판매자상품코드}</td>
                             <td data-label="바코드">${service.바코드}</td>
                             <td data-label="Discounted Price">${service.DiscountedPrice}</td>
-                            <td data-label="원가">${service.원가}</td>
+                            <td data-label="원가">${service.PriceBuy_kr}</td>
                             <td><input type="number" class="serviceQuantity" min="1" value="1" data-label="수량"></td> <!-- 수량 입력란 추가 -->
                             <td class="image-container"><img src="${service.옵션이미지URL}" alt="옵션이미지"></td>
                             <td class="image-container"><img src="${service.실제이미지URL}" alt="실제이미지"></td>
@@ -264,7 +264,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
         }
 
         const serviceData = {
-            원가: productData.원가 || 0,
+            원가: productData.PriceBuy_kr || 0,
             판매가: productData.DiscountedPrice || 0,
             입고차수: productData.소분류명 ? productData.소분류명.replace("차입고", "") : '',
             판매자상품코드: productData.SellerCode || '',
