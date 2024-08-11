@@ -1,3 +1,5 @@
+// order_upload.js
+
 import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers } from './orderHelpers.js';
 
@@ -38,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const orderData = {
                 상품주문번호: productOrderNumber || '',
                 주문번호: orderNumber || '',
-                판매자상품코드: sellerCode || '',
+                SellerCode: sellerCode || '',
                 상품명: order["상품명"] || '',
                 상품수량: parseInt(order["상품 수량(출력용)"], 10) || 0,
                 상품별총주문금액: parseFloat(order["상품별 총 주문금액"]) || 0,
@@ -68,12 +70,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
         for (let orderNumber in ordersMap) {
             const orderDetails = ordersMap[orderNumber];
-            orderDetails.서비스제품금액 = orderDetails.총결제금액 * 0.5;
-
             try {
                 for (let productOrderNumber in orderDetails.ProductOrders) {
                     const orderData = orderDetails.ProductOrders[productOrderNumber];
-                    const sellerCode = orderData.판매자상품코드;
+                    const sellerCode = orderData.SellerCode;
                     const option = orderData.옵션정보;
                     const productDocRef = firebase.firestore().collection('Products').doc(sellerCode);
 
@@ -110,6 +110,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     orderDetails.총원가금액 += 원가;
                 }
+                orderDetails.서비스제품금액 = (orderDetails.총결제금액-orderDetails.총원가금액) * 0.7;
+
 
                 const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
                 await orderDocRef.set(orderDetails, { merge: true });

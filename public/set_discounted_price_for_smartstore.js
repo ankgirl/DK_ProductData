@@ -212,8 +212,7 @@ function applyDiscountRate() {
     const checkedProducts = getCheckedProducts(productsFound);
 
     const discountRate = parseFloat(document.getElementById('discountRate').value);
-    discountedProducts = applyDiscount(checkedProducts, product => product.SellingPrice * (1 - discountRate / 100));    
-    //discountedProducts = checkedProducts;
+    discountedProducts = applyDiscount(checkedProducts, product => Math.floor(product.SellingPrice * (1 - discountRate / 100) / 10) * 10);
 
     const resultDiv = document.getElementById("result");
     resultDiv.innerHTML = generateTableHTML(discountedProducts);
@@ -225,8 +224,7 @@ function applyDiscountPrice() {
     const checkedProducts = getCheckedProducts(productsFound);
 
     const discountPrice = parseFloat(document.getElementById('discountPrice').value);
-    discountedProducts = applyDiscount(checkedProducts, product => product.SellingPrice - discountPrice);
-    //discountedProducts = checkedProducts;
+    discountedProducts = applyDiscount(checkedProducts, product => Math.floor((product.SellingPrice - discountPrice) / 10) * 10);
 
     const resultDiv = document.getElementById("result");
     resultDiv.innerHTML = generateTableHTML(discountedProducts);

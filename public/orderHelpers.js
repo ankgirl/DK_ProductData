@@ -6,22 +6,44 @@ import { playBeep } from './playsound.js';
 // 공통 계산 함수 정의
 function calculateTotals(orderData) {
     // 모든 서비스 제품 판매가 합산 (숫자로 변환하여 합산)
-    const newServiceTotalSales = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.DiscountedPrice) || 0), 0);
+    const newServiceTotalSales = orderData.ProductService.reduce((acc, service) => {
+        const discountedPrice = parseFloat(service.DiscountedPrice) || 0;
+        console.log(`서비스 항목 DiscountedPrice: ${service.DiscountedPrice}, 변환된 값: ${discountedPrice}`);
+        return acc + discountedPrice;
+    }, 0);
     orderData.서비스총판매가금액 = newServiceTotalSales;
 
+    // 로그 추가
+    console.log(`서비스 총 판매가 금액: ${newServiceTotalSales}`);
+
     // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
-    const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => acc + (parseFloat(service.PriceBuy_kr) || 0), 0);
+    const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => {
+        const priceBuy_kr = parseFloat(service.PriceBuy_kr) || 0;
+        console.log(`서비스 항목 PriceBuy_kr: ${service.PriceBuy_kr}, 변환된 값: ${priceBuy_kr}`);
+        return acc + priceBuy_kr;
+    }, 0);
     orderData.서비스총원가금액 = newServiceTotalCost;
+
+    // 로그 추가
+    console.log(`서비스 총 원가 금액: ${newServiceTotalCost}`);
 
     // 주문판매가합산금액 업데이트
     const productTotalSales = parseFloat(orderData.총결제금액) || 0;
     const newOrderTotalSales = productTotalSales + newServiceTotalSales;
     orderData.주문판매가합산금액 = newOrderTotalSales;
 
+    // 로그 추가
+    console.log(`상품 총 결제 금액: ${productTotalSales}`);
+    console.log(`새 주문 총 판매가 금액: ${newOrderTotalSales}`);
+
     // 주문원가합산금액 업데이트
     const productTotalCost = parseFloat(orderData.총원가금액) || 0;
     const newOrderTotalCost = productTotalCost + newServiceTotalCost;
     orderData.주문원가합산금액 = newOrderTotalCost;
+
+    // 로그 추가
+    console.log(`상품 총 원가 금액: ${productTotalCost}`);
+    console.log(`새 주문 총 원가 금액: ${newOrderTotalCost}`);
 }
 
 // 주문서 데이터 가져오기 함수
@@ -68,8 +90,8 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                 const totalCost = orderData.주문원가합산금액 || 0;
 
                 const sortedProductOrders = Object.values(productOrders).sort((a, b) => {
-                    if (a.판매자상품코드 < b.판매자상품코드) return -1;
-                    if (a.판매자상품코드 > b.판매자상품코드) return 1;
+                    if (a.SellerCode < b.SellerCode) return -1;
+                    if (a.SellerCode > b.SellerCode) return 1;
                     if (a.옵션정보 < b.옵션정보) return -1;
                     if (a.옵션정보 > b.옵션정보) return 1;
                     return 0;
@@ -98,8 +120,10 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                                 <th>옵션정보</th>
                                 <th>수량</th>
                                 <th>포장수량</th>
+
                                 <th>총가격</th>
                                 <th>원가</th>
+
                                 <th>Counts</th>
                                 <th>바코드</th>
                                 <th>옵션이미지</th>
@@ -115,7 +139,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                     orderDetailsHTML += `
                     <tr>
                         <td data-label="상품주문번호">${order.상품주문번호}</td>
-                        <td data-label="판매자상품코드">${order.판매자상품코드}</td>
+                        <td data-label="판매자상품코드">${order.SellerCode}</td>
                         <td data-label="입고차수">${order.입고차수}</td>
                         <td data-label="옵션정보">${order.옵션정보}</td>
                         <td data-label="수량" style="${quantityStyle}">${order.상품수량}</td>
@@ -170,7 +194,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                 productServices.forEach(service => {
                     serviceDetailsHTML += `
                         <tr>
-                            <td data-label="판매자상품코드">${service.판매자상품코드}</td>
+                            <td data-label="판매자상품코드">${service.SellerCode}</td>
                             <td data-label="바코드">${service.바코드}</td>
                             <td data-label="Discounted Price">${service.DiscountedPrice}</td>
                             <td data-label="원가">${service.PriceBuy_kr}</td>
@@ -264,15 +288,14 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
         }
 
         const serviceData = {
-            원가: productData.PriceBuy_kr || 0,
-            판매가: productData.DiscountedPrice || 0,
-            입고차수: productData.소분류명 ? productData.소분류명.replace("차입고", "") : '',
-            판매자상품코드: productData.SellerCode || '',
+            PriceBuy_kr: productData.PriceBuy_kr || 0,
+            DiscountedPrice: productData.DiscountedPrice || 0,
+            소분류명: productData.소분류명 ? productData.소분류명.replace("차입고", "") : '',
+            SellerCode: productData.SellerCode || '',
             옵션정보: optionKey, // 일치하는 옵션의 키를 사용
             실제이미지URL: productData.실제이미지URL || '',
             옵션이미지URL: productData.옵션이미지URL || '',
             바코드: barcode,
-            DiscountedPrice: productData.DiscountedPrice
         };
 
         orderData.ProductService.push(serviceData);
