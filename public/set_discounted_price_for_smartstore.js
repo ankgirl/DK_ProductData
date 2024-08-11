@@ -54,12 +54,6 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log(discountedProducts);
         saveSellerCodesToFile(discountedProducts);
         await saveDiscountedProductsToFirestore(discountedProducts);
-
-        // // 이부분 코드작성
-        // 1. discountedProducts를 firebase db에 저장 
-        //    const productDocRef = firebase.firestore().collection('Products').doc(discountedProducts 배열 안의 discountedProduct.sellerCode); <-- 참고 
-        // 2. fileName.txt에 discountedProducts 안의 discountedProduct.sellerCode를 모두 쓰는데 콤마로 구분하여 저장
-        
     });
 });
 
