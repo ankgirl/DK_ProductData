@@ -42,8 +42,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 주문번호: orderNumber || '',
                 SellerCode: sellerCode || '',
                 상품명: order["상품명"] || '',
-                상품수량: parseInt(order["상품 수량(출력용)"], 10) || 0,
-                상품별총주문금액: parseFloat(order["상품별 총 주문금액"]) || 0,
+                상품수량: parseInt(order["상품 수량(출력용)"], 10) || 0,                
+                상품별총주문금액: parseFloat(order["상품결제금액"]) || 0,
                 상품결제금액: parseFloat(order["상품결제금액"]) || 0,
                 옵션정보: option || '',
             };
@@ -110,8 +110,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     orderDetails.총원가금액 += 원가;
                 }
-                orderDetails.서비스제품금액 = (orderDetails.총결제금액-orderDetails.총원가금액) * 0.7;
 
+                orderDetails.서비스제품금액 = Math.floor((orderDetails.총결제금액 - orderDetails.총원가금액) * 0.7 / 10) * 10;
 
                 const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
                 await orderDocRef.set(orderDetails, { merge: true });
