@@ -1,0 +1,121 @@
+
+<!-- order_randombox.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Processing</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>Order Randombox</h1>
+        <br>
+        <div id="printSection">
+            <button id="deleteOrderButton">주문서 삭제</button>
+        </div>
+        <br><br>
+        <div id="completeSection">
+            <button id="CreateNewOrderButton_vintage29800" class="large-button">새 주문서 생성 빈티지 29,800</button>
+            <button id="CreateNewOrderButton_sensitivity29800" class="large-button">새 주문서 생성 감성 29,800</button>
+            <button id="CreateNewOrderButton_cute29800" class="large-button">새 주문서 생성 큐트 29,800</button>
+            <br><br>
+            <button id="printButton" class="large-button">프린트</button>
+            <button id="packingCompleteButton" class="large-button">포장완료</button>
+        </div>
+
+        <br><br><br>
+
+        <div>
+            <label for="randomBoxNumberDropdown">랜덤박스 번호 선택:</label>
+            <select id="randomBoxNumberDropdown"></select>
+        </div>
+
+        <br><br><br>
+        <div id="barcodeSection">
+            <label for="barcodeInput">바코드:</label>
+            <input type="text" id="barcodeInput">
+        </div>
+        <br><br>
+
+        <!-- 추가된 주문 세부 정보 -->
+        <div id="randomBoxInfoContainer">
+            <!-- 새로운 세부 정보 -->
+            <h3>랜덤박스번호: <span class="orderNumber"></span></h3>
+            <p><strong>제품수량: </strong><span class="productQuantity"></span></p>
+            <p><strong>럭키랜덤박스가격: </strong><span class="luckyRandomBoxPrice"></span></p>
+            <p><strong>랜덤박스스타일: </strong><span class="randomBoxStyle"></span></p>
+            <p><strong>총제품가격: </strong><span class="totalProductPrice"></span></p>
+            <p><strong>총제품원가: </strong><span class="totalProductCost"></span></p>
+            <p><strong style="color: red;">순수익: </strong><span class="netProfit"></span></p>
+        </div>
+
+        <!-- 제품 정보 테이블 -->
+        <div class="randomItemDetailContainer">
+            <h3>제품 정보</h3>
+            <table class="randomItemDetailTable">
+                <thead>
+                    <tr>
+                        <th>판매자 상품코드</th>
+                        <th>옵션정보</th>
+                        <th>수량</th>
+                        <th>원가</th>
+                        <th>할인가</th>
+                        <th>판매가</th>
+                        <th>바코드</th>
+                        <th>옵션이미지</th>
+                        <th>실제이미지</th>
+                        <th>삭제</th>
+                    </tr>
+                </thead>
+                <tbody class="randomItemDetails">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 영수증 테이블 -->
+        <div class="randomItemDetailReciptContainer">
+            <h3>영수증</h3>
+            <table class="randomItemDetailTable">
+                <thead>
+                    <tr>
+                        <th>제품명</th>
+                        <th>옵션이미지</th>
+                        <th>판매가</th>
+                        <th>제품상세페이지</th>
+                    </tr>
+                </thead>
+                <tbody class="randomItemDetailsRecipt">
+                </tbody>
+            </table>
+            <p><strong>럭키랜덤박스가격: </strong><span class="luckyRandomBoxPrice"></span></p>
+            <p><strong>랜덤박스스타일: </strong><span class="randomBoxStyle"></span></p>
+            <p><strong>총 제품수량: </strong><span class="productQuantity"></span></p>
+            <p><strong>총제품가격: </strong><span class="totalProductPrice"></span></p>
+        </div>
+
+        <br><br><br><br>
+        <div id="details"></div>
+        <div id="message"></div>
+    </div>
+
+    <!-- Firebase 라이브러리 로드 (비모듈 형식) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+    <script src="firebaseConfig.js"></script>
+    <script src="loadNavbar.js"></script>
+    <script type="module" src="order_randombox.js"></script>
+    <script type="module" src="generateOrderNumber.js"></script>
+    <script type="module" src="order_randombox_showInfo.js"></script>
+    <script type="module" src="barcode_search.js"></script>
+    <script type="module" src="order_randomboxPrint.js"></script>
+    
+</body>
+
+</html>

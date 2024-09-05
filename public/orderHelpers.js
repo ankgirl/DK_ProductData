@@ -266,7 +266,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
     try {
         const productsFound = await searchByBarcode(barcode, firebase.firestore());
         if (!productsFound) {
-            alert("일치하는 서비스를 찾을 수 없습니다.");
+            alert("바코드가 일치하는 제품을 찾을 수 없습니다.");
             return;
         }
         const productData = productsFound[0];

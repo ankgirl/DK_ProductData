@@ -1,3 +1,5 @@
+//order_display.js
+
 import { loadOrderNumbers, checkServiceBarcode, checkBarcode, getOrderData } from './orderHelpers.js';
 import { updateProductCounts } from './barcode_search.js';
 import { playDingDong } from './playsound.js';

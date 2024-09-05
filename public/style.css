@@ -212,3 +212,23 @@ form button {
     position: relative;
     z-index: 10; /* 높은 z-index 값 설정 */
 }
+
+.randomItemDetailTable {
+    width: 100%;
+    border-collapse: collapse; /* 테이블 셀 경계 중복 방지 */
+}
+
+.randomItemDetailTable th, .randomItemDetailTable td {
+    border: 1px solid #ddd; /* 셀 경계선 */
+    padding: 8px;           /* 셀 안쪽 여백 */
+    text-align: center;     /* 텍스트 가운데 정렬 */
+}
+
+.randomItemDetailTable th {
+    background-color: #f2f2f2; /* 헤더 배경색 */
+    color: black;              /* 헤더 글자색 */
+}
+
+.randomItemDetailTable tr:hover {
+    background-color: #f1f1f1;  /* 마우스 오버 시 행 배경색 */
+}
