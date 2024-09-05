@@ -3,25 +3,76 @@ document.getElementById("printButton").addEventListener("click", function() {
 });
 
 function printReceiptTable() {
-    // 프린트할 컨텐츠를 선택
     const receiptContainer = document.querySelector('.randomItemDetailReciptContainer');
-    
-    // 해당 컨테이너가 존재하는지 확인
+
     if (!receiptContainer) {
         console.error('Receipt container not found!');
         alert('출력할 영수증 정보가 없습니다.');
         return;
     }
 
-    const receiptContent = receiptContainer.outerHTML;
+    // 각 값들을 현재 페이지에서 가져옴
+    const luckyRandomBoxPrice = document.querySelector('.luckyRandomBoxPrice').textContent;
+    const randomBoxStyle = document.querySelector('.randomBoxStyle').textContent;
+    const productQuantity = document.querySelector('.productQuantity').textContent;
+    const totalProductPrice = document.querySelector('.totalProductPrice').textContent;
 
-    // iframe 생성
+    const receiptRows = receiptContainer.querySelectorAll('tbody tr');
+    const totalRows = receiptRows.length;
+    const splitIndex = Math.ceil(totalRows / 2);
+
+    const firstTableRows = Array.from(receiptRows).slice(0, splitIndex).map(row => row.outerHTML).join('');
+    const secondTableRows = Array.from(receiptRows).slice(splitIndex).map(row => row.outerHTML).join('');
+
+    const receiptContent = `
+        <div class="printable-container">
+            <div class="table-container">
+                <h3>영수증</h3>
+                <table class="randomItemDetailTable">
+                    <thead>
+                        <tr>
+                            <th>제품명</th>
+                            <th>옵션이미지</th>
+                            <th>판매가</th>
+                             <!-- <th>제품상세페이지</th> -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${firstTableRows}
+                    </tbody>
+                </table>
+            </div>
+            ${secondTableRows ? `
+            <div class="table-container">
+                <table class="randomItemDetailTable">
+                    <thead>
+                        <tr>
+                            <th>제품명</th>
+                            <th>옵션이미지</th>
+                            <th>판매가</th>
+                             <!-- <th>제품상세페이지</th> -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${secondTableRows}
+                    </tbody>
+                </table>
+                <div class="product-summary">
+                    <p><strong>럭키랜덤박스가격: </strong>${luckyRandomBoxPrice}</p>
+                    <p><strong>랜덤박스스타일: </strong>${randomBoxStyle}</p>
+                    <p><strong>총 제품수량: </strong>${productQuantity}</p>
+                    <p><strong>총제품가격: </strong>${totalProductPrice}</p>
+                </div>
+            </div>` : ''}
+        </div>
+    `;
+
     const printWindow = document.createElement('iframe');
     printWindow.style.position = 'absolute';
     printWindow.style.width = '0';
     printWindow.style.height = '0';
     printWindow.style.border = 'none';
-    document.body.appendChild(printWindow); // iframe을 문서에 추가
+    document.body.appendChild(printWindow);
 
     const printDocument = printWindow.contentDocument || printWindow.contentWindow.document;
     printDocument.open();
@@ -30,45 +81,60 @@ function printReceiptTable() {
         <head>
             <title>Print Receipt</title>
             <style>
-                /* 프린트할 때 필요한 스타일 */
+                body {
+                    font-family: Arial, sans-serif;
+                    padding: 20px;
+                }
+                .printable-container {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
+                }
+                .table-container {
+                    width: 100%;
+                }
                 table {
                     width: 100%;
                     border-collapse: collapse;
-                    margin-bottom: 20px;
+                    margin-bottom: 10px;
                 }
                 th, td {
                     border: 1px solid black;
-                    padding: 10px;
+                    padding: 4px;
                     text-align: left;
                 }
-                p {
-                    font-size: 14px;
-                    margin: 10px 0;
+                th {
+                    font-size: 12px;
+                }
+                td {
+                    font-size: 10px;
                 }
                 img {
-                    max-width: 150px;
+                    max-width: 60px;
+                    max-height: 60px;
                 }
                 h3 {
-                    text-align: center; /* 가운데 정렬 */
-                    font-size: 24px; /* 사이즈 키우기 */
+                    text-align: center;
+                    font-size: 20px;
+                    margin-bottom: 10px;
                 }
-                /* 오른쪽 정렬 */
-                p {
+                .product-summary {
+                    margin-top: 10px;
                     text-align: right;
                 }
             </style>
         </head>
         <body>
-            ${receiptContent} <!-- 영수증 테이블과 아래 정보 -->
+            ${receiptContent}
         </body>
         </html>
     `);
     printDocument.close();
 
     printWindow.contentWindow.focus();
-    printWindow.contentWindow.print(); // 프린트 대화상자를 엶
+    printWindow.contentWindow.print();
 
     setTimeout(() => {
-        document.body.removeChild(printWindow); // 프린트 완료 후 iframe 제거
+        document.body.removeChild(printWindow);
     }, 1000);
 }

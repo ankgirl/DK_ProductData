@@ -70,7 +70,7 @@ export async function ShowOrderData(orderData) {
                     <td>${item.제품명}</td>
                     <td><img src="${item.옵션이미지}" alt="옵션이미지" width="150"></td>
                     <td>${item.판매가 || 0}</td>
-                    <td><img src="https://api.qrserver.com/v1/create-qr-code/?data=${item.스토어링크}&size=100x100" alt="-"></td>
+                    <!-- <td><img src="https://api.qrserver.com/v1/create-qr-code/?data=${item.스토어링크}&size=100x100" alt="-"></td> -->
                 </tr>
             `;
             receiptTableBody.innerHTML += receiptRow;
