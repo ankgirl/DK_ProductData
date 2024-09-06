@@ -15,9 +15,13 @@ document.addEventListener("DOMContentLoaded", async function() {
     const createEmptyOrderButtonCute = document.getElementById("CreateNewOrderButton_cute29800");
     const randomBoxNumberDropdown = document.getElementById("randomBoxNumberDropdown");
     const barcodeInput = document.getElementById("barcodeInput");
+    barcodeInput.focus();
     const messageDiv = document.getElementById("message");
     
     
+    
+
+
 
     console.log("Buttons and Inputs Initialized"); // 각 버튼 및 입력 요소들이 제대로 초기화되었는지 확인
 
