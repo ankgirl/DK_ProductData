@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function() {
             }
 
             console.log(`주문서 총 수량: ${totalQuantityFromOrder}`);
-            console.log(`실재 포장 수량: ${totalPackedQuantity}`);
+            console.log(`실제 포장 수량: ${totalPackedQuantity}`);
 
             if (totalPackedQuantity !== totalQuantityFromOrder) {
                 console.log(`제품 확인 필요: 총 포장수량(${totalPackedQuantity})이 주문서 총수량(${totalQuantityFromOrder})과 일치하지 않습니다.`);
@@ -179,6 +179,9 @@ document.addEventListener("DOMContentLoaded", function() {
     
             // 주문 데이터를 CompletedOrders로 이동하고 Orders에서 삭제
             orderData.주문처리날짜 = new Date();  // 현재 날짜와 시간을 저장
+            orderData.배송메시지 = "";
+            orderData.수취인이름 = "";
+
             await firebase.firestore().collection('CompletedOrders').doc(orderNumber).set(orderData);
             await orderDocRef.delete();
     
