@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     console.log("Dropdown Populated"); // 드롭다운에 문서들이 성공적으로 추가되었는지 확인
 
     // 드롭다운이 변경되면 선택된 값으로 ShowOrderData 호출
-    randomBoxNumberDropdown.addEventListener("change", async function () {
+    randomBoxNumberDropdown.addEventListener("change", async function () {    
         const selectedOrderNumber = randomBoxNumberDropdown.value;
         console.log("Dropdown Changed, Selected Order Number: ", selectedOrderNumber);
         if (!selectedOrderNumber) return;
@@ -48,14 +48,7 @@ document.addEventListener("DOMContentLoaded", async function() {
         ShowOrderData(globalOrderData);
         console.log("ShowOrderData Called with: ", globalOrderData); // 주문 데이터 표시 함수 호출 확인
 
-        // 포장 완료 여부에 따라 packingRandomboxCompleteButton 활성화/비활성화
-        if (globalOrderData.포장완료 === true) {
-            packingRandomboxCompleteButton.disabled = true;
-            console.log("포장완료 상태입니다. 버튼 비활성화");
-        } else {
-            packingRandomboxCompleteButton.disabled = false;
-            console.log("포장이 완료되지 않았습니다. 버튼 활성화");
-        }        
+        checkPackingStatus();
     });
 
     barcodeInput.addEventListener("keypress", async function(event) {
@@ -189,6 +182,9 @@ export async function checkBarcode(barcode, messageDiv) {
 // Firestore에서 'RandomboxOrders' 컬렉션의 문서 이름을 드롭다운에 추가하는 함수
 async function populateRandomBoxDropdown(dropdown) {
     try {
+        // 기존 드롭다운 옵션을 모두 삭제
+        dropdown.innerHTML = ''; 
+        
         const ordersSnapshot = await firebase.firestore().collection('RandomboxOrders').get();
         
         if (!ordersSnapshot.empty) {
@@ -205,6 +201,8 @@ async function populateRandomBoxDropdown(dropdown) {
                     globalOrderData = await getOrderData(doc.id);  // 문서 데이터를 가져옴
                     ShowOrderData(globalOrderData);  // 데이터를 ShowOrderData에 넘김
                 }
+                // 포장 완료 여부 확인
+                checkPackingStatus();
                 index++;  // 인덱스 증가
             });
         } else {
@@ -220,8 +218,15 @@ function setupCreateOrderButton(createEmptyOrderButton, price, style) {
     createEmptyOrderButton.addEventListener("click", async function () {
         const orderNumber = await CreateNewOrder(price, style);
         if (orderNumber !== -1) {
+            // 새로 생성된 주문서를 드롭다운에 반영하기 위해 다시 불러오기
+            await populateRandomBoxDropdown(randomBoxNumberDropdown);
+            
+            // 새로 생성된 주문서를 선택하기
+            randomBoxNumberDropdown.value = orderNumber;
+
             globalOrderData = await getOrderData(orderNumber);  // 새로 생성된 주문서 데이터를 가져옴
             ShowOrderData(globalOrderData);  // 데이터를 ShowOrderData에 넘김
+            //checkPackingStatus();  // 포장 완료 상태 확인
         }
     });
 }
@@ -244,7 +249,7 @@ async function CreateNewOrder(price, style) {
     try {
         const orderDocRef = firebase.firestore().collection('RandomboxOrders').doc(orderNumber);
         await orderDocRef.set(emptyOrderData, { merge: true });
-        messageDiv.innerHTML += `<p>빈 주문서 ${orderNumber} 생성 성공!</p>`;
+        messageDiv.innerHTML += `<p>빈 주문서 ${orderNumber} 생성 성공!</p>`;        
         return orderNumber;
     } catch (error) {
         console.error("Error writing document: ", error);
@@ -318,3 +323,13 @@ async function deleteOrder(orderNumber) {
 
 
 
+function checkPackingStatus() {
+    // 포장 완료 여부에 따라 packingRandomboxCompleteButton 활성화/비활성화
+    if (globalOrderData && globalOrderData.포장완료 === true) {
+        packingRandomboxCompleteButton.disabled = true;
+        console.log("포장완료 상태입니다. 버튼 비활성화");
+    } else {
+        packingRandomboxCompleteButton.disabled = false;
+        console.log("포장이 완료되지 않았습니다. 버튼 활성화");
+    }        
+}
