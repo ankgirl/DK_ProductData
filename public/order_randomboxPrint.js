@@ -58,10 +58,11 @@ function printReceiptTable() {
                     </tbody>
                 </table>
                 <div class="product-summary">
-                    <p><strong>럭키랜덤박스가격: </strong>${luckyRandomBoxPrice}</p>
                     <p><strong>랜덤박스스타일: </strong>${randomBoxStyle}</p>
                     <p><strong>총 제품수량: </strong>${productQuantity}</p>
                     <p><strong>총제품가격: </strong>${totalProductPrice}</p>
+                    
+                    <p><strong>럭키랜덤박스가격: </strong>${luckyRandomBoxPrice}</p>                    
                 </div>
             </div>` : ''}
         </div>
