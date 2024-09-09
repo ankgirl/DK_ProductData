@@ -3,6 +3,8 @@
 import { generateOrderNumber } from './generateOrderNumber.js';
 import { clearOrderData, ShowOrderData } from './order_randombox_showInfo.js';
 import { searchByBarcode } from './barcode_search.js';
+import { packingRandomboxComplete } from './order_randomboxComplete.js';
+
 
 
 let globalOrderData = null;  // 전역 변수로 선언
@@ -14,14 +16,10 @@ document.addEventListener("DOMContentLoaded", async function() {
     const createEmptyOrderButtonSensitivity = document.getElementById("CreateNewOrderButton_sensitivity29800");
     const createEmptyOrderButtonCute = document.getElementById("CreateNewOrderButton_cute29800");
     const randomBoxNumberDropdown = document.getElementById("randomBoxNumberDropdown");
+    const messageDiv = document.getElementById("message");
+    const packingRandomboxCompleteButton = document.getElementById("packingRandomboxCompleteButton");
     const barcodeInput = document.getElementById("barcodeInput");
     barcodeInput.focus();
-    const messageDiv = document.getElementById("message");
-    
-    
-    
-
-
 
     console.log("Buttons and Inputs Initialized"); // 각 버튼 및 입력 요소들이 제대로 초기화되었는지 확인
 
@@ -49,6 +47,15 @@ document.addEventListener("DOMContentLoaded", async function() {
         globalOrderData.orderNumber = selectedOrderNumber;  // orderNumber 값을 orderData에 추가
         ShowOrderData(globalOrderData);
         console.log("ShowOrderData Called with: ", globalOrderData); // 주문 데이터 표시 함수 호출 확인
+
+        // 포장 완료 여부에 따라 packingRandomboxCompleteButton 활성화/비활성화
+        if (globalOrderData.포장완료 === true) {
+            packingRandomboxCompleteButton.disabled = true;
+            console.log("포장완료 상태입니다. 버튼 비활성화");
+        } else {
+            packingRandomboxCompleteButton.disabled = false;
+            console.log("포장이 완료되지 않았습니다. 버튼 활성화");
+        }        
     });
 
     barcodeInput.addEventListener("keypress", async function(event) {
@@ -64,6 +71,28 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
 
     console.log("Event Listeners Attached");
+
+    packingRandomboxCompleteButton.addEventListener("click", async function () {
+        // 버튼 비활성화
+        packingRandomboxCompleteButton.disabled = true;
+        
+        try {
+            // 포장 완료 작업 수행
+            await packingRandomboxComplete(globalOrderData);
+            globalOrderData.포장완료 = true;
+
+            const orderDocRef = firebase.firestore().collection('RandomboxOrders').doc(globalOrderData.id);
+            await orderDocRef.set(globalOrderData, { merge: true });
+    
+            console.log("포장완료 업데이트");
+    
+
+        } finally {
+            // 포장 완료 작업이 끝난 후 버튼 다시 활성화
+            //packingRandomboxCompleteButton.disabled = false;
+        }
+    });
+    
 });
 
 
@@ -208,6 +237,7 @@ async function CreateNewOrder(price, style) {
         럭키랜덤박스가격: price,
         총제품가격: 0,
         총제품원가: 0,
+        포장완료: false,
         스타일: style,
     };
 

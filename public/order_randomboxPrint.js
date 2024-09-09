@@ -1,4 +1,4 @@
-document.getElementById("printButton").addEventListener("click", function() {
+document.getElementById("printRecieptButton").addEventListener("click", function() {
     printReceiptTable();
 });
 
