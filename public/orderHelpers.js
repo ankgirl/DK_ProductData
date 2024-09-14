@@ -333,11 +333,24 @@ export function checkBarcode(barcode, orderDetails) {
         const quantityCell = row.cells[4];
         const checkbox = row.querySelector(".barcodeCheck");
         const orderNumberCell = row.cells[0];
+        const sellerCode = row.cells[1];
+        const optionName = row.cells[3];
+
+        console.log(sellerCode.textContent);
+        if (sellerCode.textContent.startsWith("SET_")) {                    
+            productOrderNumber = orderNumberCell.textContent + "_" + optionName.textContent;
+            console.log(productOrderNumber);
+        }
+        else{
+            productOrderNumber = orderNumberCell.textContent;
+            console.log(productOrderNumber);
+        }
+        
 
         if (barcodeCell && barcodeCell.textContent === barcode) {
             found = true;
 
-            productOrderNumber = orderNumberCell.textContent;
+            
             currentPackingQuantity = parseInt(packingQuantityInput.value) || 0;
             packingQuantityInput.value = currentPackingQuantity + 1;
 

@@ -1,7 +1,7 @@
 //order_display.js
 
 import { loadOrderNumbers, checkServiceBarcode, checkBarcode, getOrderData } from './orderHelpers.js';
-import { updateProductCounts } from './barcode_search.js';
+import { updateProductCounts, updateSetProductCounts } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 import { saveBarcodeInfoToDB } from './orderHelpers.js';
@@ -146,22 +146,47 @@ document.addEventListener("DOMContentLoaded", function() {
     
             // 모든 상품 정보 행 처리
             const productRows = orderDetails.querySelectorAll("tbody tr");
+            const SETProductSellerCode = {};
             for (const row of productRows) {
-                const barcodeCell = row.querySelector('[data-label="바코드"]');
+                
+                const sellerCode = row.querySelector('[data-label="판매자상품코드"]').textContent;
+                console.log(sellerCode);
                 const packingQuantityInput = row.querySelector('.packingQuantity');
-                if (!barcodeCell || !packingQuantityInput) continue;
-                const barcode = barcodeCell.textContent;
                 const quantity = parseInt(packingQuantityInput.value, 10);
-                console.log(`Processing product with barcode: ${barcode}, quantity: ${quantity}`);
-                try {
-                    await updateProductCounts(barcode, quantity, firebase.firestore());
-                    console.log(`Successfully updated product counts for barcode: ${barcode}`);
-                } catch (error) {
-                    console.error(`Error updating product counts for barcode: ${barcode}`, error);
+
+                if (sellerCode.startsWith("SET_")) {                    
+                    if (!SETProductSellerCode[sellerCode]) {
+                        SETProductSellerCode[sellerCode] = quantity; // 추가                        
+                    }
                 }
-            }
+                else{
+                    const barcodeCell = row.querySelector('[data-label="바코드"]');
+                    
+                    if (!barcodeCell || !packingQuantityInput) continue;
+                    const barcode = barcodeCell.textContent;
+                    
+                    console.log(`Processing product with barcode: ${barcode}, quantity: ${quantity}`);
+                    try {
+                        await updateProductCounts(barcode, quantity, firebase.firestore());
+                        console.log(`Successfully updated product counts for barcode: ${barcode}`);
+                    } catch (error) {
+                        console.error(`Error updating product counts for barcode: ${barcode}`, error);
+                    }
+                }
+            }            
     
-            // 서비스 상품 정보 모든 행 처리
+            // SETProductSellerCode를 순회하면서 updateSetProductCounts 호출
+            for (const sellerCode in SETProductSellerCode) {
+                const quantity = SETProductSellerCode[sellerCode];
+                try {
+                    console.log(sellerCode);
+                    console.log(quantity);
+                    await updateSetProductCounts(sellerCode, quantity, firebase.firestore());
+                    console.log(`Successfully updated SET product counts for sellerCode: ${sellerCode}`);
+                } catch (error) {
+                    console.error(`Error updating SET product counts for sellerCode: ${sellerCode}`, error);
+                }
+            }                      
             
             const serviceRows = orderData.ProductService || [];
             console.log(`serviceRows count: ${serviceRows.length}`);

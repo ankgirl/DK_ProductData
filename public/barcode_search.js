@@ -76,3 +76,38 @@ export async function updateProductCounts(barcode, quantity, db) {
         throw new Error("Error updating product counts");
     }
 }
+
+export async function updateSetProductCounts(sellerCode, quantity, db) {
+    try {
+        console.log("Starting updateProductCounts function");
+        console.log("Received sellerCode:", sellerCode);
+        console.log("Received quantity:", quantity);
+
+        //const productsFound = await searchbysellerCode(sellerCode, db);
+        const productsFound  = await db.collection('Products').doc(sellerCode).get();
+        console.log("Products found:", productsFound);
+
+        if (!productsFound) {
+            throw new Error("No product found with the given barcode");
+        }
+        
+        const product = productsFound.data();
+        let updatedCounts;
+        console.log("Found product:", productsFound);
+        console.log("Found product:", product);
+
+        const currentCounts = product.OptionDatas["옵션1"].Counts || 0;
+        console.log("currentCounts", currentCounts);
+        updatedCounts = currentCounts - quantity;
+        console.log("updatedCounts", updatedCounts);
+        product.OptionDatas["옵션1"].Counts = updatedCounts;
+        
+        await db.collection('Products').doc(sellerCode).set(product, { merge: true });
+        console.log("Updated product in DB:", product);
+
+        return updatedCounts;
+    } catch (error) {
+        console.error("Error updating product counts:", error);
+        throw new Error("Error updating product counts");
+    }
+}
