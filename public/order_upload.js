@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", function () {
     async function processOrdersTogle(orders) {
         const ordersMap = {};
         const saveOrderMap = {};
-        let itemcount = 0;
+        let itemcount = 0;        
         console.log(orders);
         orders.forEach(order => {
             const orderNumber = order["주문번호"];
@@ -172,11 +172,13 @@ document.addEventListener("DOMContentLoaded", function () {
             ordersMap[orderNumber].ProductOrders[productOrderNumber] = orderData;
             ordersMap[orderNumber].총수량 += orderData.상품수량;
             ordersMap[orderNumber].총주문금액 += orderData.상품별총주문금액;
-            ordersMap[orderNumber].총결제금액 += orderData.상품결제금액;
+            ordersMap[orderNumber].총결제금액 += orderData.상품결제금액;           
         });
     
         for (let orderNumber in ordersMap) {
             const orderDetails = ordersMap[orderNumber];
+            itemcount = 0;
+            //console.log("itemcount초기화");
             try {
                 for (let productOrderNumber in orderDetails.ProductOrders) {
                     const orderData = orderDetails.ProductOrders[productOrderNumber];
@@ -210,7 +212,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             let optionCount = Object.keys(productData.OptionDatas).length;
                             for (let opt in productData.OptionDatas) {
                                 itemcount++;
-                                //console.log(optionCount);
+                                //console.log("itemcount: ", itemcount);
                                 const optData = productData.OptionDatas[opt];
                                 const counts = setCounts || '';
                                 const barcode = optData.바코드 || '';
@@ -244,6 +246,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                     } else {
                         itemcount++;
+                        //console.log("itemcount: ", itemcount);
                         // SET_로 시작하지 않는 일반 제품의 경우
                         productDocRef = firebase.firestore().collection('Products').doc(sellerCode);
     

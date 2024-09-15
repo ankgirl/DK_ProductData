@@ -215,13 +215,16 @@ document.addEventListener("DOMContentLoaded", function() {
             serviceDetails.innerHTML = "";
             orderDropdown.value = "";
             messageDiv.innerHTML = "<p>모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.</p>";
-    
+            playDingDong();
+            alert("모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.");    
             // 주문 목록 갱신
             loadOrderNumbers(orderDropdown, messageDiv);
     
         } catch (error) {
             console.error("Error completing packing: ", error);
             messageDiv.innerHTML = `<p>포장 완료 중 오류 발생: ${error.message}</p>`;
+            playBeep();
+            alert("포장 중 오류 발생");
         }
     });
     
