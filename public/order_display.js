@@ -152,26 +152,33 @@ document.addEventListener("DOMContentLoaded", function() {
                 const sellerCode = row.querySelector('[data-label="판매자상품코드"]').textContent;
                 console.log(sellerCode);
                 const packingQuantityInput = row.querySelector('.packingQuantity');
-                const quantity = parseInt(packingQuantityInput.value, 10);
 
-                if (sellerCode.startsWith("SET_")) {                    
-                    if (!SETProductSellerCode[sellerCode]) {
-                        SETProductSellerCode[sellerCode] = quantity; // 추가                        
+                if (packingQuantityInput !== null && packingQuantityInput.value !== '') {
+                    const quantity = parseInt(packingQuantityInput.value, 10);
+
+                    if (sellerCode.startsWith("SET_")) {                    
+                        if (!SETProductSellerCode[sellerCode]) {
+                            SETProductSellerCode[sellerCode] = quantity; // 추가                        
+                        }
                     }
-                }
-                else{
-                    const barcodeCell = row.querySelector('[data-label="바코드"]');
-                    
-                    if (!barcodeCell || !packingQuantityInput) continue;
-                    const barcode = barcodeCell.textContent;
-                    
-                    console.log(`Processing product with barcode: ${barcode}, quantity: ${quantity}`);
-                    try {
-                        await updateProductCounts(barcode, quantity, firebase.firestore());
-                        console.log(`Successfully updated product counts for barcode: ${barcode}`);
-                    } catch (error) {
-                        console.error(`Error updating product counts for barcode: ${barcode}`, error);
-                    }
+                    else{
+                        const barcodeCell = row.querySelector('[data-label="바코드"]');
+                        
+                        if (!barcodeCell || !packingQuantityInput) continue;
+                        const barcode = barcodeCell.textContent;
+                        
+                        console.log(`Processing product with barcode: ${barcode}, quantity: ${quantity}`);
+                        try {
+                            await updateProductCounts(barcode, quantity, firebase.firestore());
+                            console.log(`Successfully updated product counts for barcode: ${barcode}`);
+                        } catch (error) {
+                            console.error(`Error updating product counts for barcode: ${barcode}`, error);
+                        }
+                    }                    // quantity를 사용할 수 있음
+                } else {
+                    // packingQuantityInput.value가 null 또는 빈 값일 때의 처리
+                    console.log('packingQuantityInput의 값이 null이거나 빈 값입니다.');                    
+                    console.log('sellerCode: ', sellerCode);
                 }
             }            
     
