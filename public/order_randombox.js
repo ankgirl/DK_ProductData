@@ -12,9 +12,25 @@ console.log("Script Loaded Outside DOMContentLoaded");
 document.addEventListener("DOMContentLoaded", async function() {
     console.log("DOMContentLoaded - Script Loaded"); // DOMContentLoaded 이벤트가 성공적으로 실행되었는지 확인
 
-    const createEmptyOrderButtonVintage = document.getElementById("CreateNewOrderButton_vintage29800");
-    const createEmptyOrderButtonSensitivity = document.getElementById("CreateNewOrderButton_sensitivity29800");
-    const createEmptyOrderButtonCute = document.getElementById("CreateNewOrderButton_cute29800");
+    
+
+
+
+
+
+
+
+
+    const typeDropdown = document.getElementById("typeDropdown");
+    const styleDropdown = document.getElementById("styleDropdown");
+    const itemDropdown = document.getElementById("itemDropdown");
+    const priceInput = document.getElementById("priceInput");
+    if (!priceInput.value) {
+        priceInput.value = 10000; // 기본값 설정
+    }
+    
+    const createEmptyOrderButton = document.getElementById("CreateNewOrderButton");
+
     const randomBoxNumberDropdown = document.getElementById("randomBoxNumberDropdown");
     const messageDiv = document.getElementById("message");
     const packingRandomboxCompleteButton = document.getElementById("packingRandomboxCompleteButton");
@@ -23,9 +39,7 @@ document.addEventListener("DOMContentLoaded", async function() {
 
     console.log("Buttons and Inputs Initialized"); // 각 버튼 및 입력 요소들이 제대로 초기화되었는지 확인
 
-    setupCreateOrderButton(createEmptyOrderButtonVintage, 29800, "빈티지");
-    setupCreateOrderButton(createEmptyOrderButtonSensitivity, 29800, "감성");
-    setupCreateOrderButton(createEmptyOrderButtonCute, 29800, "큐트");
+    setupCreateOrderButton(createEmptyOrderButton, 0, "");
 
     console.log("Setup Create Order Buttons Completed"); // 각 주문 생성 버튼에 대한 초기화가 완료되었는지 확인
 
@@ -62,6 +76,9 @@ document.addEventListener("DOMContentLoaded", async function() {
             }
         }
     });
+
+
+    
 
     console.log("Event Listeners Attached");
 
@@ -216,6 +233,10 @@ async function populateRandomBoxDropdown(dropdown) {
 
 function setupCreateOrderButton(createEmptyOrderButton, price, style) {
     createEmptyOrderButton.addEventListener("click", async function () {
+        
+        style = `${typeDropdown.value}_${styleDropdown.value}_${itemDropdown.value}`;
+        price = parseInt(priceInput.value) || 0; // 입력된 값이 없을 경우 0으로 처리    
+
         const orderNumber = await CreateNewOrder(price, style);
         if (orderNumber !== -1) {
             // 새로 생성된 주문서를 드롭다운에 반영하기 위해 다시 불러오기

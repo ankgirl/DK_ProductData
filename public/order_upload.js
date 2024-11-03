@@ -211,8 +211,6 @@ document.addEventListener("DOMContentLoaded", function () {
                             // 모든 옵션 데이터를 가져와서 처리
                             let optionCount = Object.keys(productData.OptionDatas).length;
                             for (let opt in productData.OptionDatas) {
-                                itemcount++;
-                                //console.log("itemcount: ", itemcount);
                                 const optData = productData.OptionDatas[opt];
                                 const counts = setCounts || '';
                                 const barcode = optData.바코드 || '';
@@ -242,11 +240,12 @@ document.addEventListener("DOMContentLoaded", function () {
                                     실제이미지URL: 실제이미지URL
                                 };
                                 orderDetails.총원가금액 += 원가;
+                                itemcount += orderData.상품수량;
+                                console.log("itemcount: ", itemcount);
+
                             }
                         }
                     } else {
-                        itemcount++;
-                        //console.log("itemcount: ", itemcount);
                         // SET_로 시작하지 않는 일반 제품의 경우
                         productDocRef = firebase.firestore().collection('Products').doc(sellerCode);
     
@@ -271,6 +270,9 @@ document.addEventListener("DOMContentLoaded", function () {
                                 orderData.실제이미지URL = 실제이미지URL;
     
                                 orderDetails.총원가금액 += 원가;
+                                itemcount+= orderData.상품수량;
+                                console.log("itemcount: ", itemcount);
+        
                             }
                         }
                     }

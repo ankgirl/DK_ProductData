@@ -5,6 +5,7 @@ import { updateProductCounts, updateSetProductCounts } from './barcode_search.js
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 import { saveBarcodeInfoToDB } from './orderHelpers.js';
+import { searchByBarcode } from './barcode_search.js';
 
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -87,101 +88,103 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
+
+    async function fetchOrderData(orderNumber) {
+        const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+        const orderDoc = await orderDocRef.get();
+    
+        if (!orderDoc.exists) {
+            console.error("Order document does not exist");
+            return null;
+        }
+        return orderDoc.data();
+    }
+
+    async function validatePacking(orderData) {
+        const totalQuantityFromOrder = orderData.총수량;
+        let totalPackedQuantity = 0;
+        let allChecked = true;
+    
+        const productOrdersArray = Object.values(orderData.ProductOrders || {});
+        for (const product of productOrdersArray) {
+            if (!product.currentPackingQuantity || !product.found) {
+                allChecked = false;
+                break;
+            }
+            totalPackedQuantity += parseInt(product.currentPackingQuantity, 10) || 0;
+        }
+    
+        if (totalPackedQuantity !== totalQuantityFromOrder) {
+            messageDiv.innerHTML = `<p>제품 확인 필요: 총 포장수량(${totalPackedQuantity})이 주문서 총수량(${totalQuantityFromOrder})과 일치하지 않습니다.</p>`;
+            playBeep();
+            return false;
+        }
+    
+        if (!allChecked) {
+            messageDiv.innerHTML = "<p>제품 확인 필요: 모든 제품이 체크되지 않았습니다.</p>";
+            playBeep();
+            return false;
+        }
+    
+        playDingDong();
+        return true;
+    }
+
+    async function batchUpdateProductCounts(productUpdates, db) {
+        const batch = db.batch();  // Firestore 배치 생성
+    
+        productUpdates.forEach(update => {
+            const { id, data } = update;
+            const docRef = db.collection('Products').doc(id);
+            batch.set(docRef, data, { merge: true });
+        });
+    
+        await batch.commit();  // 배치 업데이트 실행
+        console.log("Batch update completed");
+    }
+    
     packingCompleteButton.addEventListener('click', async function() {
+
         try {
             const orderNumber = orderDropdown.value;
             if (!orderNumber) return;
-    
+
             const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-            const orderDoc = await orderDocRef.get();
-            
-            if (!orderDoc.exists) {
-                console.error("Order document does not exist");
-                return;
-            }
-    
-            const orderData = orderDoc.data();
-            const totalQuantityFromOrder = orderData.총수량; // 주문서에서 가져온 총수량
-            let totalPackedQuantity = 0;
-            let allChecked = true;
-    
-            // 상품정보 테이블의 모든 행의 포장수량 합산 및 체크 상태 확인
-            
-            
-            const productOrdersArray = Object.values(orderData.ProductOrders || {});
-            //const ProductService = orderData.ProductService;
 
-            console.log(`orderData ${orderData}`);
-
-            console.log(`productOrders count: ${productOrdersArray.length}`);
-            //console.log(`ProductService count: ${ProductService.length}`);
-            for (const product of productOrdersArray) {
     
-                console.log(`packingQuantityInput: ${product.currentPackingQuantity}, checkbox: ${product.found}`);
-                if (!product.currentPackingQuantity || !product.found) {
-                    allChecked = false;
-                    return;
-                }
-                
-                totalPackedQuantity += parseInt(product.currentPackingQuantity, 10) || 0;
-            }
-
-            console.log(`주문서 총 수량: ${totalQuantityFromOrder}`);
-            console.log(`실제 포장 수량: ${totalPackedQuantity}`);
-
-            if (totalPackedQuantity !== totalQuantityFromOrder) {
-                console.log(`제품 확인 필요: 총 포장수량(${totalPackedQuantity})이 주문서 총수량(${totalQuantityFromOrder})과 일치하지 않습니다.`);
-                messageDiv.innerHTML = `<p>제품 확인 필요: 총 포장수량(${totalPackedQuantity})이 주문서 총수량(${totalQuantityFromOrder})과 일치하지 않습니다.</p>`;
-                playBeep()
-                return;
-            }
-            
-            if (!allChecked) {
-                console.log("제품 확인 필요: 모든 제품이 체크되지 않았습니다.");
-                messageDiv.innerHTML = "<p>제품 확인 필요: 모든 제품이 체크되지 않았습니다.</p>";
-                playBeep()
-                return;
-            }
-            playDingDong();
+            const orderData = await fetchOrderData(orderNumber);
+            if (!orderData) return;
     
+            if (!await validatePacking(orderData)) return;
+
+            // 제품 업데이트 정보를 모으는 객체로 변경하여 중복 방지
+            const productUpdatesMap = {};
             // 모든 상품 정보 행 처리
             const productRows = orderDetails.querySelectorAll("tbody tr");
             const SETProductSellerCode = {};
+            
             for (const row of productRows) {
-                
+                console.log(`productRows: ${row}`);
                 const sellerCode = row.querySelector('[data-label="판매자상품코드"]').textContent;
-                console.log(sellerCode);
                 const packingQuantityInput = row.querySelector('.packingQuantity');
 
-                if (packingQuantityInput !== null && packingQuantityInput.value !== '') {
+                if (packingQuantityInput && packingQuantityInput.value !== '') {
                     const quantity = parseInt(packingQuantityInput.value, 10);
 
-                    if (sellerCode.startsWith("SET_")) {                    
+                    if (sellerCode.startsWith("SET_")) {
                         if (!SETProductSellerCode[sellerCode]) {
                             SETProductSellerCode[sellerCode] = quantity; // 추가                        
                         }
-                    }
-                    else{
+                    } else {
                         const barcodeCell = row.querySelector('[data-label="바코드"]');
-                        
-                        if (!barcodeCell || !packingQuantityInput) continue;
-                        const barcode = barcodeCell.textContent;
-                        
-                        console.log(`Processing product with barcode: ${barcode}, quantity: ${quantity}`);
-                        try {
-                            await updateProductCounts(barcode, quantity, firebase.firestore());
-                            console.log(`Successfully updated product counts for barcode: ${barcode}`);
-                        } catch (error) {
-                            console.error(`Error updating product counts for barcode: ${barcode}`, error);
+                        if (barcodeCell) {
+                            const barcode = barcodeCell.textContent;
+                            await processProductUpdateMap(barcode, productUpdatesMap, quantity);
                         }
-                    }                    // quantity를 사용할 수 있음
-                } else {
-                    // packingQuantityInput.value가 null 또는 빈 값일 때의 처리
-                    console.log('packingQuantityInput의 값이 null이거나 빈 값입니다.');                    
-                    console.log('sellerCode: ', sellerCode);
+                    }
                 }
-            }            
-    
+            }
+
             // SETProductSellerCode를 순회하면서 updateSetProductCounts 호출
             for (const sellerCode in SETProductSellerCode) {
                 const quantity = SETProductSellerCode[sellerCode];
@@ -189,42 +192,59 @@ document.addEventListener("DOMContentLoaded", function() {
                     console.log(sellerCode);
                     console.log(quantity);
                     await updateSetProductCounts(sellerCode, quantity, firebase.firestore());
-                    console.log(`Successfully updated SET product counts for sellerCode: ${sellerCode}`);
+                    
                 } catch (error) {
-                    console.error(`Error updating SET product counts for sellerCode: ${sellerCode}`, error);
+                    
                 }
-            }                      
-            
+            }      
+
+            // serviceRows 처리 추가
             const serviceRows = orderData.ProductService || [];
+             
+            //const serviceRows = serviceDetails.querySelectorAll("tbody tr");
             console.log(`serviceRows count: ${serviceRows.length}`);
+
+
             for (const service of serviceRows) {
-                const barcode = service.바코드;
-                const quantity = 1;
-                console.log(`Processing service product with barcode: ${barcode}, quantity: ${quantity}`);
-                try {
-                    await updateProductCounts(barcode, quantity, firebase.firestore());
-                    console.log(`Successfully updated service product counts for barcode: ${barcode}`);
-                } catch (error) {
-                    console.error(`Error updating service product counts for barcode: ${barcode}`, error);
+                //const barcodeCell = row.querySelector('[data-label="바코드"]');
+
+                console.log(`service.바코드: ${service.바코드}`);
+                const barcodeCell = service.바코드;
+                console.log(`barcodeCell: ${barcodeCell}`);
+
+                if (barcodeCell) {
+                    const barcode = barcodeCell;
+                    const quantity = 1; // 서비스 제품은 기본적으로 수량이 1이라고 가정
+                    await processProductUpdateMap(barcode, productUpdatesMap, quantity);
+
+                } else {
+                    console.warn("Barcode cell not found for service row");
                 }
             }
+
+            // productUpdatesMap의 값을 배열로 변환하여 Firestore에 배치 업데이트 실행
+            const productUpdates = Object.values(productUpdatesMap);
+            console.log(`productUpdates count: ${productUpdates.length}`);
+            productUpdates.forEach((update, index) => {
+                console.log(`productUpdates[${index}]: `, update);
+            });
+
+            await batchUpdateProductCounts(productUpdates, firebase.firestore());
     
-            // 주문 데이터를 CompletedOrders로 이동하고 Orders에서 삭제
-            orderData.주문처리날짜 = new Date();  // 현재 날짜와 시간을 저장
+            // 이후 완료 처리 로직 유지
+            orderData.주문처리날짜 = new Date();
             orderData.배송메시지 = "";
             orderData.수취인이름 = "";
-
+    
             await firebase.firestore().collection('CompletedOrders').doc(orderNumber).set(orderData);
             await orderDocRef.delete();
     
-            // 화면 초기화
             orderDetails.innerHTML = "";
             serviceDetails.innerHTML = "";
             orderDropdown.value = "";
             messageDiv.innerHTML = "<p>모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.</p>";
             playDingDong();
-            alert("모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.");    
-            // 주문 목록 갱신
+            alert("모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.");
             loadOrderNumbers(orderDropdown, messageDiv);
     
         } catch (error) {
@@ -234,6 +254,7 @@ document.addEventListener("DOMContentLoaded", function() {
             alert("포장 중 오류 발생");
         }
     });
+    
     
 
     deleteOrderButton.addEventListener('click', async function() {
@@ -291,3 +312,39 @@ document.addEventListener("DOMContentLoaded", function() {
         printWindow.print();
     }
 });
+async function processProductUpdateMap(barcode, productUpdatesMap, quantity) {
+    const productsFound = await searchByBarcode(barcode, firebase.firestore());
+    console.log(`barcode: ${barcode}`);
+    if (productsFound && productsFound.length > 0) {
+        const product = productsFound[0];
+
+        var optionKeySave;
+        if (product.OptionDatas) {
+            for (let optionKey in product.OptionDatas) {
+                if (product.OptionDatas[optionKey].바코드 === barcode) {
+                    optionKeySave = optionKey;
+                }
+            }
+        }
+
+        console.log(`product 찾음 optionKey: ${optionKeySave}`);
+
+        if (productUpdatesMap[product.id]) {
+            if (productUpdatesMap[product.id].data.OptionDatas[optionKeySave]) {
+                productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
+                console.log(`같은제품 있음 같은 옵션 있음: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
+            } else {
+                productUpdatesMap[product.id].data.OptionDatas[optionKeySave] = {
+                    ...product.OptionDatas[optionKeySave]
+                };
+                productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
+                console.log(`같은제품 있음 같은 옵션 없음: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
+            }
+        } else {
+            productUpdatesMap[product.id] = { id: product.id, data: product };
+            productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
+            console.log(`같은제품 없음 같은 옵션 없음: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
+        }
+    }
+}
+

@@ -21,9 +21,45 @@
         </div>
         <br><br>
         <div id="completeSection">
-            <button id="CreateNewOrderButton_vintage29800" class="large-button">새 주문서 생성 빈티지 29,800</button>
-            <button id="CreateNewOrderButton_sensitivity29800" class="large-button">새 주문서 생성 감성 29,800</button>
-            <button id="CreateNewOrderButton_cute29800" class="large-button">새 주문서 생성 큐트 29,800</button>
+
+            <!-- 중류 선택 드롭다운 추가 -->
+            <div>
+                <label for="typeDropdown">중류 선택:</label>
+                <select id="typeDropdown">
+                    <option value="시즌트렌디">시즌트렌디_1.6배</option>
+                    <option value="혜자꾸러미">혜자꾸러미_2배</option>
+                </select>
+            </div>
+            <br>            
+            <!-- 스타일 선택 드롭다운 추가 -->
+            <div>
+                <label for="styleDropdown">스타일 선택:</label>
+                <select id="styleDropdown">
+                    <option value="빈티지">빈티지</option>
+                    <option value="감성">감성</option>
+                    <option value="귀여운">귀여운</option>
+                </select>
+            </div>
+            <br>
+            <!-- 아이템 선택 드롭다운 추가 -->
+            <div>
+                <label for="itemDropdown">아이템 선택:</label>
+                <select id="itemDropdown">
+                    <option value="혼합">스티커 마스킹테이프 혼합</option>
+                    <option value="스티커">스티커</option>
+                    <option value="마스킹테이프">마스킹테이프</option>                    
+                </select>
+            </div>
+            <br>
+
+            <!-- 가격 입력 필드 추가 -->
+            <div>
+                <label for="priceInput">가격 입력:</label>
+                <input type="number" id="priceInput" placeholder="가격을 입력하세요">
+            </div>
+
+            <br>
+            <button id="CreateNewOrderButton" class="large-button">새 주문서 생성</button>            
             <br><br>
             <button id="printRecieptButton" class="large-button">프린트</button>
             <button id="packingRandomboxCompleteButton" class="large-button">포장완료</button>
@@ -48,8 +84,8 @@
             <!-- 새로운 세부 정보 -->
             <h3>랜덤박스번호: <span class="orderNumber"></span></h3>
             <p><strong>제품수량: </strong><span class="productQuantity"></span></p>
-            <p><strong>럭키랜덤박스가격: </strong><span class="luckyRandomBoxPrice"></span></p>
-            <p><strong>랜덤박스스타일: </strong><span class="randomBoxStyle"></span></p>
+            <p><strong>구매가격: </strong><span class="luckyRandomBoxPrice"></span></p>
+            <p><strong>제품명: </strong><span class="randomBoxStyle"></span></p>
             <p><strong>총제품가격: </strong><span class="totalProductPrice"></span></p>
             <p><strong>총제품원가: </strong><span class="totalProductCost"></span></p>
             <p><strong style="color: red;">순수익: </strong><span class="netProfit"></span></p>
@@ -93,10 +129,10 @@
                 <tbody class="randomItemDetailsRecipt">
                 </tbody>
             </table>
-            <p><strong>랜덤박스스타일: </strong><span class="randomBoxStyle"></span></p>
+            <p><strong>제품명: </strong><span class="randomBoxStyle"></span></p>
             <p><strong>총 제품수량: </strong><span class="productQuantity"></span></p>
             <p><strong>총제품가격: </strong><span class="totalProductPrice"></span></p>
-            <p><strong>럭키랜덤박스가격: </strong><span class="luckyRandomBoxPrice"></span></p>
+            <p><strong>구매가격: </strong><span class="luckyRandomBoxPrice"></span></p>
 
         </div>
 
