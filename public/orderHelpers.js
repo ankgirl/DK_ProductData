@@ -7,9 +7,9 @@ import { playBeep } from './playsound.js';
 function calculateTotals(orderData) {
     // 모든 서비스 제품 판매가 합산 (숫자로 변환하여 합산)
     const newServiceTotalSales = orderData.ProductService.reduce((acc, service) => {
-        const discountedPrice = parseFloat(service.DiscountedPrice) || 0;
-        console.log(`서비스 항목 DiscountedPrice: ${service.DiscountedPrice}, 변환된 값: ${discountedPrice}`);
-        return acc + discountedPrice;
+        const SellingPrice = parseFloat(service.SellingPrice) || 0;
+        console.log(`서비스 항목 SellingPrice: ${service.SellingPrice}, 변환된 값: ${SellingPrice}`);
+        return acc + SellingPrice;
     }, 0);
     orderData.서비스총판매가금액 = newServiceTotalSales;
 
@@ -180,7 +180,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                             <tr>
                                 <th>판매자 상품코드</th>
                                 <th>바코드</th>
-                                <th>Discounted Price</th>
+                                <th>SellingPrice</th>
                                 <th>원가</th>
                                 <th>수량</th>
                                 <th>옵션이미지</th>
@@ -196,7 +196,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                         <tr>
                             <td data-label="판매자상품코드">${service.SellerCode}</td>
                             <td data-label="바코드">${service.바코드}</td>
-                            <td data-label="Discounted Price">${service.DiscountedPrice}</td>
+                            <td data-label="SellingPrice">${service.SellingPrice}</td>
                             <td data-label="원가">${service.PriceBuy_kr}</td>
                             <td><input type="number" class="serviceQuantity" min="1" value="1" data-label="수량"></td> <!-- 수량 입력란 추가 -->
                             <td class="image-container"><img src="${service.옵션이미지URL}" alt="옵션이미지"></td>
@@ -289,7 +289,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
 
         const serviceData = {
             PriceBuy_kr: productData.PriceBuy_kr || 0,
-            DiscountedPrice: productData.DiscountedPrice || 0,
+            SellingPrice: productData.SellingPrice || 0,
             소분류명: productData.소분류명 ? productData.소분류명.replace("차입고", "") : '',
             SellerCode: productData.SellerCode || '',
             옵션정보: optionKey, // 일치하는 옵션의 키를 사용
