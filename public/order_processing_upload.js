@@ -156,7 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         itemcount += orderData.상품수량;
                     }
                 }
-            } else {
+            } else {                
                 const productDoc = await getProductBySellerCode(sellerCode);
                 if (productDoc?.OptionDatas?.[option]) {
                     const optData = productDoc.OptionDatas[option];

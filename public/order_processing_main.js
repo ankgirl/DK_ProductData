@@ -13,10 +13,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
     // console.log("Order map 초기화 완료");
-
-    // console.log("바코드 검색 테스트");
-    // var product = getProductByBarcode('6942004259173');
-    // console.log(product);
 });
 
 /**
@@ -77,12 +73,12 @@ export async function getOrderByOrderNumber(orderNumber) {
         console.log("orderMap이 초기화되지 않았습니다.");
         orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
         console.log("Order map 초기화 완료");
+        console.log(orderMap);
         return orderMap.get(orderNumber) || null;
     }
 
     return orderMap.get(orderNumber) || null;
 }
-
 
 /**
  * 바코드를 기준으로 제품 데이터를 검색하는 함수

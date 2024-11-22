@@ -2,7 +2,7 @@ import { generateImageURLs } from './generateImageURLs.js';
 import { searchByBarcode } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
-import { getProductByBarcode } from './order_processing_main.js';
+import { getOrderByOrderNumber, getProductByBarcode } from './order_processing_main.js';
 
 // 공통 계산 함수 정의
 function calculateTotals(orderData) {
@@ -81,7 +81,9 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
             if (!orderNumber) return;
 
             try {
-                const orderData = await getOrderData(orderNumber);
+                
+                //const orderData = await getOrderData(orderNumber);
+                const orderData = await getOrderByOrderNumber(orderNumber);
                 const productOrders = orderData.ProductOrders || {};
                 const productServices = orderData.ProductService || [];
 
@@ -243,7 +245,8 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
 // 서비스 상품 삭제 함수 정의
 export async function deleteServiceProduct(orderNumber, barcode, messageDiv) {
     try {
-        const orderData = await getOrderData(orderNumber);
+        //const orderData = await getOrderData(orderNumber);
+        const orderData = await getOrderByOrderNumber(orderNumber);
         const updatedProductServices = orderData.ProductService.filter(service => service.바코드 !== barcode);
         orderData.ProductService = updatedProductServices;
 
@@ -284,7 +287,8 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
             return;
         }
 
-        const orderData = await getOrderData(orderNumber);
+        //const orderData = await getOrderData(orderNumber);
+        const orderData = await getOrderByOrderNumber(orderNumber);
         if (!orderData.ProductService) {
             orderData.ProductService = [];
         }
