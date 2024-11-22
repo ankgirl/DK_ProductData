@@ -1,4 +1,4 @@
-//order_display.js
+//order_processing_display.js
 
 import { loadOrderNumbers, checkServiceBarcode, checkBarcode, getOrderData } from './orderHelpers.js';
 import { updateProductCounts, updateSetProductCounts } from './barcode_search.js';

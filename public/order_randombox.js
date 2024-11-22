@@ -8,6 +8,7 @@ import { packingRandomboxComplete } from './order_randomboxComplete.js';
 
 
 let globalOrderData = null;  // 전역 변수로 선언
+
 console.log("Script Loaded Outside DOMContentLoaded");
 document.addEventListener("DOMContentLoaded", async function() {
     console.log("DOMContentLoaded - Script Loaded"); // DOMContentLoaded 이벤트가 성공적으로 실행되었는지 확인

@@ -1,4 +1,4 @@
-// order_upload.js
+// order_processing_upload.js
 
 import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers } from './orderHelpers.js';

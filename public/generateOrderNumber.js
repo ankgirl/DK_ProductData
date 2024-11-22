@@ -1,5 +1,5 @@
 
-console.log("1");
+
 export function generateOrderNumber() {
     // 현재 날짜 가져오기
     const now = new Date();

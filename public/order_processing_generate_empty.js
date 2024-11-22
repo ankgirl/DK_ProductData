@@ -1,4 +1,3 @@
-// order_upload.js
 
 import { generateOrderNumber } from './generateOrderNumber.js';
 

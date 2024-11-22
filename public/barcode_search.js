@@ -1,5 +1,5 @@
 // barcode_search.js
-console.log("3");
+
 export async function searchByBarcode(barcode, db) {
     try {
         const allDocsSnapshot = await db.collection('Products').get();
