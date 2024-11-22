@@ -2,6 +2,7 @@
 
 import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers } from './orderHelpers.js';
+import { getProductBySellerCode } from './order_processing_main.js';
 
 document.addEventListener("DOMContentLoaded", function () {
     const uploadForm = document.getElementById("uploadForm");
@@ -81,27 +82,24 @@ document.addEventListener("DOMContentLoaded", function () {
                     const orderData = orderDetails.ProductOrders[productOrderNumber];
                     const sellerCode = orderData.SellerCode;
                     const option = orderData.옵션정보;
-                    const productDocRef = firebase.firestore().collection('Products').doc(sellerCode);
-
-                    const productDoc = await productDocRef.get();
+                    const productDoc = getProductBySellerCode(sellerCode);
+                    
                     let counts = '';
                     let barcode = '';
                     let 입고차수 = '';
                     let 원가 = 0;
 
-                    if (productDoc.exists) {
-                        const productData = productDoc.data();
-                        if (productData.OptionDatas && productData.OptionDatas[option]) {
-                            counts = productData.OptionDatas[option].Counts || '';
-                            barcode = productData.OptionDatas[option].바코드 || '';
-                            원가 = parseFloat(productData.PriceBuy_kr) || 0;
-                        } else if (productData.Barcode) {
-                            barcode = productData.Barcode;
-                        }
+                    console.log("productDoc.OptionDatas:", productDoc.OptionDatas);
+                    if (productDoc.OptionDatas && productDoc.OptionDatas[option]) {
+                        counts = productDoc.OptionDatas[option].Counts || '';
+                        barcode = productDoc.OptionDatas[option].바코드 || '';
+                        원가 = parseFloat(productDoc.PriceBuy_kr) || 0;
+                    } else if (productDoc.Barcode) {
+                        barcode = productDoc.Barcode;
+                    }
 
-                        if (productData.소분류명) {
-                            입고차수 = productData.소분류명.replace("차입고", "") || '';
-                        }
+                    if (productDoc.소분류명) {
+                        입고차수 = productDoc.소분류명.replace("차입고", "") || '';
                     }
 
                     // 입고차수정보에 따른 이미지명 생성
@@ -137,6 +135,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const saveOrderMap = {};
         let itemcount = 0;        
         console.log(orders);
+        const db = firebase.firestore();
+        const batch = db.batch(); // Firestore 배치 초기화
+    
         orders.forEach(order => {
             const orderNumber = order["주문번호"];
             const sellerCode = order["판매자 상품코드"];
@@ -168,7 +169,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     판매처: "스마트스토어",
                 };
             }
-            
+    
             ordersMap[orderNumber].ProductOrders[productOrderNumber] = orderData;
             ordersMap[orderNumber].총수량 += orderData.상품수량;
             ordersMap[orderNumber].총주문금액 += orderData.상품별총주문금액;
@@ -178,61 +179,49 @@ document.addEventListener("DOMContentLoaded", function () {
         for (let orderNumber in ordersMap) {
             const orderDetails = ordersMap[orderNumber];
             itemcount = 0;
-            //console.log("itemcount초기화");
             try {
                 for (let productOrderNumber in orderDetails.ProductOrders) {
                     const orderData = orderDetails.ProductOrders[productOrderNumber];
-
-                    
-                    let sellerCode = orderData.SellerCode;
+                    const sellerCode = orderData.SellerCode;
                     const option = orderData.옵션정보;
     
                     let productDocRef;
                     let productDocRefDivide;
                     let productData = null;
-                    let setProductData
     
                     if (sellerCode.startsWith("SET_")) {                
-                        // 이부분 코드 작성해줘orderDetails.ProductOrders[productOrderNumber] 를 제거하기
-                        // "SET_"을 제거한 후 Firestore에서 해당 문서 참조
                         const sellerCodeDivide = sellerCode.replace("SET_", "");
-                        productDocRef = firebase.firestore().collection('Products').doc(orderData.SellerCode);
-                        productDocRefDivide = firebase.firestore().collection('Products').doc(sellerCodeDivide);
+                        const productDoc = getProductBySellerCode(sellerCode);
+                        const productDocDivide = getProductBySellerCode(sellerCodeDivide);
+                        console.log("sellerCode 검색결과:", productDoc);
+                        console.log("sellerCode 검색결과:", sellerCodeDivide);
     
-                        // Firestore에서 해당 문서 가져오기
-                        const productDoc = await productDocRef.get();
-                        const productDocDivide = await productDocRefDivide.get();
-                        if (productDocDivide.exists && productDoc.exists) {                            
-                            setProductData = productDoc.data();                            
-                            const setCounts = setProductData.OptionDatas["옵션1"].Counts || '';
-                            productData = productDocDivide.data();
-                            
+                        if (productDocDivide && productDoc) {
+                            const setCounts = productDoc.OptionDatas["옵션1"].Counts || '';                            
                             delete orderDetails.ProductOrders[productOrderNumber];
-                            // 모든 옵션 데이터를 가져와서 처리
-                            let optionCount = Object.keys(productData.OptionDatas).length;
-                            for (let opt in productData.OptionDatas) {
-                                const optData = productData.OptionDatas[opt];
+    
+                            let optionCount = Object.keys(productDocDivide.OptionDatas).length;
+                            for (let opt in productDocDivide.OptionDatas) {
+                                const optData = productDocDivide.OptionDatas[opt];
                                 const counts = setCounts || '';
                                 const barcode = optData.바코드 || '';
-                                const 원가 = parseFloat(productData.PriceBuy_kr) || 0;
+                                const 원가 = parseFloat(productDocDivide.PriceBuy_kr) || 0;
                                 const totalPrice = (orderData.상품별총주문금액 / optionCount) || 0;
                                 const price = (orderData.상품결제금액 / optionCount) || 0;
-                                const 입고차수 = productData.소분류명 ? productData.소분류명.replace("차입고", "") : '';
+                                const 입고차수 = productDocDivide.소분류명 ? productDocDivide.소분류명.replace("차입고", "") : '';
     
-                                // 입고차수정보에 따른 이미지명 생성
                                 const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCodeDivide, opt, 입고차수);
     
-                                // SET_로 시작하는 제품의 경우, 판매자 상품코드(sellerCode)는 원래 값인 "SET_"가 포함된 값을 유지
                                 orderDetails.ProductOrders[`${productOrderNumber}_${opt}`] = {
                                     상품주문번호: productOrderNumber,
                                     주문번호: orderData.주문번호,
-                                    SellerCode: sellerCode, // 원래의 SET_가 붙은 sellerCode를 사용
+                                    SellerCode: sellerCode,
                                     상품명: orderData.상품명,
                                     상품수량: orderData.상품수량,
                                     상품별총주문금액: totalPrice,
                                     상품결제금액: price,
                                     옵션정보: opt,
-                                    Counts: counts, // SET_로 시작하는 제품의 옵션1 Counts 값
+                                    Counts: counts,
                                     바코드: barcode,
                                     입고차수: 입고차수,
                                     PriceBuy_kr: 원가,
@@ -242,62 +231,55 @@ document.addEventListener("DOMContentLoaded", function () {
                                 orderDetails.총원가금액 += 원가;
                                 itemcount += orderData.상품수량;
                                 console.log("itemcount: ", itemcount);
-
                             }
                         }
                     } else {
-                        // SET_로 시작하지 않는 일반 제품의 경우
-                        productDocRef = firebase.firestore().collection('Products').doc(sellerCode);
+                        productDocRef = firebase.firestore().collection('Products').doc(sellerCode);    
+                        const productDoc = getProductBySellerCode(sellerCode);
+                        console.log("sellerCode 검색결과:", productDoc);
     
-                        // Firestore에서 해당 문서 가져오기
-                        const productDoc = await productDocRef.get();
-                        if (productDoc.exists) {
-                            productData = productDoc.data();
-                            if (productData.OptionDatas && productData.OptionDatas[option]) {
-                                const counts = productData.OptionDatas[option].Counts || '';
-                                const barcode = productData.OptionDatas[option].바코드 || '';
-                                const 원가 = parseFloat(productData.PriceBuy_kr) || 0;
-                                const 입고차수 = productData.소분류명 ? productData.소분류명.replace("차입고", "") : '';
+                        if (productDoc.OptionDatas && productDoc.OptionDatas[option]) {
+                            const counts = productDoc.OptionDatas[option].Counts || '';
+                            const barcode = productDoc.OptionDatas[option].바코드 || '';
+                            const 원가 = parseFloat(productDoc.PriceBuy_kr) || 0;
+                            const 입고차수 = productDoc.소분류명 ? productDoc.소분류명.replace("차입고", "") : '';
     
-                                // 입고차수정보에 따른 이미지명 생성
-                                const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수);
+                            const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수);
     
-                                orderData.Counts = counts;
-                                orderData.바코드 = barcode;
-                                orderData.입고차수 = 입고차수;
-                                orderData.PriceBuy_kr = 원가;
-                                orderData.옵션이미지URL = 옵션이미지URL;
-                                orderData.실제이미지URL = 실제이미지URL;
+                            orderData.Counts = counts;
+                            orderData.바코드 = barcode;
+                            orderData.입고차수 = 입고차수;
+                            orderData.PriceBuy_kr = 원가;
+                            orderData.옵션이미지URL = 옵션이미지URL;
+                            orderData.실제이미지URL = 실제이미지URL;
     
-                                orderDetails.총원가금액 += 원가;
-                                itemcount+= orderData.상품수량;
-                                console.log("itemcount: ", itemcount);
-        
-                            }
+                            orderDetails.총원가금액 += 원가;
+                            itemcount += orderData.상품수량;
+                            console.log("itemcount: ", itemcount);
                         }
                     }
                 }
     
                 orderDetails.서비스제품금액 = Math.floor((orderDetails.총결제금액 - orderDetails.총원가금액) * 0.7 / 10) * 10;
                 orderDetails.총수량 = itemcount;
-
-                //orderDetails.ProductOrders.
-
-
     
-                const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-                await orderDocRef.set(orderDetails, { merge: true });
-                messageDiv.innerHTML += `<p>주문번호 ${orderNumber} 저장 성공!</p>`;
+                const orderDocRef = db.collection('Orders').doc(orderNumber);
+                batch.set(orderDocRef, orderDetails, { merge: true }); // 배치에 추가
+                messageDiv.innerHTML += `<p>주문번호 ${orderNumber} 배치에 추가!</p>`;
             } catch (error) {
-                console.error("Error writing document: ", error);
-                messageDiv.innerHTML += `<p>주문번호 ${orderNumber} 저장 중 오류 발생: ${error.message}</p>`;
+                console.error("Error preparing batch: ", error);
             }
+        }
+    
+        try {
+            await batch.commit(); // 배치를 커밋하여 모든 작업 수행
+            messageDiv.innerHTML += `<p>모든 주문 저장 성공!</p>`;
+        } catch (error) {
+            console.error("Batch commit error: ", error);
+            messageDiv.innerHTML += `<p>배치 저장 중 오류 발생: ${error.message}</p>`;
         }
     
         loadOrderNumbers(orderDropdown, messageDiv);
     }
     
-    
-
-    //loadOrderNumbers(orderDropdown, messageDiv);
 });
