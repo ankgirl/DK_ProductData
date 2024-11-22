@@ -8,11 +8,11 @@ let orderMap = null;
 document.addEventListener("DOMContentLoaded", async function () {
     const db = firebase.firestore();
     
-    productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
-    console.log("Product map 초기화 완료");
+    // productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
+    // console.log("Product map 초기화 완료");
     
-    orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
-    console.log("Order map 초기화 완료");
+    // orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
+    // console.log("Order map 초기화 완료");
 
     // console.log("바코드 검색 테스트");
     // var product = getProductByBarcode('6942004259173');
@@ -56,10 +56,12 @@ async function initializeMap(db, collectionName, snapshotVariableName) {
  * @param {string} sellerCode - 검색할 sellerCode 값
  * @returns {Object|null} - 해당 제품 데이터
  */
-export function getProductBySellerCode(sellerCode) {
+export async function getProductBySellerCode(sellerCode) {
     if (!productMap) {
-        console.error("productMap이 초기화되지 않았습니다.");
-        return null;
+        console.log("productMap이 초기화되지 않았습니다.");
+        productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
+        console.log("Product map 초기화 완료");        
+        productMap.get(sellerCode) || null;
     }
 
     return productMap.get(sellerCode) || null;
@@ -70,10 +72,12 @@ export function getProductBySellerCode(sellerCode) {
  * @param {string} orderNumber - 검색할 orderNumber 값
  * @returns {Object|null} - 해당 주문 데이터
  */
-export function getOrderByOrderNumber(orderNumber) {
+export async function getOrderByOrderNumber(orderNumber) {
     if (!orderMap) {
-        console.error("orderMap이 초기화되지 않았습니다.");
-        return null;
+        console.log("orderMap이 초기화되지 않았습니다.");
+        orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
+        console.log("Order map 초기화 완료");
+        return orderMap.get(orderNumber) || null;
     }
 
     return orderMap.get(orderNumber) || null;

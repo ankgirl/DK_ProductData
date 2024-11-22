@@ -2,6 +2,7 @@ import { generateImageURLs } from './generateImageURLs.js';
 import { searchByBarcode } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
+import { getProductByBarcode } from './order_processing_main.js';
 
 // 공통 계산 함수 정의
 function calculateTotals(orderData) {
@@ -264,12 +265,13 @@ export async function deleteServiceProduct(orderNumber, barcode, messageDiv) {
 // checkServiceBarcode 함수 정의
 export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
     try {
-        const productsFound = await searchByBarcode(barcode, firebase.firestore());
+        var productsFound = getProductByBarcode (barcode);
+        messageDiv.innerHTML += `<p>서비스상품 추가 완료. ${productsFound.스토어키워드네임},${productsFound.SellerCode}, ${productsFound.matchedOption} </p>`;        
         if (!productsFound) {
             alert("바코드가 일치하는 제품을 찾을 수 없습니다.");
             return;
         }
-        const productData = productsFound[0];
+        const productData = productsFound;
         const optionKey = productData.matchedOption || ''; // matchedOption이 있으면 사용, 없으면 빈 문자열
         const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명);
 

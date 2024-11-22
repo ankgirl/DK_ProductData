@@ -117,8 +117,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (sellerCode.startsWith("SET_")) {
                 const sellerCodeDivide = sellerCode.replace("SET_", "");
-                const productDoc = getProductBySellerCode(sellerCode);
-                const productDocDivide = getProductBySellerCode(sellerCodeDivide);
+                const productDoc = await getProductBySellerCode(sellerCode);
+                const productDocDivide = await getProductBySellerCode(sellerCodeDivide);
 
                 if (productDoc && productDocDivide) {
                     const setCounts = productDoc.OptionDatas["옵션1"]?.Counts || '';
@@ -157,7 +157,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                 }
             } else {
-                const productDoc = getProductBySellerCode(sellerCode);
+                const productDoc = await getProductBySellerCode(sellerCode);
                 if (productDoc?.OptionDatas?.[option]) {
                     const optData = productDoc.OptionDatas[option];
                     const counts = optData.Counts || '';
