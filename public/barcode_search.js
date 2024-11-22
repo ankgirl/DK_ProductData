@@ -1,5 +1,7 @@
 // barcode_search.js
 
+
+
 export async function searchByBarcode(barcode, db) {
     try {
         const allDocsSnapshot = await db.collection('Products').get();
@@ -28,6 +30,9 @@ export async function searchByBarcode(barcode, db) {
         throw new Error("Error getting document");
     }
 }
+
+
+
 
 
 export async function updateProductCounts(barcode, quantity, db) {

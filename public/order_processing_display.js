@@ -1,12 +1,11 @@
 //order_processing_display.js
 
 import { loadOrderNumbers, checkServiceBarcode, checkBarcode, getOrderData } from './orderHelpers.js';
-import { updateProductCounts, updateSetProductCounts } from './barcode_search.js';
+import { updateSetProductCounts } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 import { saveBarcodeInfoToDB } from './orderHelpers.js';
-import { searchByBarcode } from './barcode_search.js';
-
+import { getProductByBarcode } from './order_processing_main.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -179,7 +178,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         const barcodeCell = row.querySelector('[data-label="바코드"]');
                         if (barcodeCell) {
                             const barcode = barcodeCell.textContent;
-                            await processProductUpdateMap(barcode, productUpdatesMap, quantity);
+                            processProductUpdateMap(barcode, productUpdatesMap, quantity);
                         }
                     }
                 }
@@ -215,7 +214,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (barcodeCell) {
                     const barcode = barcodeCell;
                     const quantity = 1; // 서비스 제품은 기본적으로 수량이 1이라고 가정
-                    await processProductUpdateMap(barcode, productUpdatesMap, quantity);
+                    processProductUpdateMap(barcode, productUpdatesMap, quantity);
 
                 } else {
                     console.warn("Barcode cell not found for service row");
@@ -312,8 +311,10 @@ document.addEventListener("DOMContentLoaded", function() {
         printWindow.print();
     }
 });
-async function processProductUpdateMap(barcode, productUpdatesMap, quantity) {
-    const productsFound = await searchByBarcode(barcode, firebase.firestore());
+function processProductUpdateMap(barcode, productUpdatesMap, quantity) {
+    //const productsFound = await searchByBarcode(barcode, firebase.firestore());
+    const productsFound = getProductByBarcode (barcode);
+
     console.log(`barcode: ${barcode}`);
     if (productsFound && productsFound.length > 0) {
         const product = productsFound[0];

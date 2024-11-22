@@ -13,6 +13,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
     console.log("Order map 초기화 완료");
+
+    // console.log("바코드 검색 테스트");
+    // var product = getProductByBarcode('6942004259173');
+    // console.log(product);
 });
 
 /**
@@ -73,4 +77,37 @@ export function getOrderByOrderNumber(orderNumber) {
     }
 
     return orderMap.get(orderNumber) || null;
+}
+
+
+/**
+ * 바코드를 기준으로 제품 데이터를 검색하는 함수
+ * @param {string} barcode - 검색할 바코드 값
+ * @returns {Object|null} - 해당 바코드를 가진 제품 데이터 (옵션 포함)
+ */
+export function getProductByBarcode(barcode) {
+    if (!productMap) {
+        console.error("productMap이 초기화되지 않았습니다.");
+        return null;
+    }
+
+    // Map을 순회하며 바코드 확인
+    for (let [id, data] of productMap.entries()) {
+        // 제품의 바코드 확인
+        if (data.Barcode === barcode) {
+            return { id, ...data, matchedOption: null };
+        }
+
+        // 각 옵션의 바코드 확인
+        if (data.OptionDatas) {
+            for (let option in data.OptionDatas) {
+                if (data.OptionDatas[option].바코드 === barcode) {
+                    return { id, ...data, matchedOption: option };
+                }
+            }
+        }
+    }
+
+    console.warn(`바코드 ${barcode}에 해당하는 제품을 찾을 수 없습니다.`);
+    return null;
 }
