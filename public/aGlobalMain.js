@@ -1,4 +1,4 @@
-// order_processing_main.js
+// aGlobalMain.js
 
 let allProductsSnapshot = null;
 let allOrdersSnapshot = null;
@@ -62,6 +62,13 @@ export async function getProductBySellerCode(sellerCode) {
 
     return productMap.get(sellerCode) || null;
 }
+
+
+export async function reInitializeProductMap() {
+    productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
+    return productMap;
+}
+
 
 /**
  * orderNumber를 기준으로 주문 데이터를 가져오는 함수

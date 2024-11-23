@@ -2,7 +2,7 @@
 
 import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers } from './orderHelpers.js';
-import { getProductBySellerCode } from './order_processing_main.js';
+import { getProductBySellerCode } from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function () {
     const uploadForm = document.getElementById("uploadForm");

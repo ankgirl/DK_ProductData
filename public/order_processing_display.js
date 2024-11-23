@@ -5,7 +5,7 @@ import { updateSetProductCounts } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 import { saveBarcodeInfoToDB } from './orderHelpers.js';
-import { getProductByBarcode } from './order_processing_main.js';
+import { getProductByBarcode } from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");

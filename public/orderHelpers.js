@@ -2,7 +2,7 @@ import { generateImageURLs } from './generateImageURLs.js';
 import { searchByBarcode } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
-import { getOrderByOrderNumber, getProductByBarcode } from './order_processing_main.js';
+import { getOrderByOrderNumber, getProductByBarcode } from './aGlobalMain.js';
 
 // 공통 계산 함수 정의
 function calculateTotals(orderData) {
@@ -47,15 +47,15 @@ function calculateTotals(orderData) {
     console.log(`새 주문 총 원가 금액: ${newOrderTotalCost}`);
 }
 
-// 주문서 데이터 가져오기 함수
-export async function getOrderData(orderNumber) {
-    const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-    const orderDoc = await orderDocRef.get();
-    if (orderDoc.exists) {
-        return orderDoc.data();
-    }
-    throw new Error("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
-}
+// // 주문서 데이터 가져오기 함수
+// export async function getOrderData(orderNumber) {
+//     const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+//     const orderDoc = await orderDocRef.get();
+//     if (orderDoc.exists) {
+//         return orderDoc.data();
+//     }
+//     throw new Error("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
+// }
 
 export async function loadOrderNumbers(orderDropdown, messageDiv) {
     try {
