@@ -59,6 +59,7 @@ function calculateTotals(orderData) {
 
 export async function loadOrderNumbers(orderDropdown, messageDiv) {
     try {
+        console.warn("loadOrderNumbers");
         const ordersSnapshot = await firebase.firestore().collection('Orders').get();
         orderDropdown.innerHTML = "<option value=''>주문 번호 선택</option>";
 
@@ -270,12 +271,12 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
     try {
         var productsFound = await getProductByBarcode (barcode);
 
-
         messageDiv.innerHTML += `<p>서비스상품 추가 완료. ${productsFound.스토어키워드네임},${productsFound.SellerCode}, ${productsFound.matchedOption} </p>`;        
         if (!productsFound) {
             alert("바코드가 일치하는 제품을 찾을 수 없습니다.");
             return;
         }
+
         const productData = productsFound;
         const optionKey = productData.matchedOption || ''; // matchedOption이 있으면 사용, 없으면 빈 문자열
         const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명);
@@ -310,14 +311,14 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
 
         calculateTotals(orderData);
 
-        const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-        await orderDocRef.set(orderData, { merge: true });
+        // const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+        // await orderDocRef.set(orderData, { merge: true });
 
         messageDiv.innerHTML += `<p>서비스 상품 바코드 ${barcode} 저장 성공!</p>`;
 
-        await loadOrderNumbers(orderDropdown, messageDiv);
-        orderDropdown.value = orderNumber;
-        orderDropdown.dispatchEvent(new Event('change'));
+        // await loadOrderNumbers(orderDropdown, messageDiv);
+        // orderDropdown.value = orderNumber;
+        // orderDropdown.dispatchEvent(new Event('change'));
 
         return orderData;  // 데이터 저장 후 상세 정보 반환
     } catch (error) {
@@ -371,7 +372,9 @@ export function checkBarcode(barcode, orderDetails) {
             const orderNumber = orderDropdown.value;
             if (!orderNumber) return;
 
-            saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity + 1);
+            //saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity + 1);
+            // todo: 임시저장 -> 글로벌주문정보
+
         }
     });
 
@@ -383,30 +386,30 @@ export function checkBarcode(barcode, orderDetails) {
     }
 }
 
-// Firestore에 데이터 저장 함수
-export async function saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity) {
-    try {
-        const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-        const orderDoc = await orderDocRef.get();
+// // Firestore에 데이터 저장 함수
+// export async function saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity) {
+//     try {
+//         const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+//         const orderDoc = await orderDocRef.get();
 
-        if (orderDoc.exists) {
-            const orderData = orderDoc.data();
-            const productOrders = orderData.ProductOrders || {};
+//         if (orderDoc.exists) {
+//             const orderData = orderDoc.data();
+//             const productOrders = orderData.ProductOrders || {};
 
-            if (!productOrders[productOrderNumber]) {
-                productOrders[productOrderNumber] = {};
-            }
+//             if (!productOrders[productOrderNumber]) {
+//                 productOrders[productOrderNumber] = {};
+//             }
 
-            productOrders[productOrderNumber].found = true;
-            productOrders[productOrderNumber].currentPackingQuantity = currentPackingQuantity;
+//             productOrders[productOrderNumber].found = true;
+//             productOrders[productOrderNumber].currentPackingQuantity = currentPackingQuantity;
 
-            await orderDocRef.set({ ProductOrders: productOrders }, { merge: true });
+//             await orderDocRef.set({ ProductOrders: productOrders }, { merge: true });
 
-            console.log(`바코드 정보가 성공적으로 저장되었습니다: ${productOrderNumber}`);
-        } else {
-            console.error("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
-        }
-    } catch (error) {
-        console.error("바코드 정보를 Firestore에 저장하는 중 오류 발생: ", error);
-    }
-}
+//             console.log(`바코드 정보가 성공적으로 저장되었습니다: ${productOrderNumber}`);
+//         } else {
+//             console.error("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
+//         }
+//     } catch (error) {
+//         console.error("바코드 정보를 Firestore에 저장하는 중 오류 발생: ", error);
+//     }
+// }

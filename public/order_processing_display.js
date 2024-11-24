@@ -4,9 +4,9 @@ import { loadOrderNumbers, checkServiceBarcode, checkBarcode} from './orderHelpe
 import { updateSetProductCounts } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
-import { saveBarcodeInfoToDB } from './orderHelpers.js';
+//import { saveBarcodeInfoToDB } from './orderHelpers.js';
 import { getProductByBarcode } from './aGlobalMain.js';
-import { reInitializeOrderMap, reInitializeProductMap } from './aGlobalMain.js';
+import { reInitializeOrderMap, reInitializeProductMap, getOrderByOrderNumber } from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (event.key === 'Enter') {
             const barcode = serviceBarcodeInput.value.trim();
             if (barcode) {
-                await checkServiceBarcode(barcode, orderDropdown, messageDiv);
+                await checkServiceBarcode (barcode, orderDropdown, messageDiv);
                 serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
             }
         }
@@ -52,7 +52,8 @@ document.addEventListener("DOMContentLoaded", function() {
             if (orderNumber && productOrderNumber) {
                 try {
                     const currentPackingQuantity = parseInt(packingQuantityInput.value, 10) || 0;
-                    await saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity);
+
+                    //await saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity);
                     messageDiv.innerHTML += `<p>포장수량이 업데이트되었습니다: ${productOrderNumber} - ${currentPackingQuantity}</p>`;
                 } catch (error) {
                     console.error("Error updating packing quantity: ", error);
@@ -89,29 +90,38 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
 
-    async function fetchOrderData(orderNumber) {
-        const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-        const orderDoc = await orderDocRef.get();
-    
-        if (!orderDoc.exists) {
-            console.error("Order document does not exist");
-            return null;
-        }
-        return orderDoc.data();
-    }
+    // async function fetchOrderData(orderNumber) {
+    //     console.warn(orderNumber);
+    //     //const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+    //     const orderDoc = await getOrderByOrderNumber(orderNumber);
+    //     //const orderDoc = await orderDocRef.get();
+    //     // if (!orderDoc.exists) {
+    //     //     console.error("Order document does not exist");
+    //     //     return null;
+    //     // }
+    //     // console.warn(orderDoc);
+    //     // console.warn(orderDoc.data());
+
+
+    //     return orderDoc;
+    // }
 
     async function validatePacking(orderData) {
         const totalQuantityFromOrder = orderData.총수량;
         let totalPackedQuantity = 0;
         let allChecked = true;
-    
+        console.log(orderData.ProductOrders);
+        console.log(orderData.ProductOrders.length);
         const productOrdersArray = Object.values(orderData.ProductOrders || {});
-        for (const product of productOrdersArray) {
-            if (!product.currentPackingQuantity || !product.found) {
-                allChecked = false;
-                break;
+        const productRows = orderDetails.querySelectorAll("tbody tr");
+        for (const row of productRows) {
+            console.log(`productRows: ${row}`);
+            const packingQuantityInput = row.querySelector('.packingQuantity');
+
+            if (packingQuantityInput && packingQuantityInput.value !== '') {
+                totalPackedQuantity += parseInt(packingQuantityInput.value, 10) || 0;;
+                console.log(totalPackedQuantity);
             }
-            totalPackedQuantity += parseInt(product.currentPackingQuantity, 10) || 0;
         }
     
         if (totalPackedQuantity !== totalQuantityFromOrder) {
@@ -150,7 +160,8 @@ document.addEventListener("DOMContentLoaded", function() {
             const orderNumber = orderDropdown.value;
             if (!orderNumber) return;
             const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-            const orderData = await fetchOrderData(orderNumber);
+            //const orderData = await fetchOrderData(orderNumber);
+            const orderData = await getOrderByOrderNumber(orderNumber);
             if (!orderData) return;    
             if (!await validatePacking(orderData)) return;
             const productUpdatesMap = {};
