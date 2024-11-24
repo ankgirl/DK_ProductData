@@ -3,13 +3,15 @@
 import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers } from './orderHelpers.js';
 import { getProductBySellerCode } from './aGlobalMain.js';
+import { reInitializeOrderMap, reInitializeProductMap } from './aGlobalMain.js';
+
 
 document.addEventListener("DOMContentLoaded", function () {
     const uploadForm = document.getElementById("uploadForm");
     const messageDiv = document.getElementById("message");
     const orderDropdown = document.getElementById("orderDropdown");
 
-    uploadForm.addEventListener("submit", function (event) {
+    uploadForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         const xlsxFile = document.getElementById("xlsxFile").files[0];
         if (!xlsxFile) {
@@ -93,12 +95,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             await batch.commit(); // 배치를 커밋하여 모든 작업 수행
+            await reInitializeOrderMap ();
+            await reInitializeProductMap ();
             messageDiv.innerHTML += `<p>모든 주문 저장 성공!</p>`;
         } catch (error) {
             console.error("Batch commit error: ", error);
             messageDiv.innerHTML += `<p>배치 저장 중 오류 발생: ${error.message}</p>`;
         }
-
         loadOrderNumbers(orderDropdown, messageDiv);
     }
 

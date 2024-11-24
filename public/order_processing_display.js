@@ -1,11 +1,12 @@
 //order_processing_display.js
 
-import { loadOrderNumbers, checkServiceBarcode, checkBarcode, getOrderData } from './orderHelpers.js';
+import { loadOrderNumbers, checkServiceBarcode, checkBarcode} from './orderHelpers.js';
 import { updateSetProductCounts } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 import { saveBarcodeInfoToDB } from './orderHelpers.js';
 import { getProductByBarcode } from './aGlobalMain.js';
+import { reInitializeOrderMap, reInitializeProductMap } from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -131,10 +132,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
     async function batchUpdateProductCounts(productUpdates, db) {
         const batch = db.batch();  // Firestore 배치 생성
-    
+        console.log("productUpdates", productUpdates);
         productUpdates.forEach(update => {
-            const { id, data } = update;
+            const { id, data } = update;            
+            console.log(`id: ${id}`);
             const docRef = db.collection('Products').doc(id);
+            console.log(`docRef: ${docRef}`);
             batch.set(docRef, data, { merge: true });
         });
     
@@ -143,22 +146,14 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     
     packingCompleteButton.addEventListener('click', async function() {
-
         try {
             const orderNumber = orderDropdown.value;
             if (!orderNumber) return;
-
             const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-
-    
             const orderData = await fetchOrderData(orderNumber);
-            if (!orderData) return;
-    
+            if (!orderData) return;    
             if (!await validatePacking(orderData)) return;
-
-            // 제품 업데이트 정보를 모으는 객체로 변경하여 중복 방지
             const productUpdatesMap = {};
-            // 모든 상품 정보 행 처리
             const productRows = orderDetails.querySelectorAll("tbody tr");
             const SETProductSellerCode = {};
             
@@ -178,7 +173,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         const barcodeCell = row.querySelector('[data-label="바코드"]');
                         if (barcodeCell) {
                             const barcode = barcodeCell.textContent;
-                            processProductUpdateMap(barcode, productUpdatesMap, quantity);
+                            await processProductUpdateMap(barcode, productUpdatesMap, quantity);
                         }
                     }
                 }
@@ -214,23 +209,23 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (barcodeCell) {
                     const barcode = barcodeCell;
                     const quantity = 1; // 서비스 제품은 기본적으로 수량이 1이라고 가정
-                    processProductUpdateMap(barcode, productUpdatesMap, quantity);
+                    await processProductUpdateMap(barcode, productUpdatesMap, quantity);
+                    console.log(`productUpdatesMap: ${productUpdatesMap}`);
 
                 } else {
                     console.warn("Barcode cell not found for service row");
                 }
             }
-
+            console.log(`0000: ${serviceRows.length}`);
             // productUpdatesMap의 값을 배열로 변환하여 Firestore에 배치 업데이트 실행
             const productUpdates = Object.values(productUpdatesMap);
             console.log(`productUpdates count: ${productUpdates.length}`);
             productUpdates.forEach((update, index) => {
                 console.log(`productUpdates[${index}]: `, update);
             });
-
+            console.log(`1111: ${productUpdates}`);
             await batchUpdateProductCounts(productUpdates, firebase.firestore());
-    
-            // 이후 완료 처리 로직 유지
+            console.log(`2222: ${productUpdates}`);
             orderData.주문처리날짜 = new Date();
             orderData.배송메시지 = "";
             orderData.수취인이름 = "";
@@ -238,6 +233,11 @@ document.addEventListener("DOMContentLoaded", function() {
             await firebase.firestore().collection('CompletedOrders').doc(orderNumber).set(orderData);
             await orderDocRef.delete();
     
+            await reInitializeOrderMap ();
+            console.log(`3333`);
+            await reInitializeProductMap ();            
+            console.log(`4444`);
+
             orderDetails.innerHTML = "";
             serviceDetails.innerHTML = "";
             orderDropdown.value = "";
@@ -311,41 +311,59 @@ document.addEventListener("DOMContentLoaded", function() {
         printWindow.print();
     }
 });
-function processProductUpdateMap(barcode, productUpdatesMap, quantity) {
-    //const productsFound = await searchByBarcode(barcode, firebase.firestore());
-    const productsFound = getProductByBarcode (barcode);
 
-    console.log(`barcode: ${barcode}`);
-    if (productsFound && productsFound.length > 0) {
-        const product = productsFound[0];
-
-        var optionKeySave;
-        if (product.OptionDatas) {
-            for (let optionKey in product.OptionDatas) {
-                if (product.OptionDatas[optionKey].바코드 === barcode) {
-                    optionKeySave = optionKey;
-                }
+async function processProductUpdateMap(barcode, productUpdatesMap, quantity) {
+    //console.log(`processProductUpdateMap: ${barcode}`);
+    const product = await getProductByBarcode (barcode);
+    console.log(`barcode: ${barcode}, product: ${product}`);    
+    //console.warn()
+    var optionKeySave;
+    if (product.OptionDatas) {
+        for (let optionKey in product.OptionDatas) {
+            if (product.OptionDatas[optionKey].바코드 === barcode) {
+                optionKeySave = optionKey;
+                console.log(`optionKeySave: ${optionKeySave}`);
             }
-        }
-
-        console.log(`product 찾음 optionKey: ${optionKeySave}`);
-
-        if (productUpdatesMap[product.id]) {
-            if (productUpdatesMap[product.id].data.OptionDatas[optionKeySave]) {
-                productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
-                console.log(`같은제품 있음 같은 옵션 있음: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
-            } else {
-                productUpdatesMap[product.id].data.OptionDatas[optionKeySave] = {
-                    ...product.OptionDatas[optionKeySave]
-                };
-                productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
-                console.log(`같은제품 있음 같은 옵션 없음: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
-            }
-        } else {
-            productUpdatesMap[product.id] = { id: product.id, data: product };
-            productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
-            console.log(`같은제품 없음 같은 옵션 없음: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
         }
     }
+
+    console.log(`product 찾음 optionKey: ${optionKeySave}`);
+    
+
+    if (productUpdatesMap[product.id]) {
+        console.log(`옵션정보: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave]}`);
+        console.log(`옵션정보: ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave]}`);
+        if (productUpdatesMap[product.id].data.OptionDatas[optionKeySave]) {
+            productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
+            console.log(`같은제품 있음 같은 옵션 있음: ${product.id} ${optionKeySave} ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
+        } else {
+            productUpdatesMap[product.id].data.OptionDatas[optionKeySave] = {
+                ...product.OptionDatas[optionKeySave]
+            };
+            productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
+            console.log(`같은제품 있음 같은 옵션 없음: ${product.id} ${optionKeySave} ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
+            console.log(`옵션정보: ${productUpdatesMap[product.id].data.OptionDatas}`);
+        }
+    } else {
+        // productUpdatesMap[product.id] = { id: product.id, data: product };
+        // productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
+        // console.log(`같은제품 없음 같은 옵션 없음: ${product.id} ${optionKeySave} ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
+
+
+        productUpdatesMap[product.id] = { 
+            id: product.id, 
+            data: { 
+                ...product, 
+                OptionDatas: { [optionKeySave]: { ...product.OptionDatas[optionKeySave] } } 
+            }
+        };
+        productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts -= quantity;
+        console.log(`같은제품 없음 같은 옵션 없음: ${product.id} ${optionKeySave} ${productUpdatesMap[product.id].data.OptionDatas[optionKeySave].Counts}`);
+    
+        
+    }
+    console.log(`productUpdatesMap${productUpdatesMap}`);
+    return productUpdatesMap;
+    //}
 }
 

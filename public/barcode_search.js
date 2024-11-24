@@ -1,5 +1,5 @@
 // barcode_search.js
-
+import { getProductByBarcode } from './aGlobalMain.js';
 
 
 export async function searchByBarcode(barcode, db) {
@@ -88,28 +88,25 @@ export async function updateSetProductCounts(sellerCode, quantity, db) {
         console.log("Received sellerCode:", sellerCode);
         console.log("Received quantity:", quantity);
 
-        //const productsFound = await searchbysellerCode(sellerCode, db);
-        const productsFound  = await db.collection('Products').doc(sellerCode).get();
-        console.log("Products found:", productsFound);
+        //const productsFound  = await db.collection('Products').doc(sellerCode).get();
+        const product = await getProductByBarcode (barcode);
+        console.log("Products found:", product);
+        console.error("Products found:", product);
 
-        if (!productsFound) {
-            throw new Error("No product found with the given barcode");
-        }
+        // if (!productsFound) {
+        //     throw new Error("No product found with the given barcode");
+        // }
         
-        const product = productsFound.data();
+        // const product = productsFound.data();
         let updatedCounts;
-        console.log("Found product:", productsFound);
-        console.log("Found product:", product);
-
         const currentCounts = product.OptionDatas["옵션1"].Counts || 0;
         console.log("currentCounts", currentCounts);
         updatedCounts = currentCounts - quantity;
         console.log("updatedCounts", updatedCounts);
         product.OptionDatas["옵션1"].Counts = updatedCounts;
-        
+        console.log("Products", product);        
         await db.collection('Products').doc(sellerCode).set(product, { merge: true });
         console.log("Updated product in DB:", product);
-
         return updatedCounts;
     } catch (error) {
         console.error("Error updating product counts:", error);

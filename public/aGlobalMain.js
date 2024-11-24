@@ -34,8 +34,8 @@ async function initializeMap(db, collectionName, snapshotVariableName) {
         allProductsSnapshot = snapshot;
     } else if (snapshotVariableName === 'allOrdersSnapshot') {
         allOrdersSnapshot = snapshot;
-    }
-
+    }    
+    console.log("allOrdersSnapshot", allOrdersSnapshot);
     const map = new Map();
     snapshot.forEach(doc => {
         map.set(doc.id, {
@@ -44,6 +44,7 @@ async function initializeMap(db, collectionName, snapshotVariableName) {
         });
     });
 
+    console.log("map", map);
     return map;
 }
 
@@ -66,9 +67,15 @@ export async function getProductBySellerCode(sellerCode) {
 
 export async function reInitializeProductMap() {
     productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
+    console.log("reInitializeOrderMap", productMap);
     return productMap;
 }
 
+export async function reInitializeOrderMap() {
+    orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
+    console.log("reInitializeOrderMap", orderMap);
+    return orderMap;
+}
 
 /**
  * orderNumber를 기준으로 주문 데이터를 가져오는 함수
@@ -92,10 +99,13 @@ export async function getOrderByOrderNumber(orderNumber) {
  * @param {string} barcode - 검색할 바코드 값
  * @returns {Object|null} - 해당 바코드를 가진 제품 데이터 (옵션 포함)
  */
-export function getProductByBarcode(barcode) {
-    if (!productMap) {
-        console.error("productMap이 초기화되지 않았습니다.");
-        return null;
+export async function getProductByBarcode(barcode) {
+    if (!productMap) {        
+        productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
+        if (!productMap) {
+            console.error("productMap이 초기화되지 않았습니다.");
+            return null;
+        }
     }
 
     // Map을 순회하며 바코드 확인
@@ -109,6 +119,7 @@ export function getProductByBarcode(barcode) {
         if (data.OptionDatas) {
             for (let option in data.OptionDatas) {
                 if (data.OptionDatas[option].바코드 === barcode) {
+                    console.warn(`바코드 ${barcode}`);
                     return { id, ...data, matchedOption: option };
                 }
             }

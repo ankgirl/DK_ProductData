@@ -268,7 +268,9 @@ export async function deleteServiceProduct(orderNumber, barcode, messageDiv) {
 // checkServiceBarcode 함수 정의
 export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
     try {
-        var productsFound = getProductByBarcode (barcode);
+        var productsFound = await getProductByBarcode (barcode);
+
+
         messageDiv.innerHTML += `<p>서비스상품 추가 완료. ${productsFound.스토어키워드네임},${productsFound.SellerCode}, ${productsFound.matchedOption} </p>`;        
         if (!productsFound) {
             alert("바코드가 일치하는 제품을 찾을 수 없습니다.");
