@@ -94,6 +94,41 @@ export async function getOrderByOrderNumber(orderNumber) {
     return orderMap.get(orderNumber) || null;
 }
 
+export function getOrderMap () {
+    return orderMap;
+
+}
+
+export function updateOrderInfo(orderNumber, productOrderNumber, currentPackingQuantity) {
+    var order = orderMap.get(orderNumber);
+    const productOrderKeys = Object.keys(order.ProductOrders);
+    let key;
+    if (productOrderNumber instanceof HTMLElement) {
+        key = productOrderNumber.textContent.trim(); // HTML 요소에서 텍스트 추출
+    } else {
+        key = String(productOrderNumber).trim(); // 일반 문자열 변환
+    }
+    const matchingKey = productOrderKeys.find(k => k === key);
+    if (matchingKey) {
+        order.ProductOrders[matchingKey].currentPackingQuantity = currentPackingQuantity;
+        if (order.ProductOrders[matchingKey].currentPackingQuantity == order.ProductOrders[matchingKey].상품수량){
+            order.ProductOrders[matchingKey].found = true;
+        }
+        else{
+            order.ProductOrders[matchingKey].found = false;
+        }
+    } else {
+    }
+}
+export function updateOrderProductService (orderNumber, productService) {
+    console.warn("updateOrderProductService")
+    console.log("orderNumber", orderNumber);
+    console.log("orderNumber", productService);
+    var order = orderMap.get(orderNumber);
+    order.productService = productService;
+    console.log(order.productService)
+}
+
 /**
  * 바코드를 기준으로 제품 데이터를 검색하는 함수
  * @param {string} barcode - 검색할 바코드 값

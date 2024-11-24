@@ -2,7 +2,7 @@ import { generateImageURLs } from './generateImageURLs.js';
 import { searchByBarcode } from './barcode_search.js';
 import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
-import { getOrderByOrderNumber, getProductByBarcode } from './aGlobalMain.js';
+import { getOrderByOrderNumber, getProductByBarcode, updateOrderProductService } from './aGlobalMain.js';
 
 // 공통 계산 함수 정의
 function calculateTotals(orderData) {
@@ -309,6 +309,8 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
 
         orderData.ProductService.push(serviceData);
 
+        updateOrderProductService(orderNumber, orderData.ProductService);
+
         calculateTotals(orderData);
 
         // const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
@@ -317,8 +319,8 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
         messageDiv.innerHTML += `<p>서비스 상품 바코드 ${barcode} 저장 성공!</p>`;
 
         // await loadOrderNumbers(orderDropdown, messageDiv);
-        // orderDropdown.value = orderNumber;
-        // orderDropdown.dispatchEvent(new Event('change'));
+        orderDropdown.value = orderNumber;
+        orderDropdown.dispatchEvent(new Event('change'));
 
         return orderData;  // 데이터 저장 후 상세 정보 반환
     } catch (error) {
@@ -357,9 +359,7 @@ export function checkBarcode(barcode, orderDetails) {
         
 
         if (barcodeCell && barcodeCell.textContent === barcode) {
-            found = true;
-
-            
+            found = true;            
             currentPackingQuantity = parseInt(packingQuantityInput.value) || 0;
             packingQuantityInput.value = currentPackingQuantity + 1;
 

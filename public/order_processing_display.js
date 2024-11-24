@@ -6,7 +6,7 @@ import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 //import { saveBarcodeInfoToDB } from './orderHelpers.js';
 import { getProductByBarcode } from './aGlobalMain.js';
-import { reInitializeOrderMap, reInitializeProductMap, getOrderByOrderNumber } from './aGlobalMain.js';
+import { reInitializeOrderMap, reInitializeProductMap, getOrderByOrderNumber, updateOrderInfo, getOrderMap} from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const barcodeInput = document.getElementById("barcodeInput");
     const serviceBarcodeInput = document.getElementById("serviceBarcodeInput");
     const packingCompleteButton = document.getElementById("packingCompleteButton");
+    const saveCurrentStateButton = document.getElementById("saveCurrentStateButton");    
     const manualBarcodeButton = document.getElementById("manualBarcodeButton");
     const deleteOrderButton = document.getElementById("deleteOrderButton");
     
@@ -89,23 +90,6 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
-
-    // async function fetchOrderData(orderNumber) {
-    //     console.warn(orderNumber);
-    //     //const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-    //     const orderDoc = await getOrderByOrderNumber(orderNumber);
-    //     //const orderDoc = await orderDocRef.get();
-    //     // if (!orderDoc.exists) {
-    //     //     console.error("Order document does not exist");
-    //     //     return null;
-    //     // }
-    //     // console.warn(orderDoc);
-    //     // console.warn(orderDoc.data());
-
-
-    //     return orderDoc;
-    // }
-
     async function validatePacking(orderData) {
         const totalQuantityFromOrder = orderData.총수량;
         let totalPackedQuantity = 0;
@@ -140,6 +124,31 @@ document.addEventListener("DOMContentLoaded", function() {
         return true;
     }
 
+
+    
+    async function batchUpdateOrder(orderUpdates, db) {
+        const batch = db.batch();  // Firestore 배치 생성
+        console.log("orderUpdates", orderUpdates);    
+        
+        orderUpdates.forEach((data, id) => {
+            console.log(`id: ${id}`);
+            console.log(`data: ${JSON.stringify(data)}`);
+    
+            const docRef = db.collection('Orders').doc(id);
+            console.log(`docRef: ${docRef}`);
+    
+            if (data && typeof data === "object") {
+                // Firestore에 적합한 객체인지 확인 후 추가
+                batch.set(docRef, data, { merge: true });
+            } else {
+                console.error(`Invalid data for id ${id}:`, data);
+            }
+        });
+    
+        await batch.commit();  // 배치 업데이트 실행
+        console.log("batchUpdateOrder completed");
+    }
+    
     async function batchUpdateProductCounts(productUpdates, db) {
         const batch = db.batch();  // Firestore 배치 생성
         console.log("productUpdates", productUpdates);
@@ -152,15 +161,40 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     
         await batch.commit();  // 배치 업데이트 실행
-        console.log("Batch update completed");
+        console.log("batchUpdateProductCounts completed");
     }
     
+    saveCurrentStateButton.addEventListener('click', async function () {
+        playDingDong();
+        const orderNumber = orderDropdown.value;
+        if (!orderNumber) return;
+
+        const productRows = orderDetails.querySelectorAll("tbody tr");
+        for (const row of productRows) {            
+            const productOrderNumber = row.querySelector('[data-label="상품주문번호"]');
+            const packingQuantityInput = row.querySelector('.packingQuantity');                        
+            if (packingQuantityInput && packingQuantityInput.value !== '') {
+                const currentPackingQuantity =  parseInt(packingQuantityInput.value, 10) || 0;;
+                updateOrderInfo (orderNumber, productOrderNumber, currentPackingQuantity);
+            }
+        }
+        
+        //const serviceRows = orderData.ProductService || [];
+
+
+        let orderMap = getOrderMap()
+        //const orderData = await getOrderByOrderNumber(orderNumber);
+        await batchUpdateOrder(orderMap, firebase.firestore());
+
+
+        playDingDong();
+    });
+
     packingCompleteButton.addEventListener('click', async function() {
         try {
             const orderNumber = orderDropdown.value;
             if (!orderNumber) return;
             const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-            //const orderData = await fetchOrderData(orderNumber);
             const orderData = await getOrderByOrderNumber(orderNumber);
             if (!orderData) return;    
             if (!await validatePacking(orderData)) return;
@@ -201,22 +235,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 } catch (error) {
                     
                 }
-            }      
-
-            // serviceRows 처리 추가
+            }
             const serviceRows = orderData.ProductService || [];
-             
-            //const serviceRows = serviceDetails.querySelectorAll("tbody tr");
-            console.log(`serviceRows count: ${serviceRows.length}`);
-
-
             for (const service of serviceRows) {
-                //const barcodeCell = row.querySelector('[data-label="바코드"]');
-
-                console.log(`service.바코드: ${service.바코드}`);
                 const barcodeCell = service.바코드;
-                console.log(`barcodeCell: ${barcodeCell}`);
-
                 if (barcodeCell) {
                     const barcode = barcodeCell;
                     const quantity = 1; // 서비스 제품은 기본적으로 수량이 1이라고 가정
@@ -228,19 +250,19 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             }
             console.log(`0000: ${serviceRows.length}`);
-            // productUpdatesMap의 값을 배열로 변환하여 Firestore에 배치 업데이트 실행
+            
             const productUpdates = Object.values(productUpdatesMap);
             console.log(`productUpdates count: ${productUpdates.length}`);
             productUpdates.forEach((update, index) => {
                 console.log(`productUpdates[${index}]: `, update);
             });
-            console.log(`1111: ${productUpdates}`);
-            await batchUpdateProductCounts(productUpdates, firebase.firestore());
-            console.log(`2222: ${productUpdates}`);
+            
+            await batchUpdateProductCounts(productUpdates, firebase.firestore());            
+
             orderData.주문처리날짜 = new Date();
             orderData.배송메시지 = "";
-            orderData.수취인이름 = "";
-    
+            orderData.수취인이름 = "";   
+
             await firebase.firestore().collection('CompletedOrders').doc(orderNumber).set(orderData);
             await orderDocRef.delete();
     
