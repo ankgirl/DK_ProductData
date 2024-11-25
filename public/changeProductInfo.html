@@ -1,5 +1,5 @@
 
-<!-- search_by_seller_code.html -->
+<!-- changeProductInfo.html -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -18,17 +18,12 @@
             <input type="text" id="sellerCode" name="sellerCode" required>
             <button type="submit">Search</button>
         </form>
-        <br>
-        <form id="changeSellerCodeForm">
-            <label for="afterSellerCode">변경후 Seller Code:</label>            
-            <input type="text" id="changeAfterSellerCodeInput" name="changeAfterSellerCodeInput" required>            
-            <button type="submit">셀러코드 변경</button>
-        </form>
-        <br>
-        <form id="changeCategoryForm">
-            <label for="afterCategory">변경후 입고차수:</label>            
-            <input type="text" id="changeAfterCategory" name="changeAfterCategory" required>
-            <button type="submit">입고차수 변경</button>
+        <form id="changeInfoForm">
+            <label for="sellerCode">변경할 Seller Code:</label>
+            <input type="text" id="changeSellerCode" name="changeSellerCode" required>
+            <label for="sellerCode">변경할 입고차수:</label>
+            <input type="text" id="changeSellerCode" name="changeSellerCode" required>
+            <button type="submit">변경</button>
         </form>
 
 
@@ -42,7 +37,6 @@
     <script src="./loadNavbar.js"></script>
     <script src="./displayProductData.js"></script> <!-- displayProductData.js 파일 로드 -->
     <script type="module" src="./search_by_seller_code.js"></script>
-    <script type="module" src="./search_by_seller_code_changeinfo.js"></script>
 </body>
 </html>
 

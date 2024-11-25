@@ -2,8 +2,7 @@
 
 import { generateImageURLs } from './generateImageURLs.js';
 import { loadOrderNumbers } from './orderHelpers.js';
-import { getProductBySellerCode } from './aGlobalMain.js';
-import { reInitializeOrderMap, reInitializeProductMap } from './aGlobalMain.js';
+import { getProductBySellerCode, reInitializeOrderMap, reInitializeProductMap } from './aGlobalMain.js';
 
 
 document.addEventListener("DOMContentLoaded", function () {

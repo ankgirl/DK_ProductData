@@ -2,6 +2,8 @@
 //search_by_seller_code.js
 
 
+let currentSellercode = null;
+let currentProduct = null;
 
 document.addEventListener("DOMContentLoaded", function() {
     console.log("DOMContentLoaded event fired");
@@ -34,16 +36,25 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
+export function getCurrentSellerCode() {
+    return currentSellercode;
+}
+
+export function getCurrentProduct() {
+    return currentProduct;
+}
+
 async function searchProductBySellerCode(sellerCode) {
     try {
+        currentSellercode = sellerCode;
         // Firestore에서 문서 참조 가져오기
         const docRef = window.db.collection("Products").doc(sellerCode);
-        const docSnap = await docRef.get();
+        const docSnap = await docRef.get();        
 
         // 문서가 존재하면 데이터 표시, 아니면 "No such product found!" 메시지 표시
         if (docSnap.exists) {
-            const productData = docSnap.data();
-            displayProductData(productData);
+            currentProduct = docSnap.data();
+            displayProductData(currentProduct);
         } else {
             const resultDiv = document.getElementById("result");
             resultDiv.innerHTML = "<p>No such product found!</p>";
