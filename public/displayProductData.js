@@ -50,6 +50,14 @@ function generateProductDetailsHTML(data) {
             <button type="submit">적용</button>
             <br><br><br><br><br><br><br><br>
         </form>
+        <h3>새 옵션 추가</h3>
+        <form id="addOptionForm">
+            <label>옵션 이름: <input type="text" id="newOptionName" required></label>
+            <label>Price: <input type="number" id="newOptionPrice"></label>
+            <label>Counts: <input type="number" id="newOptionCounts"></label>
+            <label>바코드: <input type="text" id="newOptionBarcode"></label>
+            <button id="buttonAddOption">옵션 추가</button>
+        </form>
     `;
 }
 
@@ -177,7 +185,73 @@ function displayProductData(data, container = document.getElementById("result"))
             document.getElementById(`${optionName}_바코드`).textContent = '';
         });
     });
+
+    document.getElementById('buttonAddOption').addEventListener('click', function (event) {
+        saveNewOption(event); // 이벤트 객체 전달
+    });
+
+    document.querySelectorAll('#addOptionForm input').forEach(input => {
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // 기본 폼 제출 방지
+                const formElements = Array.from(document.querySelectorAll('#addOptionForm input'));
+                const currentIndex = formElements.indexOf(event.target);
+                
+                // 다음 입력 필드로 포커스 이동
+                if (currentIndex < formElements.length - 1) {
+                    formElements[currentIndex + 1].focus();
+                }
+            }
+        });
+    });
+
+    async function saveNewOption(event) {
+        event.preventDefault();
+        const newOptionName = document.getElementById('newOptionName').value;
+        const newOptionPrice = parseInt(document.getElementById('newOptionPrice').value, 10) || 0;
+        const newOptionCounts = parseInt(document.getElementById('newOptionCounts').value, 10) || 0;
+        const newOptionBarcode = document.getElementById('newOptionBarcode').value || "";
+    
+        if (data.OptionDatas[newOptionName]) {
+            alert('이미 존재하는 옵션 이름입니다.');
+            return;
+        }
+    
+        const newOptionData = {
+            Counts: newOptionCounts,
+            Price: newOptionPrice,
+            바코드: newOptionBarcode,
+        };
+    
+        // 기존 데이터를 필터링하여 Counts, Price, 바코드만 유지
+        const updatedOptionDatas = {};
+        for (const [optionName, optionValue] of Object.entries(data.OptionDatas)) {
+            updatedOptionDatas[optionName] = {
+                Counts: optionValue.Counts,
+                Price: optionValue.Price,
+                바코드: optionValue.바코드,
+            };
+        }
+    
+        // 새로운 옵션 추가
+        updatedOptionDatas[newOptionName] = newOptionData;
+    
+        try {
+            // 비동기 데이터베이스 업데이트
+            await db.collection('Products').doc(data.SellerCode).update({ OptionDatas: updatedOptionDatas });
+    
+            // 데이터 업데이트 후 UI 갱신
+            displayProductData({ ...data, OptionDatas: updatedOptionDatas });
+        } catch (error) {
+            console.error('옵션 저장 중 오류 발생:', error);
+            alert('옵션 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+        }
+    }
+    
 }
+
+
+
 
 async function clearBarcode(sellerCode, optionName) {
     try {
@@ -200,7 +274,12 @@ async function checkBarcodeDuplicate(optionDatas) {
             const data = doc.data();
             for (let option in optionDatas) {
                 const newBarcode = optionDatas[option].바코드;
-                if (data.Barcode === newBarcode || Object.values(data.OptionDatas).some(opt => opt.바코드 === newBarcode)) {
+
+                // OptionDatas가 존재하는지 확인 후 처리
+                if (
+                    data.Barcode === newBarcode ||
+                    (data.OptionDatas && Object.values(data.OptionDatas).some(opt => opt.바코드 === newBarcode))
+                ) {
                     duplicate = true;
                     sellerCode = data.SellerCode;
                     break;
@@ -212,6 +291,7 @@ async function checkBarcodeDuplicate(optionDatas) {
     }
     return { duplicate, sellerCode };
 }
+
 
 async function updateProductCountsAndBarcode(sellerCode, updatedOptionDatas) {
     const messageDiv = document.getElementById('message');
@@ -243,9 +323,12 @@ function generateImageURLs(sellerCode, option, 입고차수) {
     const 입고차수정보 = parseInt(cleaned입고차수, 10);
     let 이미지명 = '';
 
+    console.warn(optionNumber);
+
     if (입고차수정보 <= 23) {
         이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
-    } else {
+    }
+    else {
         이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
     }
 
