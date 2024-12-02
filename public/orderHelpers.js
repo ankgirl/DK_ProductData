@@ -279,8 +279,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
 
         const productData = productsFound;
         const optionKey = productData.matchedOption || ''; // matchedOption이 있으면 사용, 없으면 빈 문자열
-        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명);
-
+        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);        
         productData.옵션이미지URL = 옵션이미지URL;
         productData.실제이미지URL = 실제이미지URL;
 

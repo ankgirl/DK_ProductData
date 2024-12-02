@@ -14,13 +14,21 @@ export async function searchByBarcode(barcode, db) {
                 productsFound.push({ id: doc.id, ...data, matchedOption: null });
             }
             // 각 옵션의 바코드 필드 확인
+            
             if (data.OptionDatas) {
                 for (let option in data.OptionDatas) {
+                    
                     if (data.OptionDatas[option].바코드 === barcode) {
-                        productsFound.push({ id: doc.id, ...data, matchedOption: option });
-                        console.log(doc.id);
+                        console.log(data.OptionDatas)
+                        productsFound.push({
+                            id: doc.id,
+                            ...data,
+                            matchedOption: option,                            
+                            GroupOptions: data.GroupOptions // 전체 옵션 데이터를 포함
+                        });                        
                         break;
                     }
+                    
                 }
             }
         });

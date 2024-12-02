@@ -4,7 +4,7 @@ import { generateOrderNumber } from './generateOrderNumber.js';
 import { clearOrderData, ShowOrderData } from './order_randombox_showInfo.js';
 import { searchByBarcode } from './barcode_search.js';
 import { packingRandomboxComplete } from './order_randomboxComplete.js';
-
+import { generateImageURLs } from './generateImageURLs.js';
 
 
 let globalOrderData = null;  // 전역 변수로 선언
@@ -107,29 +107,29 @@ document.addEventListener("DOMContentLoaded", async function() {
 });
 
 
-function generateImageURLs(sellerCode, option, 입고차수) {
-    if (!입고차수) {
-        console.error("입고차수가 정의되지 않았습니다.");
-        return { 옵션이미지URL: '', 실제이미지URL: '' };
-    }
+// function generateImageURLs(sellerCode, option, 입고차수) {
+//     if (!입고차수) {
+//         console.error("입고차수가 정의되지 않았습니다.");
+//         return { 옵션이미지URL: '', 실제이미지URL: '' };
+//     }
 
-    const cleaned입고차수 = 입고차수.replace("차입고", "");
-    const optionNumber = option.replace("옵션", "").padStart(3, '0');
-    const 입고차수정보 = parseInt(cleaned입고차수, 10);
-    let 이미지명 = '';
+//     const cleaned입고차수 = 입고차수.replace("차입고", "");
+//     const optionNumber = option.replace("옵션", "").padStart(3, '0');
+//     const 입고차수정보 = parseInt(cleaned입고차수, 10);
+//     let 이미지명 = '';
 
-    if (입고차수정보 <= 23) {
-        이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
-    } else {
-        이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
-    }
+//     if (입고차수정보 <= 23) {
+//         이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
+//     } else {
+//         이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
+//     }
 
-    const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
-    const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
-    const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
+//     const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
+//     const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
+//     const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
 
-    return { 옵션이미지URL, 실제이미지URL };
-}
+//     return { 옵션이미지URL, 실제이미지URL };
+// }
 
 export async function checkBarcode(barcode, messageDiv) {
     try {
@@ -140,11 +140,14 @@ export async function checkBarcode(barcode, messageDiv) {
         }
         const productData = productsFound[0];
         const optionKey = productData.matchedOption || ''; 
-        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명);
+        
+        
+        console.log(productData.GroupOptions);
+        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);
 
         productData.옵션이미지URL = 옵션이미지URL;
         productData.실제이미지URL = 실제이미지URL;
-        console.log(productData);
+        //console.log(productData);
         // globalOrderData 사용
         if (!globalOrderData.ProductRandomboxItem) {
             globalOrderData.ProductRandomboxItem = [];
