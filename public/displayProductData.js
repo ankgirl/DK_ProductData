@@ -1,5 +1,6 @@
 function generateProductDetailsHTML(data) {
     return `
+        
         <p><strong>SellerCode:</strong> ${data.SellerCode || ''}</p>
         <p><strong>입고차수:</strong> ${data.소분류명 || ''}</p>        
         <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>

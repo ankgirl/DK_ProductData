@@ -18,6 +18,7 @@ export async function searchByBarcode(barcode, db) {
                 for (let option in data.OptionDatas) {
                     if (data.OptionDatas[option].바코드 === barcode) {
                         productsFound.push({ id: doc.id, ...data, matchedOption: option });
+                        console.log(doc.id);
                         break;
                     }
                 }

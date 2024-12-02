@@ -48,6 +48,7 @@ async function searchProductByBarcode(barcode) {
             productSelect.addEventListener("change", function() {
                 const selectedIndex = this.value;
                 displayProductData(productsFound[selectedIndex], productDetailsDiv);
+                
             });
         }
     } catch (error) {
