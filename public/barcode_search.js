@@ -1,5 +1,5 @@
 // barcode_search.js
-import { getProductByBarcode } from './aGlobalMain.js';
+import {getProductBySellerCode } from './aGlobalMain.js';
 
 
 export async function searchByBarcode(barcode, db) {
@@ -98,9 +98,11 @@ export async function updateSetProductCounts(sellerCode, quantity, db) {
         console.log("Received quantity:", quantity);
 
         //const productsFound  = await db.collection('Products').doc(sellerCode).get();
-        const product = await getProductByBarcode (barcode);
+
+
+        const product = await getProductBySellerCode (sellerCode);
         console.log("Products found:", product);
-        console.error("Products found:", product);
+        //console.error("Products found:", product);
 
         // if (!productsFound) {
         //     throw new Error("No product found with the given barcode");

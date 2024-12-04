@@ -94,18 +94,25 @@ document.addEventListener("DOMContentLoaded", function() {
         const totalQuantityFromOrder = orderData.총수량;
         let totalPackedQuantity = 0;
         let allChecked = true;
-        console.log(orderData.ProductOrders);
-        console.log(orderData.ProductOrders.length);
-        const productOrdersArray = Object.values(orderData.ProductOrders || {});
-        const productRows = orderDetails.querySelectorAll("tbody tr");
-        for (const row of productRows) {
-            console.log(`productRows: ${row}`);
-            const packingQuantityInput = row.querySelector('.packingQuantity');
 
-            if (packingQuantityInput && packingQuantityInput.value !== '') {
-                totalPackedQuantity += parseInt(packingQuantityInput.value, 10) || 0;;
-                console.log(totalPackedQuantity);
-            }
+        if (orderData.ProductOrders)
+        {
+            console.log(orderData.ProductOrders);
+            console.log(orderData.ProductOrders.length);
+            const productOrdersArray = Object.values(orderData.ProductOrders || {});    
+            const productRows = orderDetails.querySelectorAll("tbody tr");
+            for (const row of productRows) {
+                console.log(`productRows: ${row}`);
+                const packingQuantityInput = row.querySelector('.packingQuantity');
+    
+                if (packingQuantityInput && packingQuantityInput.value !== '') {
+                    totalPackedQuantity += parseInt(packingQuantityInput.value, 10) || 0;;
+                    console.log(totalPackedQuantity);
+                }
+            }    
+        }
+        else{
+            console.log("orderData.ProductOrders null");
         }
     
         if (totalPackedQuantity !== totalQuantityFromOrder) {

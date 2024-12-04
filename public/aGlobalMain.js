@@ -155,7 +155,7 @@ export async function getProductByBarcode(barcode) {
             for (let option in data.OptionDatas) {
                 if (data.OptionDatas[option].바코드 === barcode) {
                     console.warn(`바코드 ${barcode}`);
-                    return { id, ...data, matchedOption: option };
+                    return { id, ...data, matchedOption: option, GroupOptions: data.GroupOptions };
                 }
             }
         }
@@ -164,3 +164,4 @@ export async function getProductByBarcode(barcode) {
     console.warn(`바코드 ${barcode}에 해당하는 제품을 찾을 수 없습니다.`);
     return null;
 }
+

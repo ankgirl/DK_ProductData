@@ -354,6 +354,9 @@ function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
     const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
     const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
     const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
+    
+    console.log(`옵션이미지URL: ${옵션이미지URL}`);
+    console.log(`실제이미지URL: ${실제이미지URL}`);
 
     return { 옵션이미지URL, 실제이미지URL };
 }

@@ -136,7 +136,9 @@ document.addEventListener("DOMContentLoaded", function () {
                         const price = (orderData.상품결제금액 / optionCount) || 0;
                         const 입고차수 = productDocDivide.소분류명?.replace("차입고", "") || '';
 
-                        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCodeDivide, opt, 입고차수);
+                        console.log(productDocDivide.GroupOptions);
+                        
+                        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCodeDivide, opt, 입고차수, productDocDivide.GroupOptions);
 
                         orderDetails.ProductOrders[`${productOrderNumber}_${opt}`] = {
                             상품주문번호: productOrderNumber,
@@ -167,7 +169,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     const 원가 = parseFloat(productDoc.PriceBuy_kr) || 0;
                     const 입고차수 = productDoc.소분류명?.replace("차입고", "") || '';
 
-                    const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수);
+                    console.log(productDoc.GroupOptions);
+                    const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수, productDoc.GroupOptions);
 
                     orderData.Counts = counts;
                     orderData.바코드 = barcode;
