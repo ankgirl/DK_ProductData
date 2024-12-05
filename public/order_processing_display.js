@@ -19,8 +19,32 @@ document.addEventListener("DOMContentLoaded", function() {
     const saveCurrentStateButton = document.getElementById("saveCurrentStateButton");    
     const manualBarcodeButton = document.getElementById("manualBarcodeButton");
     const deleteOrderButton = document.getElementById("deleteOrderButton");
-    
+    const orderNumberInput = document.getElementById("orderNumberInput");    
     loadOrderNumbers(orderDropdown, messageDiv);
+
+    // Attach an event listener to the input field to listen for the Enter key
+    orderNumberInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            const inputValue = orderNumberInput.value.trim(); // Get the input value
+            if (inputValue) {
+                const options = Array.from(orderDropdown.options);
+                const matchingOption = options.find(option => option.value === inputValue);
+
+                if (matchingOption) {
+                    orderDropdown.value = inputValue; // Select the matching option in the dropdown
+                    messageDiv.textContent = `Order ${inputValue} selected.`;
+                    // Trigger any event or logic tied to selecting an option
+                    orderDropdown.dispatchEvent(new Event('change'));
+                } else {
+                    messageDiv.textContent = `Order ${inputValue} not found in the dropdown.`;
+                }
+            } else {
+                messageDiv.textContent = "Please enter a valid order number."; // Display a message for invalid input
+            }
+        }
+    });
+
+
 
     barcodeInput.addEventListener("keypress", function(event) {
         if (event.key === 'Enter') {
