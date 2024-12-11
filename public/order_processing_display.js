@@ -28,22 +28,21 @@ document.addEventListener("DOMContentLoaded", function() {
             const inputValue = orderNumberInput.value.trim(); // Get the input value
             if (inputValue) {
                 const options = Array.from(orderDropdown.options);
-                const matchingOption = options.find(option => option.value === inputValue);
+                const matchingOption = options.find(option => option.value.includes(inputValue)); // Partial match
 
                 if (matchingOption) {
-                    orderDropdown.value = inputValue; // Select the matching option in the dropdown
-                    messageDiv.textContent = `Order ${inputValue} selected.`;
+                    orderDropdown.value = matchingOption.value; // Select the matching option in the dropdown
+                    messageDiv.textContent = `Order ${matchingOption.value} selected.`;
                     // Trigger any event or logic tied to selecting an option
                     orderDropdown.dispatchEvent(new Event('change'));
                 } else {
-                    messageDiv.textContent = `Order ${inputValue} not found in the dropdown.`;
+                    messageDiv.textContent = `Order containing ${inputValue} not found in the dropdown.`;
                 }
             } else {
                 messageDiv.textContent = "Please enter a valid order number."; // Display a message for invalid input
             }
         }
     });
-
 
 
     barcodeInput.addEventListener("keypress", function(event) {
