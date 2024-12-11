@@ -27,10 +27,12 @@ function generateProductDetailsHTML(data) {
                     </tr>
                 </thead>
                 <tbody>
-                ${(data.OptionDatas ? Object.entries(data.OptionDatas).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([optionName, optionValues], index, array) => {
+                ${(data.OptionDatas ? Object.entries(data.OptionDatas).sort(([, aValues], [, bValues]) => {
+                    return aValues.보여주기용옵션명.localeCompare(bValues.보여주기용옵션명);
+                }).map(([optionName, optionValues], index, array) => {
                     return `
                         <tr>
-                            <td>${optionName}</td>
+                            <td>${optionValues.보여주기용옵션명}</td>
                             <td class="image-container"><img src="${optionValues.옵션이미지URL}" alt="옵션이미지"></td>
                             <td class="image-container"><img src="${optionValues.실제이미지URL}" alt="실제이미지"></td>
                             <td>${optionValues.Price || ''}</td>
@@ -62,6 +64,7 @@ function generateProductDetailsHTML(data) {
     `;
 }
 
+
 function displayProductData(data, container = document.getElementById("result")) {
     if (!data || !data.OptionDatas) {
         console.error("Invalid data:", data);
@@ -74,7 +77,9 @@ function displayProductData(data, container = document.getElementById("result"))
         index++;
         const option = optionName.replace("선택: ", "");
         if (option) {
-            const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(data.SellerCode, option, data.소분류명, data.GroupOptions);
+            const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(data.SellerCode, option, data.소분류명, data.GroupOptions);
+
+            data.OptionDatas[optionName].보여주기용옵션명 = 보여주기용옵션명;
             data.OptionDatas[optionName].옵션이미지URL = 옵션이미지URL;
             data.OptionDatas[optionName].실제이미지URL = 실제이미지URL;
         }
@@ -325,6 +330,7 @@ function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
     let optionNumber = option.replace("옵션", "");
     const 입고차수정보 = parseInt(cleaned입고차수, 10);
     let 이미지명 = '';
+    let 보여주기용옵션명 = '';
 
     //console.warn(optionNumber);
     const optionNames = groupOptions ? groupOptions.split(",").map(opt => opt.trim()) : [];
@@ -338,6 +344,7 @@ function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
         } else {
             이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
         }
+        보여주기용옵션명 = `${option}`;
     } else {
         // optionNumber가 숫자가 아닐 경우, groupOptions에서 해당 옵션의 인덱스를 찾기
         const index = optionNames.indexOf(option);
@@ -348,15 +355,18 @@ function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
 
         const optionIndex = (index + 1).toString().padStart(3, '0'); // 인덱스는 1부터 시작
         이미지명 = `${sellerCode}%20sku_${optionIndex}_[_${optionNumber}_].jpg`;
+        보여주기용옵션명 = `${optionIndex}_[_${optionNumber}_].jpg`;
     }
     console.log(이미지명);
 
     const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
+    
     const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
     const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
     
+    console.log(`보여주기용옵션명: ${보여주기용옵션명}`);
     console.log(`옵션이미지URL: ${옵션이미지URL}`);
     console.log(`실제이미지URL: ${실제이미지URL}`);
 
-    return { 옵션이미지URL, 실제이미지URL };
+    return { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL };
 }
