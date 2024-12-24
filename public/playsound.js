@@ -24,6 +24,7 @@ export function playDingDong() {
     gainNode2.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + 2);
     oscillator2.stop(context.currentTime + 0.6);
 }// Beep 소리를 생성하는 함수
+
 export function playBeep() {
     const context = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = context.createOscillator();
@@ -40,3 +41,32 @@ export function playBeep() {
     oscillator.stop(context.currentTime + 1); // 1초 후 오실레이터 정지
 }
 
+
+export function playBeepBeep() {
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(frequency, startTime, duration) {
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, startTime);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(context.destination);
+
+        oscillator.start(startTime);
+        gainNode.gain.setValueAtTime(1, startTime); // 시작 볼륨
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration); // 볼륨 점차 감소
+        oscillator.stop(startTime + duration);
+    }
+
+    // 첫 번째 소리 (똥)
+    playSound(220, context.currentTime, 0.3); // A3 음, 0.5초 지속
+
+    // 두 번째 소리 (띵)
+    playSound(220, context.currentTime + 0.4, 0.3); // E5 음, 0.5초 지속
+
+    // // 세 번째 소리 (똥)
+    // playSound(220, context.currentTime + 1.2, 0.5); // A3 음, 0.5초 지속
+}

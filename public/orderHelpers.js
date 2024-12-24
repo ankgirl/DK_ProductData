@@ -1,7 +1,5 @@
 import { generateImageURLs } from './generateImageURLs.js';
-import { searchByBarcode } from './barcode_search.js';
-import { playDingDong } from './playsound.js';
-import { playBeep } from './playsound.js';
+import { playDingDong, playBeep, playBeepBeep } from './playsound.js';
 import { getOrderByOrderNumber, getProductByBarcode, updateOrderProductService } from './aGlobalMain.js';
 
 // 공통 계산 함수 정의
@@ -47,16 +45,6 @@ function calculateTotals(orderData) {
     console.log(`새 주문 총 원가 금액: ${newOrderTotalCost}`);
 }
 
-// // 주문서 데이터 가져오기 함수
-// export async function getOrderData(orderNumber) {
-//     const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-//     const orderDoc = await orderDocRef.get();
-//     if (orderDoc.exists) {
-//         return orderDoc.data();
-//     }
-//     throw new Error("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
-// }
-
 export async function loadOrderNumbers(orderDropdown, messageDiv) {
     try {
         console.warn("loadOrderNumbers");
@@ -96,8 +84,8 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                 const sortedProductOrders = Object.values(productOrders).sort((a, b) => {
                     if (a.SellerCode < b.SellerCode) return -1;
                     if (a.SellerCode > b.SellerCode) return 1;
-                    if (a.옵션정보 < b.옵션정보) return -1;
-                    if (a.옵션정보 > b.옵션정보) return 1;
+                    if (a.보여주기용옵션명 < b.보여주기용옵션명) return -1;
+                    if (a.보여주기용옵션명 > b.보여주기용옵션명) return 1;
                     return 0;
                 });
 
@@ -145,7 +133,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                         <td data-label="상품주문번호">${order.상품주문번호}</td>
                         <td data-label="판매자상품코드">${order.SellerCode}</td>
                         <td data-label="입고차수">${order.입고차수}</td>
-                        <td data-label="옵션정보">${order.옵션정보}</td>
+                        <td data-label="옵션정보">${order.보여주기용옵션명}</td>
                         <td data-label="수량" style="${quantityStyle}">${order.상품수량}</td>
                         <td>
                             <input type="number" 
@@ -281,9 +269,10 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
         const optionKey = productData.matchedOption || ''; // matchedOption이 있으면 사용, 없으면 빈 문자열
         // 여기
         console.log(productData.GroupOptions);
-        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);        
+        const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);
         productData.옵션이미지URL = 옵션이미지URL;
         productData.실제이미지URL = 실제이미지URL;
+        productData.보여주기용옵션명 = 보여주기용옵션명;
 
         const orderNumber = orderDropdown.value;
         if (!orderNumber) {
@@ -305,6 +294,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
             옵션정보: optionKey, // 일치하는 옵션의 키를 사용
             실제이미지URL: productData.실제이미지URL || '',
             옵션이미지URL: productData.옵션이미지URL || '',
+            보여주기용옵션명: productData.보여주기용옵션명 || '',
             바코드: barcode,
         };
 
@@ -336,10 +326,13 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
 export function checkBarcode(barcode, orderDetails) {
     const rows = orderDetails.querySelectorAll("tbody tr");
     let found = false;
+    let countOver = false;
     let currentPackingQuantity = 0;
+    let checkQuantity = 0;
     let productOrderNumber = '';
 
-    rows.forEach(row => {
+    for (const row of rows) {  
+    //rows.forEach(row => {        
         const barcodeCell = row.cells[9];
         const packingQuantityInput = row.querySelector(".packingQuantity");
         const quantityCell = row.cells[4];
@@ -359,58 +352,44 @@ export function checkBarcode(barcode, orderDetails) {
         }
         
 
-        if (barcodeCell && barcodeCell.textContent === barcode) {
-            found = true;            
+        if (barcodeCell && barcodeCell.textContent === barcode) {            
             currentPackingQuantity = parseInt(packingQuantityInput.value) || 0;
-            packingQuantityInput.value = currentPackingQuantity + 1;
+            checkQuantity = parseInt(quantityCell.textContent) || 0;            
 
-            if (packingQuantityInput.value == quantityCell.textContent) {
-                checkbox.checked = true;
-            } else {
-                checkbox.checked = false;
+            var increasedQuantity = currentPackingQuantity + 1;
+            if (increasedQuantity <= checkQuantity) {
+                packingQuantityInput.value = currentPackingQuantity + 1;
+
+                if (packingQuantityInput.value == quantityCell.textContent) {
+                    checkbox.checked = true;
+                    found = true;
+                } else {
+                    checkbox.checked = false;
+                }
+    
+                const orderNumber = orderDropdown.value;
+                if (!orderNumber) return;    
             }
-
-            const orderNumber = orderDropdown.value;
-            if (!orderNumber) return;
-
+            else{
+                countOver = true;
+            }
             //saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity + 1);
             // todo: 임시저장 -> 글로벌주문정보
+            if (found) break; // found가 true면 반복문 중단
 
         }
-    });
+    }
 
     if (!found) {
-        playBeep();
-        alert("일치하는 바코드를 찾을 수 없습니다.");
+        if (countOver){
+            playBeepBeep();
+            alert("수량 초과");
+        }
+        else{
+            playBeep();
+            alert("일치하는 바코드를 찾을 수 없습니다.");    
+        }
     } else {
         playDingDong();
     }
 }
-
-// // Firestore에 데이터 저장 함수
-// export async function saveBarcodeInfoToDB(orderNumber, productOrderNumber, currentPackingQuantity) {
-//     try {
-//         const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-//         const orderDoc = await orderDocRef.get();
-
-//         if (orderDoc.exists) {
-//             const orderData = orderDoc.data();
-//             const productOrders = orderData.ProductOrders || {};
-
-//             if (!productOrders[productOrderNumber]) {
-//                 productOrders[productOrderNumber] = {};
-//             }
-
-//             productOrders[productOrderNumber].found = true;
-//             productOrders[productOrderNumber].currentPackingQuantity = currentPackingQuantity;
-
-//             await orderDocRef.set({ ProductOrders: productOrders }, { merge: true });
-
-//             console.log(`바코드 정보가 성공적으로 저장되었습니다: ${productOrderNumber}`);
-//         } else {
-//             console.error("선택된 주문 번호에 대한 정보를 찾을 수 없습니다.");
-//         }
-//     } catch (error) {
-//         console.error("바코드 정보를 Firestore에 저장하는 중 오류 발생: ", error);
-//     }
-// }

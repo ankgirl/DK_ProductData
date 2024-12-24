@@ -138,7 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                         console.log(productDocDivide.GroupOptions);
                         
-                        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCodeDivide, opt, 입고차수, productDocDivide.GroupOptions);
+                        const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCodeDivide, opt, 입고차수, productDocDivide.GroupOptions);
 
                         orderDetails.ProductOrders[`${productOrderNumber}_${opt}`] = {
                             상품주문번호: productOrderNumber,
@@ -154,7 +154,8 @@ document.addEventListener("DOMContentLoaded", function () {
                             입고차수: 입고차수,
                             PriceBuy_kr: 원가,
                             옵션이미지URL: 옵션이미지URL,
-                            실제이미지URL: 실제이미지URL
+                            실제이미지URL: 실제이미지URL,
+                            보여주기용옵션명: 보여주기용옵션명
                         };
                         orderDetails.총원가금액 += 원가;
                         itemcount += orderData.상품수량;
@@ -170,7 +171,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     const 입고차수 = productDoc.소분류명?.replace("차입고", "") || '';
 
                     console.log(productDoc.GroupOptions);
-                    const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수, productDoc.GroupOptions);
+                    const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수, productDoc.GroupOptions);
 
                     orderData.Counts = counts;
                     orderData.바코드 = barcode;
@@ -178,6 +179,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     orderData.PriceBuy_kr = 원가;
                     orderData.옵션이미지URL = 옵션이미지URL;
                     orderData.실제이미지URL = 실제이미지URL;
+                    orderData.보여주기용옵션명 = 보여주기용옵션명;
+                    
 
                     orderDetails.총원가금액 += 원가;
                     itemcount += orderData.상품수량;

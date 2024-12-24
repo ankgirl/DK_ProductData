@@ -107,30 +107,6 @@ document.addEventListener("DOMContentLoaded", async function() {
 });
 
 
-// function generateImageURLs(sellerCode, option, 입고차수) {
-//     if (!입고차수) {
-//         console.error("입고차수가 정의되지 않았습니다.");
-//         return { 옵션이미지URL: '', 실제이미지URL: '' };
-//     }
-
-//     const cleaned입고차수 = 입고차수.replace("차입고", "");
-//     const optionNumber = option.replace("옵션", "").padStart(3, '0');
-//     const 입고차수정보 = parseInt(cleaned입고차수, 10);
-//     let 이미지명 = '';
-
-//     if (입고차수정보 <= 23) {
-//         이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
-//     } else {
-//         이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
-//     }
-
-//     const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
-//     const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
-//     const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
-
-//     return { 옵션이미지URL, 실제이미지URL };
-// }
-
 export async function checkBarcode(barcode, messageDiv) {
     try {
         const productsFound = await searchByBarcode(barcode, firebase.firestore());
@@ -143,10 +119,12 @@ export async function checkBarcode(barcode, messageDiv) {
         
         
         console.log(productData.GroupOptions);
-        const { 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);
+        const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);
 
         productData.옵션이미지URL = 옵션이미지URL;
         productData.실제이미지URL = 실제이미지URL;
+        productData.보여주기용옵션명 = 보여주기용옵션명;
+        
         //console.log(productData);
         // globalOrderData 사용
         if (!globalOrderData.ProductRandomboxItem) {
@@ -163,6 +141,7 @@ export async function checkBarcode(barcode, messageDiv) {
             바코드: barcode || '',
             옵션이미지: productData.옵션이미지URL || '',
             실제이미지: productData.실제이미지URL || '',
+            보여주기용옵션명: productData.보여주기용옵션명 || '',
             제품명: productData.스토어키워드네임 || '',
             스토어링크: productData.SmartStoreURL || '',
         };
