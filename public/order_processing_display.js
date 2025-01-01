@@ -6,7 +6,7 @@ import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 //import { saveBarcodeInfoToDB } from './orderHelpers.js';
 import { getProductByBarcode } from './aGlobalMain.js';
-import { reInitializeOrderMap, reInitializeProductMap, getOrderByOrderNumber, updateOrderInfo, getOrderMap} from './aGlobalMain.js';
+import { reInitializeOrderMap, reInitializeProductMap, getOrderByOrderNumber, updateOrderInfo, getOrderMap, getOrderNumberByDeliveryNumber} from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -19,7 +19,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const saveCurrentStateButton = document.getElementById("saveCurrentStateButton");    
     const manualBarcodeButton = document.getElementById("manualBarcodeButton");
     const deleteOrderButton = document.getElementById("deleteOrderButton");
-    const orderNumberInput = document.getElementById("orderNumberInput");    
+    const orderNumberInput = document.getElementById("orderNumberInput");
+    const deliveryNumberInput = document.getElementById("deliveryNumberInput");
     loadOrderNumbers(orderDropdown, messageDiv);
 
     // Attach an event listener to the input field to listen for the Enter key
@@ -44,6 +45,24 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
+    deliveryNumberInput.addEventListener("keydown", async (event) => {
+        if (event.key === "Enter") {
+            const inputValue = deliveryNumberInput.value.trim(); // Get the input value
+            if (inputValue) {
+                
+                const orderData = await getOrderNumberByDeliveryNumber(inputValue)
+                if (orderData) {
+                    orderDropdown.value = orderData.id;
+                    messageDiv.textContent = `OrderNumber ${orderData.id} selected. 운송정번호 ${orderData.운송장번호} selected.`;                    
+                    orderDropdown.dispatchEvent(new Event('change'));
+                } else {
+                    messageDiv.textContent = `Order containing ${inputValue} not found in the dropdown.`;
+                }
+            } else {
+                messageDiv.textContent = "Please enter a valid order number."; // Display a message for invalid input
+            }
+        }
+    });
 
     barcodeInput.addEventListener("keypress", function(event) {
         if (event.key === 'Enter') {

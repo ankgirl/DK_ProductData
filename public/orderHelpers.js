@@ -90,7 +90,8 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                 });
 
                 let orderDetailsHTML = `
-                    <h3>주문번호: ${orderNumber}</h3>
+                    <h3>주문번호: ${orderNumber}</h3>                    
+                    <p><strong>운송장번호:</strong> ${orderData.운송장번호}</p>
                     <p><strong><b style="color: red;">서비스제품금액:</strong> ${orderData.서비스제품금액}</b></p>                        
                     <p><strong><b style="color: blue;">서비스총판매가금액:</strong> ${serviceTotalSales}</b></p>
                     <p><strong>기본배송비:</strong> ${orderData.기본배송비}</p>
@@ -350,9 +351,9 @@ export function checkBarcode(barcode, orderDetails) {
             productOrderNumber = orderNumberCell.textContent;
             console.log(productOrderNumber);
         }
-        
 
-        if (barcodeCell && barcodeCell.textContent === barcode) {            
+        if (barcodeCell && barcodeCell.textContent === barcode) {
+            found = true;
             currentPackingQuantity = parseInt(packingQuantityInput.value) || 0;
             checkQuantity = parseInt(quantityCell.textContent) || 0;            
 
@@ -361,8 +362,7 @@ export function checkBarcode(barcode, orderDetails) {
                 packingQuantityInput.value = currentPackingQuantity + 1;
 
                 if (packingQuantityInput.value == quantityCell.textContent) {
-                    checkbox.checked = true;
-                    found = true;
+                    checkbox.checked = true;                    
                 } else {
                     checkbox.checked = false;
                 }
@@ -381,15 +381,15 @@ export function checkBarcode(barcode, orderDetails) {
     }
 
     if (!found) {
+        playBeep();
+        alert("일치하는 바코드를 찾을 수 없습니다.");    
+    } else {
         if (countOver){
             playBeepBeep();
             alert("수량 초과");
         }
         else{
-            playBeep();
-            alert("일치하는 바코드를 찾을 수 없습니다.");    
+            playDingDong();            
         }
-    } else {
-        playDingDong();
     }
 }

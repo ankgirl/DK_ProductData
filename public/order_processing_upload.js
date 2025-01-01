@@ -72,6 +72,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     기본배송비: order[sellerType === "스마트스토어" ? "기본 배송비" : "배송비"] || '',
                     배송메세지: order[sellerType === "스마트스토어" ? "배송 메세지" : "배송 메세지"] || '',
                     수취인이름: order[sellerType === "스마트스토어" ? "수취인 이름" : "수령인"] || '',
+                    운송장번호: order[sellerType === "스마트스토어" ? "운송장번호" : "운송장번호"] || '',
                     판매처: sellerType,
                 };
             }

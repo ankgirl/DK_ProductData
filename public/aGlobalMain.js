@@ -94,6 +94,31 @@ export async function getOrderByOrderNumber(orderNumber) {
     return orderMap.get(orderNumber) || null;
 }
 
+export async function getOrderNumberByDeliveryNumber(deliveryNumber) {
+    if (!orderMap) {
+        console.log("orderMap이 초기화되지 않았습니다.");
+        orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
+        console.log("Order map 초기화 완료");
+        console.log(orderMap);
+        //return orderMap.get(orderNumber) || null;
+    }
+
+    var returnOrder;
+    
+    orderMap.forEach(order => {
+        console.log(order);
+        console.log(order.운송장번호);
+        console.log(deliveryNumber);
+        if (order.운송장번호 == deliveryNumber)
+        {
+            returnOrder = order;
+        }
+    });
+    console.log(returnOrder);
+
+    return returnOrder;
+}
+
 export function getOrderMap () {
     return orderMap;
 
