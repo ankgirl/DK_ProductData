@@ -48,6 +48,8 @@ document.addEventListener("DOMContentLoaded", function() {
     deliveryNumberInput.addEventListener("keydown", async (event) => {
         if (event.key === "Enter") {
             const inputValue = deliveryNumberInput.value.trim(); // Get the input value
+            deliveryNumberInput.value = '';
+
             if (inputValue) {
                 
                 const orderData = await getOrderNumberByDeliveryNumber(inputValue)
