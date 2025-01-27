@@ -82,6 +82,9 @@ export async function reInitializeOrderMap() {
  * @param {string} orderNumber - 검색할 orderNumber 값
  * @returns {Object|null} - 해당 주문 데이터
  */
+
+
+
 export async function getOrderByOrderNumber(orderNumber) {
     if (!orderMap) {
         console.log("orderMap이 초기화되지 않았습니다.");
@@ -92,6 +95,18 @@ export async function getOrderByOrderNumber(orderNumber) {
     }
 
     return orderMap.get(orderNumber) || null;
+}
+
+export async function getAllOrders() {
+    if (!orderMap) {
+        console.log("orderMap이 초기화되지 않았습니다.");
+        orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
+        console.log("Order map 초기화 완료");
+        console.log(orderMap);
+        return orderMap;
+    }
+
+    return orderMap;  
 }
 
 export async function getOrderNumberByDeliveryNumber(deliveryNumber) {
