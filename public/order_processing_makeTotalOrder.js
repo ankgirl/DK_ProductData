@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     // 바코드가 존재하지 않으면 새로운 데이터 추가
                     emptyOrderData.ProductOrders[barcode] = {
                         SellerCode: productOrder.SellerCode || '',
+                        SellerCode: productOrder.SellerCode ? productOrder.SellerCode.replace("SET_", "") : '',                        
                         바코드: barcode,
                         보여주기용옵션명: productOrder.보여주기용옵션명 || '',
                         상품명: productOrder.상품명 || '',
