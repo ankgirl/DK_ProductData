@@ -353,22 +353,24 @@ export function checkBarcode(barcode, orderDetails) {
         }
 
         if (barcodeCell && barcodeCell.textContent === barcode) {
-            found = true;
+            countOver = false;
             currentPackingQuantity = parseInt(packingQuantityInput.value) || 0;
             checkQuantity = parseInt(quantityCell.textContent) || 0;            
 
             var increasedQuantity = currentPackingQuantity + 1;
+            
             if (increasedQuantity <= checkQuantity) {
+                found = true;
                 packingQuantityInput.value = currentPackingQuantity + 1;
-
                 if (packingQuantityInput.value == quantityCell.textContent) {
-                    checkbox.checked = true;                    
+                    checkbox.checked = true;
                 } else {
                     checkbox.checked = false;
                 }
     
                 const orderNumber = orderDropdown.value;
-                if (!orderNumber) return;    
+                if (!orderNumber) return;
+                
             }
             else{
                 countOver = true;
