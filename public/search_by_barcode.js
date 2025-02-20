@@ -1,5 +1,6 @@
 import { searchByBarcode } from './barcode_search.js';
 //import { displayProductData } from './displayProductData.js';
+import { refineInputValue } from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function() {
 
@@ -13,7 +14,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     searchForm.addEventListener("submit", async function(event) {
         event.preventDefault();
-        const barcode = barcodeInput.value;
+        let barcode = barcodeInput.value;
+        barcode = refineInputValue(barcode);
         searchProductByBarcode(barcode)
         barcodeInput.value = '';
     });

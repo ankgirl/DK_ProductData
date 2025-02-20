@@ -1,3 +1,4 @@
+
 function generateProductDetailsHTML(data) {
     return `
         
@@ -126,7 +127,9 @@ function displayProductData(data, container = document.getElementById("result"))
                         document.querySelector(`input[name="${optionName}_increaseCount"]`).value = '';
                     }
                 } else if (field === 'newBarcode') {
+                    value = refineInputValue (value)
                     updatedOptionDatas[optionName]['바코드'] = value;
+                    
                     const barcodeElement = document.getElementById(`${optionName}_바코드`);
                     if (barcodeElement) {
                         barcodeElement.textContent = value;
@@ -299,6 +302,26 @@ async function checkBarcodeDuplicate(optionDatas) {
     }
     return { duplicate, sellerCode };
 }
+
+
+function refineInputValue(input) {
+    // 특수문자 ( ) * 제거    
+    let refined = input.replace(/[()*]/g, "");
+    
+    // 한글 자모를 영어 키보드 대응 문자로 변환하는 매핑 테이블
+    const koreanToEnglishMap = {
+        'ㄱ': 'R', 'ㄲ': 'RR', 'ㄴ': 'S', 'ㄷ': 'E', 'ㄸ': 'EE', 'ㄹ': 'F', 'ㅁ': 'A', 'ㅂ': 'Q', 'ㅃ': 'QQ', 'ㅅ': 'T', 'ㅆ': 'TT', 'ㅇ': 'D', 'ㅈ': 'W', 'ㅉ': 'WW', 'ㅊ': 'C', 'ㅋ': 'Z', 'ㅌ': 'X', 'ㅍ': 'V', 'ㅎ': 'G',
+        'ㅏ': 'K', 'ㅐ': 'O', 'ㅑ': 'I', 'ㅒ': 'OI', 'ㅓ': 'J', 'ㅔ': 'P', 'ㅕ': 'U', 'ㅖ': 'PU', 'ㅗ': 'H', 'ㅘ': 'HK', 'ㅙ': 'HO', 'ㅚ': 'HL', 'ㅛ': 'Y', 'ㅜ': 'N', 'ㅝ': 'NJ', 'ㅞ': 'NP', 'ㅟ': 'NL', 'ㅠ': 'B', 'ㅡ': 'M', 'ㅢ': 'ML', 'ㅣ': 'L',
+        '가': 'RK', '나': 'SK', '다': 'EK', '라': 'FK', '마': 'AK', '바': 'QK', '사': 'TK', '아': 'DK', '자': 'WK', '차': 'CK', '카': 'ZK', '타': 'XK', '파': 'VK', '하': 'GK',
+        '이': 'DL', '어': 'J', '리': 'DJFL'
+    };
+    
+    // 한글 변환
+    refined = refined.replace(/[가-힣ㄱ-ㅎㅏ-ㅣ]/g, (match) => koreanToEnglishMap[match] || '');
+    
+    return refined;
+}
+
 
 
 async function updateProductCountsAndBarcode(sellerCode, updatedOptionDatas) {

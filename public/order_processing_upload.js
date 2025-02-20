@@ -158,20 +158,24 @@ document.addEventListener("DOMContentLoaded", function () {
                             실제이미지URL: 실제이미지URL,
                             보여주기용옵션명: 보여주기용옵션명
                         };
-                        orderDetails.총원가금액 += 원가;
+                        orderDetails.총원가금액 += (원가 * orderData.상품수량);
                         itemcount += orderData.상품수량;
                     }
                 }
             } else {                
                 const productDoc = await getProductBySellerCode(sellerCode);
+                console.log(productDoc);
+                console.log(option);
+                console.log(productDoc.OptionDatas);
                 if (productDoc?.OptionDatas?.[option]) {
                     const optData = productDoc.OptionDatas[option];
+                    console.error(productDoc);
                     const counts = optData.Counts || '';
                     const barcode = optData.바코드 || '';
                     const 원가 = parseFloat(productDoc.PriceBuy_kr) || 0;
                     const 입고차수 = productDoc.소분류명?.replace("차입고", "") || '';
 
-                    console.log(productDoc.GroupOptions);
+                    
                     const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수, productDoc.GroupOptions);
 
                     orderData.Counts = counts;
@@ -183,7 +187,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     orderData.보여주기용옵션명 = 보여주기용옵션명;
                     
 
-                    orderDetails.총원가금액 += 원가;
+                    orderDetails.총원가금액 += (원가 * orderData.상품수량);
                     itemcount += orderData.상품수량;
                 }
             }

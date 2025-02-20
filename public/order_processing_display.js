@@ -6,7 +6,7 @@ import { playDingDong } from './playsound.js';
 import { playBeep } from './playsound.js';
 //import { saveBarcodeInfoToDB } from './orderHelpers.js';
 import { getProductByBarcode } from './aGlobalMain.js';
-import { reInitializeOrderMap, reInitializeProductMap, getOrderByOrderNumber, updateOrderInfo, getOrderMap, getOrderNumberByDeliveryNumber} from './aGlobalMain.js';
+import { refineInputValue, reInitializeOrderMap, reInitializeProductMap, getOrderByOrderNumber, updateOrderInfo, getOrderMap, getOrderNumberByDeliveryNumber} from './aGlobalMain.js';
 
 document.addEventListener("DOMContentLoaded", function() {
     const orderDropdown = document.getElementById("orderDropdown");
@@ -26,7 +26,8 @@ document.addEventListener("DOMContentLoaded", function() {
     // Attach an event listener to the input field to listen for the Enter key
     orderNumberInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
-            const inputValue = orderNumberInput.value.trim(); // Get the input value
+            let inputValue = orderNumberInput.value.trim(); // Get the input value
+            inputValue = refineInputValue(inputValue);
             if (inputValue) {
                 const options = Array.from(orderDropdown.options);
                 const matchingOption = options.find(option => option.value.includes(inputValue)); // Partial match
@@ -47,8 +48,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
     deliveryNumberInput.addEventListener("keydown", async (event) => {
         if (event.key === "Enter") {
-            const inputValue = deliveryNumberInput.value.trim(); // Get the input value
+            let inputValue = deliveryNumberInput.value.trim(); // Get the input value
+            inputValue = refineInputValue(inputValue);
             deliveryNumberInput.value = '';
+
 
             if (inputValue) {
                 
@@ -68,7 +71,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     barcodeInput.addEventListener("keypress", function(event) {
         if (event.key === 'Enter') {
-            const barcode = barcodeInput.value.trim();
+            let barcode = barcodeInput.value.trim();
+            barcode = refineInputValue(barcode);
             if (barcode) {
                 checkBarcode(barcode, orderDetails);
                 barcodeInput.value = '';  // 입력 후 입력란 지우기
@@ -78,7 +82,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     serviceBarcodeInput.addEventListener("keypress", async function(event) {
         if (event.key === 'Enter') {
-            const barcode = serviceBarcodeInput.value.trim();
+            let barcode = serviceBarcodeInput.value.trim();
+            barcode = refineInputValue(barcode);
             if (barcode) {
                 await checkServiceBarcode (barcode, orderDropdown, messageDiv);
                 serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
