@@ -1,8 +1,9 @@
+function generateProductDetailsHTML(data, setData) {
+    // setData가 null이거나 undefined일 경우를 안전하게 처리
+    const safeSetData = setData && setData.OptionDatas ? setData : { OptionDatas: {} };
 
-function generateProductDetailsHTML(data) {
     return `
-        
-        <p><strong>SellerCode:</strong> ${data.SellerCode || ''}</p>
+        <p><strong>SellerCode:</strong> ${data.SellerCode ? `${data.SellerCode}, SET_${data.SellerCode}` : ''}</p>
         <p><strong>입고차수:</strong> ${data.소분류명 || ''}</p>        
         <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>
         <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}" target="_blank">${data.스토어링크 || ''}</a></p>
@@ -11,48 +12,115 @@ function generateProductDetailsHTML(data) {
         <p><strong>SellingPrice:</strong> ${data.DiscountedPrice || ''}</p>
         <p><strong>Option Datas:</strong></p>
         <form id="updateForm">
+            <style>
+                #updateForm table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    min-width: 1200px;
+                    table-layout: fixed;
+                }
+                #updateForm th, #updateForm td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: center;
+                    vertical-align: middle;
+                    word-break: break-all;
+                }
+                #updateForm th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }
+                #updateForm .image-container {
+                    width: 100px;
+                    height: 150px;
+                }
+                #updateForm .image-container img {
+                    max-width: 150px;
+                    max-height: 150px;
+                    display: block;
+                    margin: 0 auto;
+                }
+                #updateForm input[type="number"], 
+                #updateForm input[type="text"] {
+                    width: 90%;
+                    box-sizing: border-box;
+                    text-align: center;
+                }
+                #updateForm button.clear-barcode {
+                    width: 100%;
+                    padding: 4px 0;
+                }
+            </style>
+            <button type="increaseSetCount" style="width: 200px; height: 40px; font-size: 1.1em;">세트수량 증가</button>
+            <button type="decreaseSetCount" style="width: 200px; height: 40px; font-size: 1.1em;">세트수량 감소</button>
             <table>
+                <colgroup>
+                    <col style="width: 150px;">
+                    <col style="width: 150px;">
+                    <col style="width: 150px;">
+                    <col style="width: 80px;">
+                    <col style="width: 80px;">
+                    <col style="width: 90px;">
+                    <col style="width: 110px;">
+                    <col style="width: 90px;">
+                    <col style="width: 90px;">
+                    <col style="width: 120px;">
+                    <col style="width: 120px;">
+                    <col style="width: 80px;">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th>옵션명</th>                        
                         <th>옵션이미지</th>
+                        <th>옵션명</th>                        
                         <th>실제이미지</th>
                         <th>Price</th>
                         <th>Counts</th>
                         <th>새로운 Counts</th>
-                        <th>재고 추가</th>
-                        <th>재고 감소</th>
+                        <th>SET_Counts</th>
+                        <th>새로운 SET_Counts</th>
+                        <th>Total Counts</th>
                         <th>바코드</th>
                         <th>새로운 바코드</th>
                         <th>바코드 지우기</th>
                     </tr>
                 </thead>
                 <tbody>
-                ${(data.OptionDatas ? Object.entries(data.OptionDatas).sort(([, aValues], [, bValues]) => {
-                    return aValues.보여주기용옵션명.localeCompare(bValues.보여주기용옵션명);
-                }).map(([optionName, optionValues], index, array) => {
-                    return `
-                        <tr>
-                            <td>${optionValues.보여주기용옵션명}</td>
-                            <td class="image-container"><img src="${optionValues.옵션이미지URL}" alt="옵션이미지"></td>
-                            <td class="image-container"><img src="${optionValues.실제이미지URL}" alt="실제이미지"></td>
-                            <td>${optionValues.Price || ''}</td>
-                            <td id="${optionName}_Counts">${optionValues.Counts || ''}</td>
-                            <td><input type="number" name="${optionName}_newCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newCount" class="input-field"></td>
-                            <td><input type="number" name="${optionName}_increaseCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_increaseCount" class="input-field"></td>
-                            <td><input type="number" name="${optionName}_decreaseCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_decreaseCount" class="input-field"></td>
-                            <td id="${optionName}_바코드">${optionValues.바코드 || ''}</td>
-                            <td><input type="text" name="${optionName}_newBarcode" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newBarcode" class="input-field"></td>
-                            <td><button type="button" class="clear-barcode" data-option="${optionName}">지우기</button></td>
-                        </tr>
-                    `;
-                }).join('') : '')}
-                
+                ${
+                    data.OptionDatas
+                    ? Object.entries(data.OptionDatas)
+                        .sort(([, aValues], [, bValues]) => {
+                            return aValues.보여주기용옵션명.localeCompare(bValues.보여주기용옵션명);
+                        })
+                        .map(([optionName, optionValues], index, array) => {
+                            // setData가 null이거나 OptionDatas가 없을 때 안전하게 처리
+                            const setOption = safeSetData.OptionDatas["옵션1"];
+                            const setCounts = setOption && typeof setOption.Counts === "number" ? setOption.Counts : 0;
+                            const totalCounts = (typeof optionValues.Counts === "number" ? optionValues.Counts : 0) + setCounts;
+
+                            return `
+                                <tr>
+                                    <td class="image-container"><img src="${optionValues.옵션이미지URL}" alt="옵션이미지"></td>
+                                    <td>${optionValues.보여주기용옵션명}</td>                                    
+                                    <td class="image-container"><img src="${optionValues.실제이미지URL}" alt="실제이미지"></td>
+                                    <td>${optionValues.Price || ''}</td>
+                                    <td id="${optionName}_Counts">${optionValues.Counts || ''}</td>
+                                    <td><input type="number" name="${optionName}_newCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newCount" class="input-field"></td>
+                                    <td id="${optionName}_SET_Counts">${setCounts}</td>
+                                    <td><input type="number" name="${optionName}_newSET_Counts" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newSET_Counts" class="input-field"></td>
+                                    <td id="${optionName}_TotalCounts">${totalCounts || ''}</td>
+                                    <td id="${optionName}_바코드">${optionValues.바코드 || ''}</td>
+                                    <td><input type="text" name="${optionName}_newBarcode" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newBarcode" class="input-field"></td>
+                                    <td><button type="button" class="clear-barcode" data-option="${optionName}">지우기</button></td>
+                                </tr>
+                            `;
+                        }).join('')
+                    : ''
+                }
                 </tbody>
             </table>
-            <br><br><br><br><br><br><br><br><br><br>
-            <button type="submit">적용</button>
-            <br><br><br><br><br><br><br><br>
+            <div style="height: 40px;"></div>
+            <button type="submit" style="width: 200px; height: 40px; font-size: 1.1em;">적용</button>
+            <div style="height: 40px;"></div>
         </form>
         <h3>새 옵션 추가</h3>
         <form id="addOptionForm">
@@ -66,9 +134,9 @@ function generateProductDetailsHTML(data) {
 }
 
 
-function displayProductData(data, container = document.getElementById("result")) {
-    if (!data || !data.OptionDatas) {
-        console.error("Invalid data:", data);
+function displayProductData(data, setData,  container = document.getElementById("result")) {
+    if ((!data || !data.OptionDatas) && (!setData || !setData.OptionDatas)) {
+        console.error("data와 setData 둘 다 유효하지 않습니다:", { data, setData });
         return;
     }
 
@@ -85,49 +153,205 @@ function displayProductData(data, container = document.getElementById("result"))
             data.OptionDatas[optionName].실제이미지URL = 실제이미지URL;
         }
     }    
-    container.innerHTML = generateProductDetailsHTML(data);
+    container.innerHTML = generateProductDetailsHTML(data, setData);
+
+
+    // 공통 로직을 함수로 분리하여 리팩토링
+    // 상세 로그 추가하여 문제 원인 파악
+    function updateOptionCounts({ data, setData, isIncrease }) {
+        console.log("[updateOptionCounts] 함수 호출됨", { data, setData, isIncrease });
+
+        if (!data || !data.OptionDatas) {
+            console.error("[updateOptionCounts] data 또는 data.OptionDatas가 없음", data);
+            return;
+        }
+        if (!setData || !setData.OptionDatas) {
+            console.warn("[updateOptionCounts] setData 또는 setData.OptionDatas가 없음", setData);
+        }
+
+        const updatedOptionDatas = {};
+        const updatedSetOptionDatas = {};
+
+        // data의 모든 옵션의 Counts를 증감
+        for (let optionName in data.OptionDatas) {
+            if (!updatedOptionDatas[optionName]) {
+                updatedOptionDatas[optionName] = { ...data.OptionDatas[optionName] };
+            }
+            if (typeof updatedOptionDatas[optionName].Counts === 'number') {
+                const before = updatedOptionDatas[optionName].Counts;
+                updatedOptionDatas[optionName].Counts = Math.max(
+                    0,
+                    updatedOptionDatas[optionName].Counts + (isIncrease ? -1 : 1)
+                );
+                console.log(`[updateOptionCounts] data 옵션 "${optionName}" Counts 변경: ${before} -> ${updatedOptionDatas[optionName].Counts}`);
+            } else {
+                console.warn(`[updateOptionCounts] data 옵션 "${optionName}"의 Counts가 숫자가 아님:`, updatedOptionDatas[optionName].Counts);
+            }
+        }
+
+        // setData의 '옵션1' Counts를 증감
+        if (setData && setData.OptionDatas && setData.OptionDatas['옵션1']) {
+            if (!updatedSetOptionDatas['옵션1']) {
+                updatedSetOptionDatas['옵션1'] = { ...setData.OptionDatas['옵션1'] };
+            }
+            if (typeof updatedSetOptionDatas['옵션1'].Counts === 'number') {
+                const beforeSet = updatedSetOptionDatas['옵션1'].Counts;
+                updatedSetOptionDatas['옵션1'].Counts = Math.max(
+                    0,
+                    updatedSetOptionDatas['옵션1'].Counts + (isIncrease ? 1 : -1)
+                );
+                console.log(`[updateOptionCounts] setData '옵션1' Counts 변경: ${beforeSet} -> ${updatedSetOptionDatas['옵션1'].Counts}`);
+            } else {
+                console.warn(`[updateOptionCounts] setData '옵션1'의 Counts가 숫자가 아님:`, updatedSetOptionDatas['옵션1'].Counts);
+            }
+        } else {
+            console.warn("[updateOptionCounts] setData에 '옵션1'이 없거나 OptionDatas가 없음", setData);
+        }
+
+        // data와 setData의 OptionDatas를 각각 갱신
+        for (let optionName in updatedOptionDatas) {
+            if (data.OptionDatas[optionName]) {
+                const prev = data.OptionDatas[optionName].Counts;
+                data.OptionDatas[optionName].Counts = updatedOptionDatas[optionName].Counts;
+                console.log(`[updateOptionCounts] data.OptionDatas[${optionName}].Counts 최종 적용: ${prev} -> ${data.OptionDatas[optionName].Counts}`);
+                
+                // 화면의 표에 결과 값 반영
+                const countsElement = document.getElementById(`${optionName}_Counts`);
+                if (countsElement) {
+                    countsElement.textContent = data.OptionDatas[optionName].Counts;
+                }
+                
+                // TotalCounts도 업데이트 (SET Counts와 합산)
+                const setCountsElement = document.getElementById(`${optionName}_SET_Counts`);
+                const totalCountsElement = document.getElementById(`${optionName}_TotalCounts`);
+                if (totalCountsElement && setCountsElement) {
+                    const setCounts = parseInt(setCountsElement.textContent) || 0;
+                    const totalCounts = data.OptionDatas[optionName].Counts + setCounts;
+                    totalCountsElement.textContent = totalCounts;
+                }
+            } else {
+                console.error(`[updateOptionCounts] data.OptionDatas에 "${optionName}"이(가) 없음`);
+            }
+        }
+        
+        for (let optionName in updatedSetOptionDatas) {
+            if (setData.OptionDatas && setData.OptionDatas[optionName]) {
+                const prevSet = setData.OptionDatas[optionName].Counts;
+                setData.OptionDatas[optionName].Counts = updatedSetOptionDatas[optionName].Counts;
+                console.log(`[updateOptionCounts] setData.OptionDatas[${optionName}].Counts 최종 적용: ${prevSet} -> ${setData.OptionDatas[optionName].Counts}`);
+                
+                // 모든 옵션의 SET_Counts 요소를 업데이트 (모든 행에서 같은 SET 값 사용)
+                const allOptionNames = Object.keys(data.OptionDatas);
+                for (let dataOptionName of allOptionNames) {
+                    const setCountsElement = document.getElementById(`${dataOptionName}_SET_Counts`);
+                    if (setCountsElement) {
+                        setCountsElement.textContent = setData.OptionDatas[optionName].Counts;
+                    }
+                    
+                    // TotalCounts도 업데이트 (일반 Counts와 합산)
+                    const countsElement = document.getElementById(`${dataOptionName}_Counts`);
+                    const totalCountsElement = document.getElementById(`${dataOptionName}_TotalCounts`);
+                    if (totalCountsElement && countsElement) {
+                        const counts = parseInt(countsElement.textContent) || 0;
+                        const totalCounts = counts + setData.OptionDatas[optionName].Counts;
+                        totalCountsElement.textContent = totalCounts;
+                    }
+                }
+            } else {
+                console.error(`[updateOptionCounts] setData.OptionDatas에 "${optionName}"이(가) 없음`);
+            }
+        }
+        
+        console.log("[updateOptionCounts] 최종 data:", data);
+        console.log("[updateOptionCounts] 최종 setData:", setData);
+    }
+
+    // 버튼 클릭 시 submit(새로고침) 방지: type="button"으로 변경 필요
+    // 만약 HTML에서 type="button"이 아니라면, 아래에서 강제로 preventDefault 처리
+    const increaseBtn = document.querySelector('#updateForm button[type="increaseSetCount"]');
+    const decreaseBtn = document.querySelector('#updateForm button[type="decreaseSetCount"]');
+
+    if (increaseBtn) {
+        increaseBtn.type = "button";
+        increaseBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            console.log("[increaseSetCount] 버튼 클릭 이벤트 호출됨");
+            updateOptionCounts({ data, setData, isIncrease: true });
+        });
+    }
+
+    if (decreaseBtn) {
+        decreaseBtn.type = "button";
+        decreaseBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            console.log("[decreaseSetCount] 버튼 클릭 이벤트 호출됨");
+            updateOptionCounts({ data, setData, isIncrease: false });
+        });
+    }
+
 
     document.getElementById('updateForm').addEventListener('submit', async function (event) {
         event.preventDefault();
         const updatedOptionDatas = {};
+        const updatedSetOptionDatas = {};
         const formData = new FormData(event.target);
         let barcodeCheckNeeded = false;
+        let hasChanges = false;
 
         // 최신 데이터 가져오기
         const latestData = (await db.collection('Products').doc(data.SellerCode).get()).data().OptionDatas;
+        let latestSetData = {};
+        if (setData && setData.sellerCode) {
+            const setDoc = await db.collection('Products').doc(setData.sellerCode).get();
+            if (setDoc.exists && setDoc.data() && setDoc.data().OptionDatas) {
+                latestSetData = setDoc.data().OptionDatas;
+            } else {
+                latestSetData = {};
+            }
+        }
+
+        // 1. 입력 필드의 값들 처리 (기존 로직)
+        let newSetCountChanged = false;
+        let newCountChanged = false;
+        let newSetCount = 0;
 
         for (let [key, value] of formData.entries()) {
             const [optionName, field] = key.split('_');
+            
+            if (newSetCountChanged) {
+                document.getElementById(`${optionName}_SET_Counts`).textContent = newSetCount;
+            }
+
             if (value.trim() !== '') { // 입력된 값이 있을 때만 업데이트
+                hasChanges = true;
+                
                 if (!updatedOptionDatas[optionName]) {
                     updatedOptionDatas[optionName] = { ...latestData[optionName] };
                 }
-                const currentCount = latestData[optionName].Counts;
+
+                if (!updatedSetOptionDatas[optionName]) {
+                    updatedSetOptionDatas[optionName] = { ...latestSetData[optionName] };
+                }
+                
                 if (field === 'newCount') {
-                    updatedOptionDatas[optionName]['Counts'] = parseInt(value, 10);
-                    document.getElementById(`${optionName}_Counts`).textContent = value;
-                    // 같은 줄의 재고 추가 및 재고 감소 입력란의 값 지우기
-                    document.querySelector(`input[name="${optionName}_increaseCount"]`).value = '';
-                    document.querySelector(`input[name="${optionName}_decreaseCount"]`).value = '';
-                } else if (field === 'increaseCount') {
-                    updatedOptionDatas[optionName]['Counts'] = currentCount + parseInt(value, 10);
-                    document.getElementById(`${optionName}_Counts`).textContent = updatedOptionDatas[optionName]['Counts'];
-                    // 같은 줄의 새로운 Counts 및 재고 감소 입력란의 값 지우기
-                    document.querySelector(`input[name="${optionName}_newCount"]`).value = '';
-                    document.querySelector(`input[name="${optionName}_decreaseCount"]`).value = '';
-                } else if (field === 'decreaseCount') {
-                    const newCount = currentCount - parseInt(value, 10);
-                    if (newCount < 0) {
-                        alert(`${optionName} 옵션의 재고가 마이너스가 됩니다 확인 후 다시 입력하세요.: ${newCount}`);
-                    } else {
-                        updatedOptionDatas[optionName]['Counts'] = newCount;
-                        document.getElementById(`${optionName}_Counts`).textContent = updatedOptionDatas[optionName]['Counts'];
-                        // 같은 줄의 새로운 Counts 및 재고 추가 입력란의 값 지우기
-                        document.querySelector(`input[name="${optionName}_newCount"]`).value = '';
-                        document.querySelector(`input[name="${optionName}_increaseCount"]`).value = '';
-                    }
-                } else if (field === 'newBarcode') {
-                    value = refineInputValue (value)
+                    console.log("newCount");
+                    newCountChanged = true;                    
+                    updatedOptionDatas[optionName]['Counts'] = parseInt(value, 10);                    
+                    document.getElementById(`${optionName}_Counts`).textContent = value;                    
+                }
+
+                if (field === 'newSET') {
+                    console.log("newSET");
+                    updatedSetOptionDatas[optionName]['Counts'] = parseInt(value, 10);
+                    document.getElementById(`${optionName}_SET_Counts`).textContent = value;
+                    console.log(updatedSetOptionDatas);
+                    console.log(updatedSetOptionDatas[optionName]);
+                    newSetCountChanged = true;
+                    newSetCount = value;
+                }
+                
+                else if (field === 'newBarcode') {
+                    value = refineInputValue(value)
                     updatedOptionDatas[optionName]['바코드'] = value;
                     
                     const barcodeElement = document.getElementById(`${optionName}_바코드`);
@@ -137,23 +361,92 @@ function displayProductData(data, container = document.getElementById("result"))
                     if (value.trim() !== '') {
                         barcodeCheckNeeded = true;
                     }
-                }           
+                }
             }
         }
 
-        if (barcodeCheckNeeded) {
-            // 바코드 중복 확인
-            const barcodeCheck = await checkBarcodeDuplicate(updatedOptionDatas);
-            if (barcodeCheck.duplicate) {
-                const userConfirmation = confirm(`중복된 바코드가 발견되었습니다: ${barcodeCheck.sellerCode}. 그래도 저장하시겠습니까?`);
-                if (userConfirmation) {
-                    await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas);
+        // 2. 화면에 표시된 현재 값들 처리 (세트 수량 증가/감소로 변경된 값들)
+        const allOptionNames = Object.keys(data.OptionDatas);
+        for (let optionName of allOptionNames) {
+            // 현재 화면에 표시된 Counts 값 가져오기
+            const currentCountsElement = document.getElementById(`${optionName}_Counts`);
+            const currentSetCountsElement = document.getElementById(`${optionName}_SET_Counts`);
+            
+            if (currentCountsElement && currentSetCountsElement) {
+                const currentCounts = parseInt(currentCountsElement.textContent) || 0;
+                const currentSetCounts = parseInt(currentSetCountsElement.textContent) || 0;
+                
+                // 기존 데이터와 비교하여 변경사항이 있는지 확인
+                const originalCounts = latestData[optionName]?.Counts || 0;
+                const originalSetCounts = latestSetData['옵션1']?.Counts || 0;
+                
+                if (currentCounts !== originalCounts) {
+                    hasChanges = true;
+                    if (!updatedOptionDatas[optionName]) {
+                        updatedOptionDatas[optionName] = { ...latestData[optionName] };
+                    }
+                    updatedOptionDatas[optionName]['Counts'] = currentCounts;
+                    console.log(`[submit] ${optionName} Counts 업데이트: ${originalCounts} -> ${currentCounts}`);
+                }
+                
+                if (currentSetCounts !== originalSetCounts) {
+                    hasChanges = true;
+                    if (!updatedSetOptionDatas['옵션1']) {
+                        updatedSetOptionDatas['옵션1'] = { ...latestSetData['옵션1'] };
+                    }
+                    updatedSetOptionDatas['옵션1']['Counts'] = currentSetCounts;
+                    console.log(`[submit] SET Counts 업데이트: ${originalSetCounts} -> ${currentSetCounts}`);
+                }
+            }
+        }
+
+        if (newCountChanged || newSetCountChanged) {
+            // optionName별로 newCount, newSET 값을 모아서 합산
+            const optionTotals = {};
+
+            for (let [key, value] of formData.entries()) {
+                const [optionName, field] = key.split('_');
+                if (!optionTotals[optionName]) {
+                    optionTotals[optionName] = { newCount: 0, newSetCount: 0 };
+                }
+                if (field === 'newCount') {
+                    const countValue = document.getElementById(`${optionName}_Counts`)?.textContent || "0";
+                    optionTotals[optionName].newCount = parseInt(countValue, 10) || 0;
+                }
+                if (field === 'newSET') {
+                    const setCountValue = document.getElementById(`${optionName}_SET_Counts`)?.textContent || "0";
+                    optionTotals[optionName].newSetCount = parseInt(setCountValue, 10) || 0;
+                }
+            }
+
+            // 합산 결과를 각 optionName별로 TotalCounts에 반영
+            for (const optionName in optionTotals) {
+                const totalCounts = optionTotals[optionName].newCount + optionTotals[optionName].newSetCount;
+                const totalCountsElement = document.getElementById(`${optionName}_TotalCounts`);
+                if (totalCountsElement) {
+                    totalCountsElement.textContent = totalCounts;
+                }
+            }
+        }
+
+        // 3. 변경사항이 있을 때만 Firestore에 저장
+        if (hasChanges) {
+            if (barcodeCheckNeeded) {
+                // 바코드 중복 확인
+                const barcodeCheck = await checkBarcodeDuplicate(updatedOptionDatas);
+                if (barcodeCheck.duplicate) {
+                    const userConfirmation = confirm(`중복된 바코드가 발견되었습니다: ${barcodeCheck.sellerCode}. 그래도 저장하시겠습니까?`);
+                    if (userConfirmation) {
+                        await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
+                    }
+                } else {
+                    await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
                 }
             } else {
-                await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas);
+                await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
             }
         } else {
-            await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas);
+            console.log("[submit] 변경사항이 없어 저장하지 않습니다.");
         }
         
         // 폼의 입력 칸 초기화
@@ -165,15 +458,11 @@ function displayProductData(data, container = document.getElementById("result"))
     document.querySelectorAll('#updateForm input').forEach(input => {
         input.addEventListener('input', function () {
             const [optionName, field] = this.name.split('_');
-            if (field === 'newCount') {
-                document.querySelector(`input[name="${optionName}_increaseCount"]`).value = '';
-                document.querySelector(`input[name="${optionName}_decreaseCount"]`).value = '';
-            } else if (field === 'increaseCount') {
-                document.querySelector(`input[name="${optionName}_newCount"]`).value = '';
-                document.querySelector(`input[name="${optionName}_decreaseCount"]`).value = '';
-            } else if (field === 'decreaseCount') {
-                document.querySelector(`input[name="${optionName}_newCount"]`).value = '';
-                document.querySelector(`input[name="${optionName}_increaseCount"]`).value = '';
+            if (['increaseCount', 'decreaseCount'].includes(field)) {
+                const newCountInput = document.querySelector(`input[name="${optionName}_newCount"]`);
+                if (newCountInput) {
+                    newCountInput.value = '';
+                }
             }
         });
         
@@ -251,8 +540,19 @@ function displayProductData(data, container = document.getElementById("result"))
             // 비동기 데이터베이스 업데이트
             await db.collection('Products').doc(data.SellerCode).update({ OptionDatas: updatedOptionDatas });
     
-            // 데이터 업데이트 후 UI 갱신
-            displayProductData({ ...data, OptionDatas: updatedOptionDatas });
+            // 데이터 업데이트 후 UI 갱신 - displayProductData 호출 제거
+            // 대신 필요한 부분만 업데이트하거나 성공 메시지만 표시
+            const messageDiv = document.getElementById('message');
+            if (messageDiv) {
+                messageDiv.innerHTML = '<p>새로운 옵션이 성공적으로 추가되었습니다.</p>';
+            }
+            
+            // 폼 초기화
+            document.getElementById('newOptionName').value = '';
+            document.getElementById('newOptionPrice').value = '';
+            document.getElementById('newOptionCounts').value = '';
+            document.getElementById('newOptionBarcode').value = '';
+            
         } catch (error) {
             console.error('옵션 저장 중 오류 발생:', error);
             alert('옵션 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -324,7 +624,7 @@ function refineInputValue(input) {
 
 
 
-async function updateProductCountsAndBarcode(sellerCode, updatedOptionDatas) {
+async function updateProductCountsAndBarcode(sellerCode, updatedOptionDatas, updatedSetOptionDatas) {
     const messageDiv = document.getElementById('message');
     try {
         const productDoc = await db.collection('Products').doc(sellerCode).get();
@@ -333,9 +633,37 @@ async function updateProductCountsAndBarcode(sellerCode, updatedOptionDatas) {
         for (let optionName in updatedOptionDatas) {
             existingOptionDatas[optionName] = { ...existingOptionDatas[optionName], ...updatedOptionDatas[optionName] };
         }
-
         await db.collection('Products').doc(sellerCode).update({ OptionDatas: existingOptionDatas });
         messageDiv.innerHTML = '<p>옵션 Counts와 바코드가 성공적으로 업데이트되었습니다.</p>';
+
+        const setSellerCode = "SET_" + sellerCode;
+        const setProductDoc = await db.collection('Products').doc(setSellerCode).get();
+        // setProductDoc가 존재하는지 체크
+        if (!setProductDoc.exists) {
+            messageDiv.innerHTML = '<p>SET 상품 정보가 존재하지 않습니다. 관리자에게 문의하세요.</p>';
+            return;
+        }
+        else {            
+            const setExistingOptionDatas = setProductDoc.data().OptionDatas;            
+            // updatedSetOptionDatas의 첫번째 옵션의 Counts 값만 "옵션1"에 업데이트
+            const firstOptionKey = Object.keys(updatedSetOptionDatas)[0];
+
+
+
+            if (firstOptionKey && updatedSetOptionDatas[firstOptionKey] && updatedSetOptionDatas[firstOptionKey].Counts !== undefined) {
+                setExistingOptionDatas["옵션1"] = {
+                    ...setExistingOptionDatas["옵션1"],
+                    Counts: updatedSetOptionDatas[firstOptionKey].Counts
+                };
+            }
+            console.log(setExistingOptionDatas);
+            console.log(updatedSetOptionDatas);
+
+            await db.collection('Products').doc(setSellerCode).update({ OptionDatas: setExistingOptionDatas });
+            messageDiv.innerHTML = '<p>SET 옵션 Counts가 성공적으로 업데이트되었습니다.</p>';
+        }
+
+
     } catch (error) {
         console.error("Error updating document:", error);
         messageDiv.innerHTML = '<p>옵션 Counts와 바코드 업데이트 중 오류가 발생했습니다.</p>';

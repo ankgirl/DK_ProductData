@@ -4,6 +4,7 @@
 
 let currentSellercode = null;
 let currentProduct = null;
+let currentSellerCodeSet = null;
 
 document.addEventListener("DOMContentLoaded", function() {
     console.log("DOMContentLoaded event fired");
@@ -48,13 +49,18 @@ async function searchProductBySellerCode(sellerCode) {
     try {
         currentSellercode = sellerCode;
         // Firestore에서 문서 참조 가져오기
+        // sellerCode와 "SET_"+sellerCode 둘 다 가져오기
         const docRef = window.db.collection("Products").doc(sellerCode);
-        const docSnap = await docRef.get();        
+        const setDocRef = window.db.collection("Products").doc("SET_" + sellerCode);
+
+        // 두 문서를 동시에 가져옴
+        const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
 
         // 문서가 존재하면 데이터 표시, 아니면 "No such product found!" 메시지 표시
         if (docSnap.exists) {
             currentProduct = docSnap.data();
-            displayProductData(currentProduct);
+            currentSellerCodeSet = setDocSnap.data();
+            displayProductData(currentProduct, currentSellerCodeSet);
         } else {
             const resultDiv = document.getElementById("result");
             resultDiv.innerHTML = "<p>No such product found!</p>";
