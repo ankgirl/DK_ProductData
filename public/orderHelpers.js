@@ -81,9 +81,14 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                 const totalSales = orderData.주문판매가합산금액 || 0;
                 const totalCost = orderData.주문원가합산금액 || 0;
 
+                // SellerCode가 SET_로 시작하면 SET_를 제거한 후 소팅
                 const sortedProductOrders = Object.values(productOrders).sort((a, b) => {
-                    if (a.SellerCode < b.SellerCode) return -1;
-                    if (a.SellerCode > b.SellerCode) return 1;
+                    // SellerCode에서 SET_ 제거
+                    const sellerCodeA = a.SellerCode && a.SellerCode.startsWith("SET_") ? a.SellerCode.replace(/^SET_/, "") : a.SellerCode;
+                    const sellerCodeB = b.SellerCode && b.SellerCode.startsWith("SET_") ? b.SellerCode.replace(/^SET_/, "") : b.SellerCode;
+
+                    if (sellerCodeA < sellerCodeB) return -1;
+                    if (sellerCodeA > sellerCodeB) return 1;
                     if (a.보여주기용옵션명 < b.보여주기용옵션명) return -1;
                     if (a.보여주기용옵션명 > b.보여주기용옵션명) return 1;
                     return 0;

@@ -47,6 +47,11 @@ export function getCurrentProduct() {
 
 async function searchProductBySellerCode(sellerCode) {
     try {
+
+        if(sellerCode.includes("SET_")) {
+            sellerCode = sellerCode.replace("SET_", "");
+        }
+
         currentSellercode = sellerCode;
         // Firestore에서 문서 참조 가져오기
         // sellerCode와 "SET_"+sellerCode 둘 다 가져오기
