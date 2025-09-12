@@ -1,9 +1,14 @@
+
 function generateProductDetailsHTML(data, setData) {
     // setData가 null이거나 undefined일 경우를 안전하게 처리
     const safeSetData = setData && setData.OptionDatas ? setData : { OptionDatas: {} };
 
     return `
-        <p><strong>SellerCode:</strong> ${data.SellerCode ? `${data.SellerCode}, SET_${data.SellerCode}` : ''}</p>
+        <p>
+        <strong>SellerCode:</strong>
+        ${data.SellerCode ? `${data.SellerCode}, SET_${data.SellerCode}` : ''}
+        <button type="button" onclick="copySellerCode('${data.SellerCode}')">복사하기</button>
+        </p>
         <p><strong>입고차수:</strong> ${data.소분류명 || ''}</p>        
         <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>
         <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}" target="_blank">${data.스토어링크 || ''}</a></p>
@@ -132,6 +137,43 @@ function generateProductDetailsHTML(data, setData) {
         </form>
     `;
 }
+
+
+function copySellerCode(sellerCode) {
+  if (!sellerCode) return alert("SellerCode가 없습니다.");
+  
+  const text = `${sellerCode},SET_${sellerCode}`;
+  navigator.clipboard.writeText(text).then(() => {
+    //alert("클립보드에 복사되었습니다: " + text);
+    playDingDong();
+  });
+}
+function playDingDong() {
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+
+    // 첫 번째 소리 (띵)
+    const oscillator1 = context.createOscillator();
+    const gainNode1 = context.createGain();
+    oscillator1.type = 'sine';
+    oscillator1.frequency.setValueAtTime(659.25, context.currentTime); // E5 음
+    oscillator1.connect(gainNode1);
+    gainNode1.connect(context.destination);
+    oscillator1.start(context.currentTime);
+    gainNode1.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + 2);
+    oscillator1.stop(context.currentTime + 0.3);
+
+    // 두 번째 소리 (동)
+    const oscillator2 = context.createOscillator();
+    const gainNode2 = context.createGain();
+    oscillator2.type = 'sine';
+    oscillator2.frequency.setValueAtTime(523.25, context.currentTime + 0.3); // C5 음
+    oscillator2.connect(gainNode2);
+    gainNode2.connect(context.destination);
+    oscillator2.start(context.currentTime + 0.3);
+    gainNode2.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + 2);
+    oscillator2.stop(context.currentTime + 0.6);
+}// Beep 소리를 생성하는 함수
+
 
 
 function displayProductData(data, setData,  container = document.getElementById("result")) {

@@ -17,9 +17,9 @@ function calculateTotals(orderData) {
 
     // 모든 서비스 제품 원가 합산 (숫자로 변환하여 합산)
     const newServiceTotalCost = orderData.ProductService.reduce((acc, service) => {
-        const priceBuy_kr = parseFloat(service.PriceBuy_kr) || 0;
-        console.log(`서비스 항목 PriceBuy_kr: ${service.PriceBuy_kr}, 변환된 값: ${priceBuy_kr}`);
-        return acc + priceBuy_kr;
+        const 원가 = parseFloat(service.원가) || 0;
+        console.log(`서비스 항목 원가: ${service.원가}, 변환된 값: ${원가}`);
+        return acc + 원가;
     }, 0);
     orderData.서비스총원가금액 = newServiceTotalCost;
 
@@ -150,7 +150,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                                 data-label="포장수량">
                         </td>
                         <td data-label="총가격">${order.상품별총주문금액}</td>
-                        <td data-label="원가">${order.PriceBuy_kr}</td>
+                        <td data-label="원가">${order.원가}</td>
                         <td data-label="Counts">${order.Counts}</td>
                         <td data-label="바코드">${order.바코드}</td>
                         <td class="image-container"><img src="${order.옵션이미지URL}" alt="옵션이미지"></td>
@@ -195,7 +195,7 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                             <td data-label="판매자상품코드">${service.SellerCode}</td>
                             <td data-label="바코드">${service.바코드}</td>
                             <td data-label="SellingPrice">${service.SellingPrice}</td>
-                            <td data-label="원가">${service.PriceBuy_kr}</td>
+                            <td data-label="원가">${service.원가}</td>
                             <td><input type="number" class="serviceQuantity" min="1" value="1" data-label="수량"></td> <!-- 수량 입력란 추가 -->
                             <td class="image-container"><img src="${service.옵션이미지URL}" alt="옵션이미지"></td>
                             <td class="image-container"><img src="${service.실제이미지URL}" alt="실제이미지"></td>
@@ -224,6 +224,33 @@ export async function loadOrderNumbers(orderDropdown, messageDiv) {
                         }
                     });
                 });
+
+
+                document.querySelectorAll(".barcodeCheck").forEach(check => {
+                    check.addEventListener("change", function () {
+                        const row = this.closest("tr");
+                        if (!row) return;
+
+                        const packingQuantityInput = row.querySelector(".packingQuantity");
+                        if (!packingQuantityInput) return;
+
+                        let currentValue = parseInt(packingQuantityInput.value, 10) || 0;
+
+                        if (this.checked) {
+                            // 체크되면 +1
+                            packingQuantityInput.value = currentValue + 1;
+                        } else {
+                            // 체크 해제되면 -1 (최소 0으로 보정)
+                            packingQuantityInput.value = 0;   // 체크 해제 시 0
+                        }
+                    });
+                });
+
+
+
+
+
+
 
             } catch (error) {
                 console.error("Error loading order details: ", error);
@@ -293,7 +320,7 @@ export async function checkServiceBarcode(barcode, orderDropdown, messageDiv) {
         }
 
         const serviceData = {
-            PriceBuy_kr: productData.PriceBuy_kr || 0,
+            원가: productData.원가 || 0,
             SellingPrice: productData.SellingPrice || 0,
             소분류명: productData.소분류명 ? productData.소분류명.replace("차입고", "") : '',
             SellerCode: productData.SellerCode || '',

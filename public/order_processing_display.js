@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     messageDiv.textContent = `Order ${matchingOption.value} selected.`;
                     // Trigger any event or logic tied to selecting an option
                     orderDropdown.dispatchEvent(new Event('change'));
+                    serviceBarcodeInput.focus();
                 } else {
                     messageDiv.textContent = `Order containing ${inputValue} not found in the dropdown.`;
                 }
@@ -60,6 +61,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     orderDropdown.value = orderData.id;
                     messageDiv.textContent = `OrderNumber ${orderData.id} selected. 운송정번호 ${orderData.운송장번호} selected.`;                    
                     orderDropdown.dispatchEvent(new Event('change'));
+                    serviceBarcodeInput.focus();
                 } else {
                     messageDiv.textContent = `Order containing ${inputValue} not found in the dropdown.`;
                 }
@@ -74,7 +76,12 @@ document.addEventListener("DOMContentLoaded", function() {
             let barcode = barcodeInput.value.trim();
             barcode = refineInputValue(barcode);
             if (barcode) {
-                checkBarcode(barcode, orderDetails);
+                if (barcode == "1111111111") {
+                    packingCompleteButton.click(); // 버튼 강제 클릭 실행
+                }
+                else{
+                    checkBarcode(barcode, orderDetails);                    
+                }
                 barcodeInput.value = '';  // 입력 후 입력란 지우기
             }
         }
@@ -85,9 +92,15 @@ document.addEventListener("DOMContentLoaded", function() {
             let barcode = serviceBarcodeInput.value.trim();
             barcode = refineInputValue(barcode);
             if (barcode) {
-                await checkServiceBarcode (barcode, orderDropdown, messageDiv);
-                serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기
+                if (barcode == "9999999999"){
+                    barcodeInput.focus();
+                }
+                else{
+                    await checkServiceBarcode (barcode, orderDropdown, messageDiv);
+                }
+                serviceBarcodeInput.value = '';  // 입력 후 입력란 지우기                 
             }
+            
         }
     });
 
@@ -167,12 +180,14 @@ document.addEventListener("DOMContentLoaded", function() {
         if (totalPackedQuantity !== totalQuantityFromOrder) {
             messageDiv.innerHTML = `<p>제품 확인 필요: 총 포장수량(${totalPackedQuantity})이 주문서 총수량(${totalQuantityFromOrder})과 일치하지 않습니다.</p>`;
             playBeep();
+            barcodeInput.focus();
             return false;
         }
     
         if (!allChecked) {
             messageDiv.innerHTML = "<p>제품 확인 필요: 모든 제품이 체크되지 않았습니다.</p>";
             playBeep();
+            barcodeInput.focus();
             return false;
         }
     
@@ -247,6 +262,10 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     packingCompleteButton.addEventListener('click', async function() {
+
+        // 버튼 비활성화
+        packingCompleteButton.disabled = true;
+
         try {
             const orderNumber = orderDropdown.value;
             if (!orderNumber) return;
@@ -331,15 +350,22 @@ document.addEventListener("DOMContentLoaded", function() {
             serviceDetails.innerHTML = "";
             orderDropdown.value = "";
             messageDiv.innerHTML = "<p>모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.</p>";
+
             playDingDong();
             alert("모든 선택된 상품의 Counts가 업데이트되었으며, 주문이 완료되었습니다.");
             loadOrderNumbers(orderDropdown, messageDiv);
-    
+            deliveryNumberInput.focus();    
         } catch (error) {
             console.error("Error completing packing: ", error);
             messageDiv.innerHTML = `<p>포장 완료 중 오류 발생: ${error.message}</p>`;
+            
             playBeep();
+            barcodeInput.focus();            
             alert("포장 중 오류 발생");
+            barcodeInput.focus();
+        } finally {
+            // 무조건 실행 → 버튼 다시 활성화
+            packingCompleteButton.disabled = false;
         }
     });
     

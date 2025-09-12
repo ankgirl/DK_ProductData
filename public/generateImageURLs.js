@@ -40,6 +40,6 @@ export function generateImageURLs(sellerCode, option, 입고차수, groupOptions
     const 옵션이미지URL = `${baseUrl}/option/${이미지명}`;
     const 실제이미지URL = `${baseUrl}/real/${이미지명}`;
     
-    console.warn(`보여주기용옵션명: ${보여주기용옵션명}`);
+    //console.warn(`보여주기용옵션명: ${보여주기용옵션명}`);
     return { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL };
 }
