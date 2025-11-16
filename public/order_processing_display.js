@@ -236,23 +236,8 @@ document.addEventListener("DOMContentLoaded", function() {
             console.log(`docRef path: ${docRef.path}`);
             batch.set(docRef, data, { merge: true });
         });
-        
-
-        // const payloadList = [];   // <-- 결과 저장 배열
-        // generateBatchContent (payloadList, productUpdates);
-        // await sendBatchInventoryUpdate(productBatchData)
-
-        //async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
-
-        // productUpdates의 업데이트할 id 와 옵션정보를 찾아서 서버로 보내기
-        //batch.collection('Products').doc(id);
-
-
     
         await batch.commit();  // 배치 업데이트 실행
-
-
-
     }
     
     saveCurrentStateButton.addEventListener('click', async function () {
@@ -308,7 +293,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     if (sellerCode.startsWith("SET_")) {
                         if (!SETProductSellerCode[sellerCode]) {
-                            SETProductSellerCode[sellerCode] = quantity; // 추가                        
+                            SETProductSellerCode[sellerCode] = { quantity: quantity }; // 추가                        
                         }
                     } else {
                         const barcodeCell = row.querySelector('[data-label="바코드"]');
@@ -322,11 +307,19 @@ document.addEventListener("DOMContentLoaded", function() {
 
             // SETProductSellerCode를 순회하면서 updateSetProductCounts 호출
             for (const sellerCode in SETProductSellerCode) {
-                const quantity = SETProductSellerCode[sellerCode];
+                const quantity = SETProductSellerCode[sellerCode].quantity;
                 try {
                     console.log(sellerCode);
                     console.log(quantity);
-                    await updateSetProductCounts(sellerCode, quantity, firebase.firestore());
+                    const setUpdateResult = await updateSetProductCounts(sellerCode, quantity, firebase.firestore());
+                    // sellerCode -> SETProductSellerCode[sellerCode] 값은 수량(Number)입니다. 객체가 아니기 때문에 프로퍼티를 추가해도 undefined가 됩니다.
+                    // 따라서 객체로 할당 또는 새로운 객체 Map으로 일관되게 넣어야 합니다.
+                    // 여기서는 Map을 객체로 변환해 batch에 전달하려면 아래처럼 작성하세요.
+                    SETProductSellerCode[sellerCode] = { 
+                        quantity: SETProductSellerCode[sellerCode], 
+                        UpdatedCounts: setUpdateResult 
+                    };
+                    
                     
                 } catch (error) {
                     
@@ -353,8 +346,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             // 지금 수정중
             const payloadList = [];   // <-- 결과 저장 배열
-            generateBatchContent (payloadList, productUpdates);
-            
+            generateBatchContent (payloadList, productUpdates);            
             console.error(`payloadList 개별제품, 서비스: ${JSON.stringify(payloadList, null, 2)}`);
             generateBatchContent (payloadList, SETProductSellerCode);            
             console.error(`payloadList 개별제품, 서비스 세트제품: ${JSON.stringify(payloadList, null, 2)}`);

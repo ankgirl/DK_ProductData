@@ -476,6 +476,9 @@ function displayProductData(data, setData,  container = document.getElementById(
             console.warn(data.SellerCode);
             console.warn(updatedOptionDatas);
             console.warn(updatedSetOptionDatas);
+            
+
+
             await sendInventoryUpdate(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
 
             if (barcodeCheckNeeded) {

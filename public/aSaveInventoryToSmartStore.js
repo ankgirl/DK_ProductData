@@ -2,13 +2,10 @@
 
 async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
     // 1. FastAPI 서버의 엔드포인트 URL 설정 (서버가 로컬에서 실행 중이라고 가정)
-    const API_URL_single = 'http://127.0.0.1:8000/api/inventory/update-inventory';
+    const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
+    const payloadList = [];   // <-- 결과 저장 배열
 
-    let counts = 0;
-
-    if (setStock && setStock["옵션1"] && setStock["옵션1"].Counts) {
-        counts = setStock["옵션1"].Counts;
-    }
+    let counts = -9999;
 
     const transformedOptions = transformOptionsData(optionsData);
 
@@ -18,14 +15,34 @@ async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
         options: transformedOptions,
         set_stock_quantity: counts // <-- 새 필드 추가
     };
+    
+    payloadList.push(requestPayload);
 
-    console.log("전송할 데이터:", requestPayload);
-    console.log(JSON.stringify(requestPayload));
+    if (setStock && setStock["옵션1"] && setStock["옵션1"].Counts) {
+        counts = setStock["옵션1"].Counts;
+    }
+    else{        
+        counts = 0;
+    }
+
+    sellerCode = "SET_" + sellerCode;
+    console.log("세트 셀러코드", sellerCode);
+    console.log("수량", counts);
+
+    const requestSetPayload = {
+        seller_code: sellerCode,
+        options: [], // 빈 값으로 전송
+        set_stock_quantity: counts // <-- 새 필드 추가
+    };
+    payloadList.push(requestSetPayload);
+
+    console.log("전송할 데이터:");
+    console.log(JSON.stringify(payloadList));
     
 
     try {
         // 3. fetch를 사용하여 POST 요청 전송
-        const response = await fetch(API_URL_single, {
+        const response = await fetch(API_URL, {
             method: 'POST', // HTTP 메서드: POST
             headers: {
                 // 서버에 JSON 데이터를 보낸다고 명시
@@ -33,7 +50,7 @@ async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
                 // CORS 문제 발생 시 추가적인 헤더가 필요할 수 있습니다.
             },
             // JavaScript 객체를 JSON 문자열로 변환하여 본문(Body)에 담아 전송
-            body: JSON.stringify(requestPayload) 
+            body: JSON.stringify(payloadList) 
         });
 
         // 4. 응답 확인 및 처리

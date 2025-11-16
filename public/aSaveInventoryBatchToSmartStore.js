@@ -36,34 +36,6 @@ export async function sendBatchInventoryUpdate(rawBatchData) {
     // 1. FastAPI 서버의 엔드포인트 URL 설정 (라우터 접두사 '/api/inventory' 및 배치 엔드포인트)
     const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
 
-    // 2. 배치 데이터 변환: FastAPI Pydantic 모델(List[InventoryUpdate])에 맞게 가공
-    const transformedPayload = rawBatchData.map(item => {
-        // 옵션 객체를 List[OptionStock] 배열로 변환
-        const optionsArray = transformOptionsData(item.options);
-
-        // set_stock_quantity (전체 재고) 계산 로직 변경: 
-        // options 객체 내의 '옵션1'.Counts 값을 전체 재고로 사용합니다.
-        let totalStockFromInput = 0;
-        const option1Data = item.options["옵션1"]; // item.options는 setStock 역할을 수행
-
-        if (option1Data && option1Data.Counts !== undefined && option1Data.Counts !== null) {
-            totalStockFromInput = parseInt(option1Data.Counts);
-            console.log(`[DEBUG] ${item.seller_code}: '옵션1' Counts(${option1Data.Counts})를 전체 재고로 사용.`);
-        } else {
-             console.warn(`[WARN] ${item.seller_code}: '옵션1' Counts 값을 찾을 수 없어 0으로 설정.`);
-        }
-
-
-        return {
-            seller_code: item.seller_code,
-            options: optionsArray,      // List[OptionStock] 배열
-            set_stock_quantity: totalStockFromInput // '옵션1'.Counts 값 (단순 숫자)
-        };
-    });
-
-    console.log("--- 전송할 배치 데이터 준비 완료 ---");
-    console.log("변환된 최종 Payload (List[InventoryUpdate]):", transformedPayload);
-    console.log("JSON 본문:", JSON.stringify(transformedPayload));
 
     try {
         // 3. fetch를 사용하여 POST 요청 전송
@@ -73,7 +45,7 @@ export async function sendBatchInventoryUpdate(rawBatchData) {
                 'Content-Type': 'application/json',
             },
             // JavaScript 객체 배열을 JSON 문자열로 변환하여 본문(Body)에 담아 전송
-            body: JSON.stringify(transformedPayload) 
+            body: JSON.stringify(rawBatchData) 
         });
 
         // 4. 응답 확인 및 처리
@@ -136,34 +108,41 @@ export function generateBatchContent(payloadList, productUpdatesMap) {
 
     console.warn(`[DEBUG: generateBatchContent] 배치 내용 생성 시작...`, productUpdatesMap);
     
-    let counts = 0;           // <-- 없는 경우 대비 초기화
+    //let counts = 0;           // <-- 없는 경우 대비 초기화
 
     for (const index of Object.keys(productUpdatesMap)) {
         
-        const sellerCode = productUpdatesMap[index].id;
-        const optionDatas = productUpdatesMap[index]?.data?.OptionDatas ?? [];
-        const setStock = optionDatas;
+        // sellerCode를 더 정확하게 가져오도록 수정
+        const sellerCode = productUpdatesMap[index]?.data?.SellerCode || productUpdatesMap[index]?.id || index;
+        const optionDatas = productUpdatesMap[index]?.data?.OptionDatas ?? [];        
         const transformedOptions = transformOptionsData(optionDatas);
 
-        if (setStock && setStock["옵션1"] && setStock["옵션1"].Counts) {
-            counts = setStock["옵션1"].Counts;
-        }
+        let setStock = -9999;
+        // sellerCode가 "SET_"로 시작하면 setStock = 프로덕트업데이트맵의[index] 입력
+        if (typeof sellerCode === 'string' && sellerCode.startsWith('SET_')) {
+            // index 자체에 data/OptionDatas가 들어있는지 확인 후 setStock 설정
+            setStock = productUpdatesMap[sellerCode].UpdatedCounts;
+        } 
+
+        // if (setStock && setStock["옵션1"] && setStock["옵션1"].Counts) {
+        //     counts = setStock["옵션1"].Counts;
+        // }
 
         
         console.warn(`[DEBUG] sellerCode`, sellerCode);
         console.warn(`[DEBUG] optionDatas`, optionDatas);
         console.warn(`[DEBUG] transformedOptions`, transformedOptions);
-        console.warn(`[DEBUG] setStock`, counts);
+        console.warn(`[DEBUG] setStock`, setStock);
 
         const requestPayload = {
-            seller_code: index,
+            seller_code: sellerCode,
             options: transformedOptions,
-            set_stock_quantity: counts 
+            set_stock_quantity: setStock 
         };
-
+        console.warn(`[DEBUG] Payload 생성됨`, requestPayload);
         payloadList.push(requestPayload);   // <-- 리스트에 추가
 
-        console.warn(`[DEBUG] Payload 생성됨`, requestPayload);
+        
     }
 
     return payloadList;   // <-- 리스트 반환
