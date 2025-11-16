@@ -274,8 +274,8 @@ export async function deleteServiceProduct(orderNumber, barcode, messageDiv) {
 
         calculateTotals(orderData);
 
-        const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-        await orderDocRef.set(orderData, { merge: true });
+        //const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+        //await orderDocRef.set(orderData, { merge: true });
 
         messageDiv.innerHTML += `<p>서비스 상품 바코드 ${barcode} 삭제 성공!</p>`;
 

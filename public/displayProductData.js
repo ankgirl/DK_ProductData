@@ -473,9 +473,15 @@ function displayProductData(data, setData,  container = document.getElementById(
 
         // 3. 변경사항이 있을 때만 Firestore에 저장
         if (hasChanges) {
+            console.warn(data.SellerCode);
+            console.warn(updatedOptionDatas);
+            console.warn(updatedSetOptionDatas);
+            await sendInventoryUpdate(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
+
             if (barcodeCheckNeeded) {
                 // 바코드 중복 확인
                 const barcodeCheck = await checkBarcodeDuplicate(updatedOptionDatas);
+
                 if (barcodeCheck.duplicate) {
                     const userConfirmation = confirm(`중복된 바코드가 발견되었습니다: ${barcodeCheck.sellerCode}. 그래도 저장하시겠습니까?`);
                     if (userConfirmation) {
@@ -602,9 +608,6 @@ function displayProductData(data, setData,  container = document.getElementById(
     }
     
 }
-
-
-
 
 async function clearBarcode(sellerCode, optionName) {
     try {
