@@ -34,7 +34,8 @@ function transformOptionsData(optionsObject) {
  */
 export async function sendBatchInventoryUpdate(rawBatchData) {
     // 1. FastAPI 서버의 엔드포인트 URL 설정 (라우터 접두사 '/api/inventory' 및 배치 엔드포인트)
-    const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
+    //const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
+    const API_URL = 'http://39.122.46.169:8000/api/inventory/batch-update-inventory';
 
 
     try {

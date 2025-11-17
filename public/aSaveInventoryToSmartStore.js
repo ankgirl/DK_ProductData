@@ -2,7 +2,9 @@
 
 async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
     // 1. FastAPI 서버의 엔드포인트 URL 설정 (서버가 로컬에서 실행 중이라고 가정)
-    const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
+    //const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
+    const API_URL = 'http://39.122.46.169:8000/api/inventory/batch-update-inventory';
+    
     const payloadList = [];   // <-- 결과 저장 배열
 
     let counts = -9999;
