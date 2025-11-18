@@ -5,6 +5,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "functions": {
+    "runtime": "nodejs20"
+  },
+  "engines": {
+    "node": "20"
+  },
+
   "keywords": [],
   "author": "",
   "license": "ISC",
