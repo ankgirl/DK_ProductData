@@ -115,22 +115,14 @@ export function generateBatchContent(payloadList, productUpdatesMap) {
 
     for (const index of Object.keys(productUpdatesMap)) {
         
-        // sellerCode를 더 정확하게 가져오도록 수정
         const sellerCode = productUpdatesMap[index]?.data?.SellerCode || productUpdatesMap[index]?.id || index;
         const optionDatas = productUpdatesMap[index]?.data?.OptionDatas ?? [];        
         const transformedOptions = transformOptionsData(optionDatas);
 
         let setStock = -9999;
-        // sellerCode가 "SET_"로 시작하면 setStock = 프로덕트업데이트맵의[index] 입력
         if (typeof sellerCode === 'string' && sellerCode.startsWith('SET_')) {
-            // index 자체에 data/OptionDatas가 들어있는지 확인 후 setStock 설정
             setStock = productUpdatesMap[sellerCode].UpdatedCounts;
         } 
-
-        // if (setStock && setStock["옵션1"] && setStock["옵션1"].Counts) {
-        //     counts = setStock["옵션1"].Counts;
-        // }
-
         
         console.warn(`[DEBUG] sellerCode`, sellerCode);
         console.warn(`[DEBUG] optionDatas`, optionDatas);
@@ -143,9 +135,7 @@ export function generateBatchContent(payloadList, productUpdatesMap) {
             set_stock_quantity: setStock 
         };
         console.warn(`[DEBUG] Payload 생성됨`, requestPayload);
-        payloadList.push(requestPayload);   // <-- 리스트에 추가
-
-        
+        payloadList.push(requestPayload);   // <-- 리스트에 추가        
     }
 
     return payloadList;   // <-- 리스트 반환
