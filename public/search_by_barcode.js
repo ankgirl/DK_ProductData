@@ -2,6 +2,10 @@ import { searchByBarcode } from './barcode_search.js';
 //import { displayProductData } from './displayProductData.js';
 import { refineInputValue } from './aGlobalMain.js';
 
+let currentSellercode = null;
+let currentProduct = null;
+let currentSellerCodeSet = null;
+
 document.addEventListener("DOMContentLoaded", function() {
 
 
@@ -29,32 +33,50 @@ async function searchProductByBarcode(barcode) {
 
         if (!productsFound) {
             resultDiv.innerHTML = "<p>No product found with the given barcode!</p>";
-        } else if (productsFound.length === 1) {
-            displayProductData(productsFound[0]);
-        } else {
-            // 드롭다운 추가
-            let dropdownHTML = `
-                <label for="productSelect">Select a product:</label>
-                <select id="productSelect">
-                    ${productsFound.map((product, index) => `<option value="${index}">${product.SellerCode}</option>`).join('')}
-                </select>
-            `;
-            resultDiv.innerHTML = dropdownHTML + '<div id="productDetails"></div>';
-
-            // 첫 번째 제품 정보 표시
-            const productDetailsDiv = document.getElementById("productDetails");
-            displayProductData(productsFound[0], productDetailsDiv);
-
-            // 드롭다운 변경 이벤트 리스너 추가
-            const productSelect = document.getElementById("productSelect");
-            productSelect.addEventListener("change", function() {
-                const selectedIndex = this.value;
-                displayProductData(productsFound[selectedIndex], productDetailsDiv);
-                
-            });
+        } else if (productsFound.length === 1) {              
+            searchProductBySellerCode(productsFound[0].SellerCode)
         }
     } catch (error) {
         console.error("Error getting documents:", error);
+        resultDiv.innerHTML = "<p>Error getting document</p>";
+    }
+}
+export function getCurrentSellerCode() {
+    return currentSellercode;
+}
+export function getCurrentProduct() {
+    return currentProduct;
+}
+
+
+async function searchProductBySellerCode(sellerCode) {
+    try {
+
+        if(sellerCode.includes("SET_")) {
+            sellerCode = sellerCode.replace("SET_", "");
+        }
+
+        currentSellercode = sellerCode;
+        // Firestore에서 문서 참조 가져오기
+        // sellerCode와 "SET_"+sellerCode 둘 다 가져오기
+        const docRef = window.db.collection("Products").doc(sellerCode);
+        const setDocRef = window.db.collection("Products").doc("SET_" + sellerCode);
+
+        // 두 문서를 동시에 가져옴
+        const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
+
+        // 문서가 존재하면 데이터 표시, 아니면 "No such product found!" 메시지 표시
+        if (docSnap.exists) {
+            currentProduct = docSnap.data();
+            currentSellerCodeSet = setDocSnap.data();
+            displayProductData(currentProduct, currentSellerCodeSet);
+        } else {
+            const resultDiv = document.getElementById("result");
+            resultDiv.innerHTML = "<p>No such product found!</p>";
+        }
+    } catch (error) {
+        console.error("Error getting document:", error);
+        const resultDiv = document.getElementById("result");
         resultDiv.innerHTML = "<p>Error getting document</p>";
     }
 }

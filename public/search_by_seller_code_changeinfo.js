@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", function () {
     
 
     // submit 이벤트 리스너 등록
-    changeSellerCodeForm.addEventListener("submit", async function (event) {
+    changeSellerCodeForm?.addEventListener("submit", async function (event) {
         event.preventDefault(); // 기본 폼 제출 동작 중단
 
         try {
@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    changeCategoryForm.addEventListener("submit", async function (event) {
+    changeCategoryForm?.addEventListener("submit", async function (event) {
         event.preventDefault(); // 기본 폼 제출 동작 중단
         try {
             // 1. 현재 상품 정보 가져오기

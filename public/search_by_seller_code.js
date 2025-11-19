@@ -23,12 +23,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // <input> 요소에 포커스 설정
     const sellerCodeInput = document.getElementById("sellerCode");
-    sellerCodeInput.focus();
+    sellerCodeInput?.focus();
 
     // 폼 제출 이벤트 리스너 추가
     searchForm.addEventListener("submit", async function(event) {
         event.preventDefault();
-        const sellerCodeValue = sellerCodeInput.value;
+        const sellerCodeValue = sellerCodeInput?.value;
 
         if (sellerCodeValue) {
             await searchProductBySellerCode(sellerCodeValue);
