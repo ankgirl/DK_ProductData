@@ -463,9 +463,9 @@ async function decreaseCounts(productUpdatesMap, setProduct, quantity, product, 
     console.error(`[decreaseCounts] 시작`);
     console.error(`[decreaseCounts] product.id = ${product?.id}`);
     console.error(`[decreaseCounts] optionKeySave = ${optionKeySave}`);
-    console.error(`[decreaseCounts] 감소할 quantity = ${quantity}`);
+    console.error(`[decreaseCounts] 감소할 quantity = ${quantity}`);    
     console.error(`[decreaseCounts] setProduct = ${setProduct}`);
-    console.error(`[decreaseCounts] setProduct.id = ${setProduct.id}`);
+    console.error(`[decreaseCounts] setProduct.id = ${setProduct?.id}`);
     console.error(`[decreaseCounts] setProduct:`, JSON.stringify(setProduct));
 
     // product.id로 옵션 데이터 가져오기
@@ -485,31 +485,45 @@ async function decreaseCounts(productUpdatesMap, setProduct, quantity, product, 
     if (optionDatas[optionKeySave].Counts < 0) {
         console.error(`[decreaseCounts] Counts가 0 미만입니다! 보정 작업 시작.`);
 
-        // setProduct의 특정 옵션 값 감소
-        if (setProduct.OptionDatas["옵션1"] !== undefined) {
-            const beforeSet = setProduct.OptionDatas["옵션1"];
-            setProduct.OptionDatas["옵션1"].Counts -= 1;
-            
+    // setProduct 존재 여부 확인
+    if (!setProduct || !setProduct.OptionDatas || typeof setProduct.OptionDatas !== "object") {
+        console.error(`[decreaseCounts] setProduct 또는 OptionDatas가 존재하지 않습니다!`, setProduct);
+        return; // 동작 중단
+    }
 
-            const setUpdateResult = await updateSetProductCounts(setProduct.id, 1, firebase.firestore());
-            SETProductSellerCode[setProduct.id] = { 
-                quantity: setUpdateResult,
-                UpdatedCounts: setUpdateResult
-            };
-            
+    // 옵션1 존재 여부 확인
+    if (setProduct.OptionDatas["옵션1"] !== undefined) {
 
-            console.error(`SETProductSellerCode`, SETProductSellerCode);
+        const beforeSet = setProduct.OptionDatas["옵션1"];
 
-            // 0보다 작으면 0으로 보정
-            if (setProduct.OptionDatas["옵션1"] < 0) {
-                console.error(
-                    `[decreaseCounts] setProduct.OptionDatas["옵션1"]이 0 미만입니다. 0으로 보정합니다.`
-                );
-                setProduct.OptionDatas["옵션1"] = 0;
-            }
-        } else {
-            console.error(`[decreaseCounts] setProduct.OptionDatas["옵션1"] 값이 존재하지 않습니다!`);
+        // 감소 처리
+        setProduct.OptionDatas["옵션1"].Counts -= 1;
+
+        // DB 업데이트
+        const setUpdateResult = await updateSetProductCounts(
+            setProduct.id,
+            1,
+            firebase.firestore()
+        );
+
+        SETProductSellerCode[setProduct.id] = { 
+            quantity: setUpdateResult,
+            UpdatedCounts: setUpdateResult
+        };
+
+        console.error(`SETProductSellerCode`, SETProductSellerCode);
+
+        // 0 미만 방지
+        if (setProduct.OptionDatas["옵션1"].Counts < 0) {
+            console.error(
+                `[decreaseCounts] setProduct.OptionDatas["옵션1"].Counts 값이 0 미만입니다. 0으로 조정합니다.`
+            );
+            setProduct.OptionDatas["옵션1"].Counts = 0;
         }
+
+    } else {
+        console.error(`[decreaseCounts] setProduct.OptionDatas["옵션1"] 값이 존재하지 않습니다!`);
+    }
 
         // optionDatas 전체 Counts 1씩 증가
         console.error(`[decreaseCounts] 전체 optionDatas Counts += 1 수행 시작`);
