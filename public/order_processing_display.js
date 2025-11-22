@@ -459,103 +459,163 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
-async function decreaseCounts(productUpdatesMap, setProduct, quantity, product, optionKeySave, SETProductSellerCode) {    
-    console.error(`[decreaseCounts] 시작`);
-    console.error(`[decreaseCounts] product.id = ${product?.id}`);
-    console.error(`[decreaseCounts] optionKeySave = ${optionKeySave}`);
-    console.error(`[decreaseCounts] 감소할 quantity = ${quantity}`);    
-    console.error(`[decreaseCounts] setProduct = ${setProduct}`);
-    console.error(`[decreaseCounts] setProduct.id = ${setProduct?.id}`);
-    console.error(`[decreaseCounts] setProduct:`, JSON.stringify(setProduct));
 
-    // product.id로 옵션 데이터 가져오기
-    const optionDatas = productUpdatesMap[product.id].data.OptionDatas;
+/**
+ * 개별 상품 옵션의 재고(Counts)를 감소시키고, 재고가 0 미만이 될 경우 세트 상품 재고를 감소시키고
+ * 개별 상품 옵션 재고를 복구(1 증가)하는 보정 작업을 수행합니다.
+ *
+ * (파라미터 생략)
+ */
+/**
+ * 개별 상품 옵션의 재고(Counts)를 감소시키고, 재고가 0 미만이 될 경우 세트 상품 재고를 확인하여
+ * 보정 작업(세트 감소 및 개별 옵션 복구)을 수행하거나, 보정 불가 시 0으로 조정합니다.
+ *
+ * (파라미터 생략)
+ */
+async function decreaseCounts(productUpdatesMap, setProduct, quantity, product, optionKeySave, SETProductSellerCode) {
+    const productId = product?.id;
+    const optionDatas = productUpdatesMap?.[productId]?.data?.OptionDatas;
 
-    console.error(`[decreaseCounts] 현재 optionDatas:`, JSON.stringify(optionDatas));
-
-    // 선택된 옵션 Count 감소
-    const beforeCount = optionDatas[optionKeySave].Counts;
-    optionDatas[optionKeySave].Counts -= quantity;
-
-    console.error(
-        `[decreaseCounts] 옵션 ${optionKeySave} Counts 감소: ${beforeCount} -> ${optionDatas[optionKeySave].Counts}`
-    );
-    
-    // 2) 감소 결과가 0보다 작으면 보정
-    if (optionDatas[optionKeySave].Counts < 0) {
-        console.error(`[decreaseCounts] Counts가 0 미만입니다! 보정 작업 시작.`);
-
-    // setProduct 존재 여부 확인
-    if (!setProduct || !setProduct.OptionDatas || typeof setProduct.OptionDatas !== "object") {
-        console.error(`[decreaseCounts] setProduct 또는 OptionDatas가 존재하지 않습니다!`, setProduct);
-        return; // 동작 중단
+    // 1. 초기 유효성 검사 (생략: 이전과 동일)
+    if (!optionDatas) {
+        console.error(`[decreaseCounts][${productId}] 옵션 데이터(optionDatas)를 찾을 수 없습니다.`);
+        return;
     }
 
-    // 옵션1 존재 여부 확인
-    if (setProduct.OptionDatas["옵션1"] !== undefined) {
+    const targetOption = optionDatas[optionKeySave];
+    if (!targetOption || targetOption.Counts === undefined) {
+        console.error(`[decreaseCounts][${productId}] 옵션 키 ${optionKeySave}의 Counts를 찾을 수 없습니다.`);
+        return;
+    }
+    
+    // 2. 재고 감소 로직 (생략: 이전과 동일)
+    const beforeCount = targetOption.Counts;
+    targetOption.Counts -= quantity;
 
-        const beforeSet = setProduct.OptionDatas["옵션1"];
+    console.log(
+        `[decreaseCounts][${productId}] 옵션 ${optionKeySave} 재고 감소: ${beforeCount} -> ${targetOption.Counts}`
+    );
 
-        // 감소 처리
-        setProduct.OptionDatas["옵션1"].Counts -= 1;
+    // 3. 감소 결과가 0보다 작으면 보정 작업 시도
+    if (targetOption.Counts < 0) {
+        console.warn(`[decreaseCounts][${productId}] Counts가 0 미만(${targetOption.Counts})입니다! 보정 작업 시도.`);
+        
+        const isSetCountAvailable = setProduct?.OptionDatas?.["옵션1"]?.Counts > 0;
+        console.error(`[isSetCountAvailable][${setProduct?.OptionDatas?.["옵션1"]?.Counts}]`);
+        
+        if (isSetCountAvailable) {
+            // 3-1. 세트 상품 재고 감소 및 DB 업데이트
+            await handleSetProductCorrection(setProduct, SETProductSellerCode);
+            
+            // 3-2. 일반 옵션 재고 복구 (전체 +1 증가)
+            restoreOptionCounts(product, optionDatas, optionKeySave);
+            
+            console.log(`[decreaseCounts][${productId}] 세트 상품 재고를 사용하여 옵션 재고 복구 완료.`);
+        } else {
+            console.warn(`[decreaseCounts][${productId}] 세트 상품 재고("옵션1" Counts)가 0 이하이므로 보정 작업을 건너뜁니다.`);
+            
+            // **추가된 코드: 보정 실패 시 0으로 즉시 조정**
+            targetOption.Counts = 0;
+            console.warn(`[decreaseCounts][${productId}] 옵션 ${optionKeySave}의 Counts를 ${targetOption.Counts}으로 조정했습니다.`);
+        }
+    }
+    
+    // 최종 상태 로그
+    console.log(`[decreaseCounts][${productId}] 최종 optionDatas:`, JSON.stringify(optionDatas));
+}
+
+// --- 헬퍼 함수들은 이전과 동일하게 유지 ---
+
+// --- 헬퍼 함수 ---
+
+// *참고: handleSetProductCorrection 내에서는 이미 isSetCountAvailable 조건이 통과된 후 호출되므로,
+// 내부에서 추가적인 SetCount > 0 검사는 필수는 아니지만, 방어적 코딩 차원에서 유지해도 무방합니다.*
+
+/**
+ * 재고가 0 미만일 때 세트 상품의 '옵션1' 재고를 감소시키고 DB에 반영합니다.
+ */
+async function handleSetProductCorrection(setProduct, SETProductSellerCode) {
+    if (!setProduct || !setProduct.OptionDatas || typeof setProduct.OptionDatas !== "object") {
+        console.error(`[handleSetProductCorrection] setProduct 또는 OptionDatas가 유효하지 않습니다!`, setProduct);
+        return;
+    }
+    
+    const setOption1 = setProduct.OptionDatas["옵션1"];
+
+    if (!setOption1 || setOption1.Counts === undefined) {
+        console.error(`[handleSetProductCorrection] setProduct.OptionDatas["옵션1"] 값이 존재하지 않거나 Counts가 없습니다!`);
+        return;
+    }
+    
+    // 이 시점에서는 이미 상위 함수에서 Counts > 0 임이 보장되었으나, 방어적 코드
+    if (setOption1.Counts <= 0) {
+        console.warn(`[handleSetProductCorrection] Set 상품의 재고가 0 이하입니다. 추가 처리를 중단합니다.`);
+        return;
+    }
+    
+    // 재고 감소 및 0 미만 방지 (SetProduct의 DB 업데이트는 감소량 1로 고정)
+    setOption1.Counts -= 1;
+    
+    // ... DB 업데이트 및 SETProductSellerCode 로직 (이전과 동일) ...
+    
+    // 0 미만 방지 (감소 후의 0 미만 방지)
+    if (setOption1.Counts < 0) {
+        setOption1.Counts = 0;
+        console.warn(`[handleSetProductCorrection] setProduct.OptionDatas["옵션1"].Counts가 0 미만으로 조정됨.`);
+    }
 
         // DB 업데이트
-        const setUpdateResult = await updateSetProductCounts(
-            setProduct.id,
-            1,
-            firebase.firestore()
-        );
 
-        SETProductSellerCode[setProduct.id] = { 
-            quantity: setUpdateResult,
-            UpdatedCounts: setUpdateResult
-        };
+    const setUpdateResult = await updateSetProductCounts(
 
-        console.error(`SETProductSellerCode`, SETProductSellerCode);
+        setProduct.id,
+        1,
+        firebase.firestore()
+    );
+    SETProductSellerCode[setProduct.id] = {
+    quantity: setUpdateResult,
+    UpdatedCounts: setUpdateResult
+    };
+}
 
-        // 0 미만 방지
-        if (setProduct.OptionDatas["옵션1"].Counts < 0) {
-            console.error(
-                `[decreaseCounts] setProduct.OptionDatas["옵션1"].Counts 값이 0 미만입니다. 0으로 조정합니다.`
+/**
+ * 재고가 0 미만이 되었을 때, 모든 개별 옵션의 재고를 1씩 증가시켜 복구합니다.
+ * (복구의 의미는 이전에 감소시킨 옵션의 재고 1을 포함하여 전체 옵션의 재고를 1씩 증가시키는 것)
+ * * @param {Object} product - 원본 상품 정보 객체 (product.OptionDatas를 포함)
+ * @param {Object} optionDatas - 현재 업데이트 맵에 있는 옵션 데이터 객체 (직접 변경됨)
+ */
+function restoreOptionCounts(product, optionDatas) {
+    console.log(`[restoreOptionCounts] 전체 optionDatas Counts += 1 수행 시작`);
+
+    // 1. 원본 product에는 있지만 optionDatas에 없는 옵션들을 추가합니다.
+    // 이는 이전에 업데이트가 전혀 없었지만 재고 복구가 필요한 새로운 옵션이 있을 수 있기 때문입니다.
+    if (product.OptionDatas) {
+        for (const key in product.OptionDatas) {
+            // 원본 product에 있고, 현재 optionDatas에 없는 경우
+            if (product.OptionDatas.hasOwnProperty(key) && !optionDatas.hasOwnProperty(key)) {
+                // 원본 옵션을 복사하여 추가 (얕은 복사)
+                optionDatas[key] = { ...product.OptionDatas[key] };
+                console.log(`[restoreOptionCounts] 원본 옵션 ${key}를 optionDatas에 추가했습니다.`);
+            }
+        }
+    }
+    
+    // 2. 모든 옵션의 Counts를 1 증가시킵니다.
+    for (const key in optionDatas) {
+        const option = optionDatas[key];
+        
+        // 옵션 객체가 유효하고, Counts 속성이 숫자인 경우에만 처리
+        if (option && typeof option.Counts === 'number') {
+            const before = option.Counts;
+            option.Counts += 1;
+
+            console.log(
+                `[restoreOptionCounts] 옵션 ${key}: Counts ${before} -> ${option.Counts}`
             );
-            setProduct.OptionDatas["옵션1"].Counts = 0;
-        }
-
-    } else {
-        console.error(`[decreaseCounts] setProduct.OptionDatas["옵션1"] 값이 존재하지 않습니다!`);
-    }
-
-        // optionDatas 전체 Counts 1씩 증가
-        console.error(`[decreaseCounts] 전체 optionDatas Counts += 1 수행 시작`);
-        
-        if (product.OptionDatas) {
-            for (const key in product.OptionDatas) {
-                if (product.OptionDatas.hasOwnProperty(key) && 
-                    !optionDatas.hasOwnProperty(key) && // 현재 optionDatas에 없는 경우
-                    key !== optionKeySave // ⬅️ 현재 처리 중인 옵션 키가 아닌 경우
-                ) {
-                    // 원본 product에만 있는 옵션을 복사하여 추가 (단, optionKeySave 제외)
-                    optionDatas[key] = { ...product.OptionDatas[key] };
-                    console.error(`[decreaseCounts] 원본 옵션 ${key}를 optionDatas에 추가했습니다.`);
-                }
-            }
-        }
-        
-        for (const key in optionDatas) {
-            if (optionDatas[key].Counts !== undefined) {
-                const before = optionDatas[key].Counts;
-                optionDatas[key].Counts += 1;
-
-                console.error(
-                    `[decreaseCounts] 옵션 ${key}: Counts ${before} -> ${optionDatas[key].Counts}`
-                );
-            }
         }
     }
-
-    console.error(`[decreaseCounts] 최종 optionDatas:`, JSON.stringify(optionDatas));
-    console.error(`[decreaseCounts] productUpdatesMap:`, JSON.stringify(productUpdatesMap));
-    console.error(`[decreaseCounts] 종료`);
+    
+    // (참고: 이전 코드에 있던 optionKeySave 인수는 이 로직에서 사용되지 않아 제거했습니다.)
 }
 
 

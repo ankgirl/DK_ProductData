@@ -39,7 +39,6 @@ export async function sendBatchInventoryUpdate(rawBatchData) {
     //const API_URL = 'http://192.168.219.43:8000/api/inventory/batch-update-inventory';
     const API_URL = 'https://fastapi-inventory-689177215560.asia-northeast3.run.app/api/inventory/batch-update-inventory';
 
-
     try {
         // 3. fetch를 사용하여 POST 요청 전송
         const response = await fetch(API_URL, {

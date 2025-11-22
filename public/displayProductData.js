@@ -471,35 +471,42 @@ function displayProductData(data, setData,  container = document.getElementById(
             }
         }
 
-        // 3. 변경사항이 있을 때만 Firestore에 저장
-        if (hasChanges) {
-            console.warn(data.SellerCode);
-            console.warn(updatedOptionDatas);
-            console.warn(updatedSetOptionDatas);
-            
+        console.warn(data.SellerCode);
+        console.warn(updatedOptionDatas);
+        console.warn(updatedSetOptionDatas);
+
+        // 함수 호출
+        ensureNonNegativeCounts(updatedOptionDatas, updatedSetOptionDatas); // <--- 리팩토링된 함수 호출
 
 
-            await sendInventoryUpdate(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
+        // 1. 재고 업데이트를 먼저 수행 (변경사항이 있는 경우)
+        await sendInventoryUpdate(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
 
-            if (barcodeCheckNeeded) {
-                // 바코드 중복 확인
-                const barcodeCheck = await checkBarcodeDuplicate(updatedOptionDatas);
+        // 2. 바코드 중복 확인이 필요한 경우 처리
+        if (barcodeCheckNeeded) {
+            const barcodeCheck = await checkBarcodeDuplicate(updatedOptionDatas);
 
-                if (barcodeCheck.duplicate) {
-                    const userConfirmation = confirm(`중복된 바코드가 발견되었습니다: ${barcodeCheck.sellerCode}. 그래도 저장하시겠습니까?`);
-                    if (userConfirmation) {
-                        await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
-                    }
-                } else {
-                    await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
+            if (barcodeCheck.duplicate) {
+                // 중복 바코드가 발견된 경우 사용자에게 확인 요청
+                const userConfirmation = confirm(
+                    `중복된 바코드가 발견되었습니다: ${barcodeCheck.sellerCode}. 그래도 저장하시겠습니까?`
+                );
+
+                if (!userConfirmation) {
+                    // 사용자가 저장을 취소한 경우, 함수 종료
+                    console.log("[submit] 바코드 중복으로 인해 사용자가 저장을 취소했습니다.");
+                    return;
                 }
-            } else {
-                await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
             }
-        } else {
-            console.log("[submit] 변경사항이 없어 저장하지 않습니다.");
         }
-        
+
+        // 3. 상품 수량 및 바코드 업데이트 (모든 조건 통과 또는 확인 불필요 시)
+        // (주: userConfirmation이 false일 경우 이미 return 되었으므로, 이 시점에 도달하면 항상 업데이트를 수행)
+        await updateProductCountsAndBarcode(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
+
+        console.log("[submit] 상품 데이터 및 재고 업데이트 완료.");
+
+
         // 폼의 입력 칸 초기화
         document.querySelectorAll('#updateForm input').forEach(input => {
             input.value = '';
@@ -769,3 +776,47 @@ function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
 
     return { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL };
 }
+
+/**
+ * updatedOptionDatas 및 updatedSetOptionDatas 내의 'Counts' 값이 음수인 경우 0으로 변경합니다.
+ * 두 객체는 참조로 전달되므로 함수 내에서 직접 변경(Side Effect)됩니다.
+ *
+ * @param {Object<string, {Counts: number, Price: number, 바코드: string} | Object>} optionData - 일반 옵션 데이터 객체 (예: updatedOptionDatas)
+ * @param {Object<string, {Counts: number} | Object>} setOptionData - 세트 옵션 데이터 객체 (예: updatedSetOptionDatas)
+ */
+const ensureNonNegativeCounts = (optionData, setOptionData) => {
+
+    // 1. 일반 옵션 데이터 (updatedOptionDatas) 처리
+    for (const optionName in optionData) {
+        if (optionData.hasOwnProperty(optionName)) {
+            const option = optionData[optionName];
+
+            // 'Counts' 속성이 존재하고, 값이 0 미만인 경우 0으로 변경
+            if (option && typeof option.Counts === 'number' && option.Counts < 0) {
+                option.Counts = 0;
+                const currentCountsElement = document.getElementById(`${optionName}_Counts`);                
+                if (currentCountsElement) {
+                    currentCountsElement.textContent = 0;
+                }
+            }
+        }
+    }
+
+    // 2. 세트 옵션 데이터 (updatedSetOptionDatas) 처리
+    for (const setName in setOptionData) {
+        if (setOptionData.hasOwnProperty(setName)) {
+            const setOption = setOptionData[setName];
+
+            // 'Counts' 속성이 존재하고, 값이 0 미만인 경우 0으로 변경
+            if (setOption && typeof setOption.Counts === 'number' && setOption.Counts < 0) {
+                setOption.Counts = 0;
+                const currentSetCountsElement = document.getElementById(`${setName}_SET_Counts`);
+                if (currentSetCountsElement) {
+                    currentSetCountsElement.textContent = 0;
+                }                
+            }
+        }
+    }
+
+    console.log("[ensureNonNegativeCounts] 모든 옵션의 재고(Counts) 값이 0 미만이면 0으로 조정되었습니다.");
+};
