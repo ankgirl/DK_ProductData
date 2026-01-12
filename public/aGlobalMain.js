@@ -1,5 +1,6 @@
 // aGlobalMain.js
 
+
 let allProductsSnapshot = null;
 let allOrdersSnapshot = null;
 let productMap = null;
@@ -7,47 +8,105 @@ let orderMap = null;
 
 document.addEventListener("DOMContentLoaded", async function () {
     const db = firebase.firestore();
-    
-    // productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
-    // console.log("Product map 초기화 완료");
-    
-    // orderMap = await initializeMap(db, 'Orders', 'allOrdersSnapshot');
-    // console.log("Order map 초기화 완료");
 });
 
-/**
- * Firestore 데이터를 Map으로 초기화하는 공통 함수
- * @param {Object} db - Firestore 인스턴스
- * @param {string} collectionName - 초기화할 Firestore 컬렉션 이름
- * @param {string} snapshotVariableName - 전역 변수에 저장할 스냅샷 이름
- * @returns {Map} - 초기화된 Map 객체
- */
+// /**
+//  * Firestore 데이터를 Map으로 초기화하는 공통 함수
+//  * @param {Object} db - Firestore 인스턴스
+//  * @param {string} collectionName - 초기화할 Firestore 컬렉션 이름
+//  * @param {string} snapshotVariableName - 전역 변수에 저장할 스냅샷 이름
+//  * @returns {Map} - 초기화된 Map 객체
+//  */
+// async function initializeMap(db, collectionName, snapshotVariableName) {
+//     const snapshot = await db.collection(collectionName).get();
+//     if (!snapshot) {
+//         console.error(`${snapshotVariableName}이 아직 생성되지 않았습니다.`);
+//         return null;
+//     }
+
+//     // 전역 변수에 스냅샷 저장
+//     if (snapshotVariableName === 'allProductsSnapshot') {
+//         allProductsSnapshot = snapshot;
+//     } else if (snapshotVariableName === 'allOrdersSnapshot') {
+//         allOrdersSnapshot = snapshot;
+//     }    
+//     console.log("allOrdersSnapshot", allOrdersSnapshot);
+//     const map = new Map();
+//     snapshot.forEach(doc => {
+//         map.set(doc.id, {
+//             id: doc.id, // 문서 ID 포함
+//             ...doc.data()
+//         });
+//     });
+
+//     console.log("map", map);
+//     return map;
+// }
+
 async function initializeMap(db, collectionName, snapshotVariableName) {
-    const snapshot = await db.collection(collectionName).get();
-    if (!snapshot) {
-        console.error(`${snapshotVariableName}이 아직 생성되지 않았습니다.`);
-        return null;
-    }
-
-    // 전역 변수에 스냅샷 저장
-    if (snapshotVariableName === 'allProductsSnapshot') {
-        allProductsSnapshot = snapshot;
-    } else if (snapshotVariableName === 'allOrdersSnapshot') {
-        allOrdersSnapshot = snapshot;
-    }    
-    console.log("allOrdersSnapshot", allOrdersSnapshot);
     const map = new Map();
-    snapshot.forEach(doc => {
-        map.set(doc.id, {
-            id: doc.id, // 문서 ID 포함
-            ...doc.data()
-        });
-    });
+    let allDocs = [];
 
-    console.log("map", map);
-    return map;
+    console.log(`${collectionName} 로딩 시작 (모드: ${snapshotVariableName === 'allProductsSnapshot' ? '병렬' : '단일'})`);
+
+    try {
+        if (snapshotVariableName === 'allProductsSnapshot') {
+            /**
+             * 1. 상품 스냅샷: 패턴 기반 병렬 로드 (5개 채널 동시 요청)
+             */
+            const ranges = [
+                { start: '0', end: '2999' },      // 2023..., 2024... 날짜형
+                { start: '3', end: '9' },         // 30_..., 62_... 일반 숫자형
+                { start: 'A', end: 'Z' },         // SET_... 대문자
+                { start: 'a', end: 'z' },         // room... 소문자
+                { start: '\uf8ff', end: null }    // 기타 예외 범위
+            ];
+
+            const promises = ranges.map(range => {
+                let q = db.collection(collectionName).orderBy('__name__');
+                if (range.start) q = q.startAt(range.start);
+                if (range.end) q = q.endAt(range.end);
+                return q.get();
+            });
+
+            const snapshots = await Promise.all(promises);
+            
+            snapshots.forEach(snapshot => {
+                snapshot.forEach(doc => {
+                    if (!map.has(doc.id)) {
+                        map.set(doc.id, { id: doc.id, ...doc.data() });
+                        allDocs.push(doc);
+                    }
+                });
+            });
+
+        } else {
+            /**
+             * 2. 기타 (주문 등): 단일 통째로 로드
+             */
+            const snapshot = await db.collection(collectionName).get();
+            snapshot.forEach(doc => {
+                map.set(doc.id, { id: doc.id, ...doc.data() });
+                allDocs.push(doc);
+            });
+        }
+
+        // 3. 전역 변수 저장 (기존 로직 유지)
+        const mockSnapshot = { docs: allDocs, size: allDocs.length };
+        if (snapshotVariableName === 'allProductsSnapshot') {
+            window.allProductsSnapshot = mockSnapshot;
+        } else if (snapshotVariableName === 'allOrdersSnapshot') {
+            window.allOrdersSnapshot = mockSnapshot;
+        }
+
+        console.log(`${collectionName} 로드 완료: ${map.size}건`);
+        return map;
+
+    } catch (error) {
+        console.error(`${collectionName} 로드 중 에러 발생:`, error);
+        return map;
+    }
 }
-
 /**
  * sellerCode를 기준으로 제품 데이터를 가져오는 함수
  * @param {string} sellerCode - 검색할 sellerCode 값
@@ -55,12 +114,9 @@ async function initializeMap(db, collectionName, snapshotVariableName) {
  */
 export async function getProductBySellerCode(sellerCode) {
     if (!productMap) {
-        console.log("productMap이 초기화되지 않았습니다.");
-        productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
-        console.log("Product map 초기화 완료");        
+        productMap = await reInitializeProductMap()
         productMap.get(sellerCode) || null;
     }
-
     return productMap.get(sellerCode) || null;
 }
 
@@ -86,7 +142,14 @@ export function refineInputValue(input) {
 
 export async function reInitializeProductMap() {
     productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
-    console.log("reInitializeOrderMap", productMap);
+    if (!productMap) {
+        console.error("productMap이 초기화되지 않았습니다.");
+        return null;
+    }
+    else{
+        console.log("reInitializeOrderMap", productMap);
+    }
+
     return productMap;
 }
 
@@ -194,12 +257,9 @@ export function updateOrderProductService (orderNumber, productService) {
  * @returns {Object|null} - 해당 바코드를 가진 제품 데이터 (옵션 포함)
  */
 export async function getProductByBarcode(barcode) {
+    
     if (!productMap) {        
-        productMap = await initializeMap(db, 'Products', 'allProductsSnapshot');
-        if (!productMap) {
-            console.error("productMap이 초기화되지 않았습니다.");
-            return null;
-        }
+        productMap = await reInitializeProductMap()
     }
 
     // Map을 순회하며 바코드 확인

@@ -1,6 +1,6 @@
 import { searchByBarcode } from './barcode_search.js';
 //import { displayProductData } from './displayProductData.js';
-import { refineInputValue } from './aGlobalMain.js';
+import { refineInputValue, getProductByBarcode, getProductBySellerCode } from './aGlobalMain.js';
 
 let currentSellercode = null;
 let currentProduct = null;
@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", function() {
         event.preventDefault();
         let barcode = barcodeInput.value;
         barcode = refineInputValue(barcode);
-        searchProductByBarcode(barcode)
+        await searchProductByBarcode(barcode)        
         barcodeInput.value = '';
     });
 });
@@ -29,12 +29,18 @@ document.addEventListener("DOMContentLoaded", function() {
 async function searchProductByBarcode(barcode) {
     const resultDiv = document.getElementById("result");
     try {
-        const productsFound = await searchByBarcode(barcode, db);
+        const productsFound = await getProductByBarcode (barcode);
+        console.log(productsFound);
+        //const productsFound = await searchByBarcode(barcode, db);
+        console.log("1");
+        console.log(productsFound.SellerCode);
 
         if (!productsFound) {
             resultDiv.innerHTML = "<p>No product found with the given barcode!</p>";
-        } else if (productsFound.length === 1) {              
-            searchProductBySellerCode(productsFound[0].SellerCode)
+        } else {              
+            console.log("2");
+            console.log(productsFound.SellerCode);            
+            await searchProductBySellerCode(productsFound.SellerCode)
         }
     } catch (error) {
         console.error("Error getting documents:", error);
@@ -52,6 +58,9 @@ export function getCurrentProduct() {
 async function searchProductBySellerCode(sellerCode) {
     try {
 
+        console.log("3");
+        console.log(sellerCode);
+
         if(sellerCode.includes("SET_")) {
             sellerCode = sellerCode.replace("SET_", "");
         }
@@ -59,16 +68,20 @@ async function searchProductBySellerCode(sellerCode) {
         currentSellercode = sellerCode;
         // Firestore에서 문서 참조 가져오기
         // sellerCode와 "SET_"+sellerCode 둘 다 가져오기
-        const docRef = window.db.collection("Products").doc(sellerCode);
-        const setDocRef = window.db.collection("Products").doc("SET_" + sellerCode);
+        
+        // const docRef = window.db.collection("Products").doc(sellerCode);
+        // const setDocRef = window.db.collection("Products").doc("SET_" + sellerCode);
 
-        // 두 문서를 동시에 가져옴
-        const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
+        // // 두 문서를 동시에 가져옴
+        // const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
+        console.log(sellerCode);
+        console.log("SET_" + sellerCode);
+        const currentProduct = await getProductBySellerCode (sellerCode);
+        const currentSellerCodeSet = await getProductBySellerCode ("SET_" + sellerCode);
 
         // 문서가 존재하면 데이터 표시, 아니면 "No such product found!" 메시지 표시
-        if (docSnap.exists) {
-            currentProduct = docSnap.data();
-            currentSellerCodeSet = setDocSnap.data();
+        if (currentProduct) {
+            console.log("docSnap.exists");
             displayProductData(currentProduct, currentSellerCodeSet);
         } else {
             const resultDiv = document.getElementById("result");
