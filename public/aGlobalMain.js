@@ -10,39 +10,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     const db = firebase.firestore();
 });
 
-// /**
-//  * Firestore 데이터를 Map으로 초기화하는 공통 함수
-//  * @param {Object} db - Firestore 인스턴스
-//  * @param {string} collectionName - 초기화할 Firestore 컬렉션 이름
-//  * @param {string} snapshotVariableName - 전역 변수에 저장할 스냅샷 이름
-//  * @returns {Map} - 초기화된 Map 객체
-//  */
-// async function initializeMap(db, collectionName, snapshotVariableName) {
-//     const snapshot = await db.collection(collectionName).get();
-//     if (!snapshot) {
-//         console.error(`${snapshotVariableName}이 아직 생성되지 않았습니다.`);
-//         return null;
-//     }
-
-//     // 전역 변수에 스냅샷 저장
-//     if (snapshotVariableName === 'allProductsSnapshot') {
-//         allProductsSnapshot = snapshot;
-//     } else if (snapshotVariableName === 'allOrdersSnapshot') {
-//         allOrdersSnapshot = snapshot;
-//     }    
-//     console.log("allOrdersSnapshot", allOrdersSnapshot);
-//     const map = new Map();
-//     snapshot.forEach(doc => {
-//         map.set(doc.id, {
-//             id: doc.id, // 문서 ID 포함
-//             ...doc.data()
-//         });
-//     });
-
-//     console.log("map", map);
-//     return map;
-// }
-
 async function initializeMap(db, collectionName, snapshotVariableName) {
     const map = new Map();
     let allDocs = [];
@@ -54,13 +21,27 @@ async function initializeMap(db, collectionName, snapshotVariableName) {
             /**
              * 1. 상품 스냅샷: 패턴 기반 병렬 로드 (5개 채널 동시 요청)
              */
+            // const ranges = [
+            //     { start: '0', end: '2999' },      // 2023..., 2024... 날짜형
+            //     { start: '3', end: '9' },         // 30_..., 62_... 일반 숫자형
+            //     { start: 'A', end: 'Z' },         // SET_... 대문자
+            //     { start: 'a', end: 'z' },         // room... 소문자
+            //     { start: '\uf8ff', end: null }    // 기타 예외 범위
+            // ];
+
             const ranges = [
-                { start: '0', end: '2999' },      // 2023..., 2024... 날짜형
-                { start: '3', end: '9' },         // 30_..., 62_... 일반 숫자형
-                { start: 'A', end: 'Z' },         // SET_... 대문자
-                { start: 'a', end: 'z' },         // room... 소문자
-                { start: '\uf8ff', end: null }    // 기타 예외 범위
-            ];
+                // 1-99 및 숫자형 ID 세분화 (데이터 밀집 구역)
+                { start: '1', end: '1\uf8ff' },    // 1, 10~19 등
+                { start: '2', end: '2\uf8ff' },    // 2, 20~29 등 (2023... 날짜형도 여기서 잡힘)
+                { start: '3', end: '3\uf8ff' },    // 3, 30~39 등
+                { start: '4', end: '5\uf8ff' },    // 4~5로 시작하는 ID
+                { start: '6', end: '9\uf8ff' },    // 6~9로 시작하는 ID
+                
+                // 나머지 범위
+                { start: 'A', end: 'Z\uf8ff' },    // 영문 대문자
+                { start: 'a', end: 'z\uf8ff' },    // 영문 소문자
+                { start: '\uf8ff', end: null }     // 기타
+            ];            
 
             const promises = ranges.map(range => {
                 let q = db.collection(collectionName).orderBy('__name__');
@@ -258,7 +239,7 @@ export function updateOrderProductService (orderNumber, productService) {
  */
 export async function getProductByBarcode(barcode) {
     
-    if (!productMap) {        
+    if (!productMap) {
         productMap = await reInitializeProductMap()
     }
 

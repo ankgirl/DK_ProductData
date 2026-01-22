@@ -13,7 +13,7 @@ function generateProductDetailsHTML(data, setData) {
         <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>
         <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}" target="_blank">${data.스토어링크 || ''}</a></p>
         <p><strong>SmartStoreURL:</strong> <a href="${data.SmartStoreURL || '#'}" target="_blank">${data.SmartStoreURL || ''}</a></p>
-        <p><strong>ShopURL:</strong> <a href="${data.ShopURL || '#'}" target="_blank">${data.ShopURL || ''}</a></p>
+        <p><strong>ShopURL:</strong> <a href="${data.ShopURL || '#'}" target="_blank" style="word-break: break-all; overflow-wrap: break-word;">${data.ShopURL || ''}</a></p>
         <p><strong>SellingPrice:</strong> ${data.DiscountedPrice || ''}</p>
         <p><strong>Option Datas:</strong></p>
         <form id="updateForm">
@@ -56,8 +56,30 @@ function generateProductDetailsHTML(data, setData) {
                     padding: 4px 0;
                 }
             </style>
-            <button type="increaseSetCount" style="width: 200px; height: 40px; font-size: 1.1em;">세트수량 증가</button>
-            <button type="decreaseSetCount" style="width: 200px; height: 40px; font-size: 1.1em;">세트수량 감소</button>
+            <!-- 주석
+            <button type="button" id="increaseSetCount" style="width: 200px; height: 40px; font-size: 1.1em;">세트수량 증가</button>
+            <button type="button" id="decreaseSetCount" style="width: 200px; height: 40px; font-size: 1.1em;">세트수량 감소</button>
+
+            <div style="margin-top: 20px; border-top: 1px solid #ccc; pt: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <input type="number" id="quantityInput" placeholder="숫자 입력" style="width: 120px; height: 35px; font-size: 1em;">
+                    <button type="button" id="addQuantity" style="width: 75px; height: 40px;">수량 추가</button>
+                </div>
+
+                <div style="margin-bottom: 20px; font-size: 1.1em;">
+                    <label style="margin-right: 15px;">
+                        <input type="checkbox" name="status" value="display"> 전시중
+                    </label>
+                    <label>
+                        <input type="checkbox" name="status" value="sale"> 판매중
+                    </label>
+                </div>
+
+                <button type="submit" style="width: 405px; height: 50px; background-color: #007BFF; color: white; border: none; border-radius: 5px; font-size: 1.2em; cursor: pointer;">
+                    적용하기
+                </button>
+            </div>
+            -->
             <table>
                 <colgroup>
                     <col style="width: 150px;">
