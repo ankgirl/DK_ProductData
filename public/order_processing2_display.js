@@ -377,7 +377,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const packingCompleteButton = document.getElementById('packingCompleteButton');
     const saveCurrentStateButton = document.getElementById('saveCurrentStateButton');
     const manualBarcodeButton   = document.getElementById('manualBarcodeButton');
-    const deleteOrderButton     = document.getElementById('deleteOrderButton');
+    const deleteOrderButton        = document.getElementById('deleteOrderButton');
+    const deleteAllOrdersButton    = document.getElementById('deleteAllOrdersButton');
     const orderNumberInput      = document.getElementById('orderNumberInput');
     const deliveryNumberInput   = document.getElementById('deliveryNumberInput');
 
@@ -591,16 +592,44 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // 인쇄
-    document.getElementById('printButton').addEventListener('click', function () {
-        const printContent = orderDetailsDiv.innerHTML;
-        const printWindow  = window.open('', '', 'height=800,width=800');
-        printWindow.document.write('<html><head><title>Print Order Details</title>');
-        printWindow.document.write('<link rel="stylesheet" href="style.css">');
-        printWindow.document.write('</head><body>');
-        printWindow.document.write(printContent);
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.print();
+    // 전체 주문서 삭제
+    deleteAllOrdersButton.addEventListener('click', async function () {
+        const confirmed = window.confirm(
+            '⚠️ 경고: 모든 주문서를 삭제합니다.\n\n이 작업은 되돌릴 수 없습니다.\n정말로 전체 주문서를 삭제하시겠습니까?'
+        );
+        if (!confirmed) return;
+
+        const doubleConfirmed = window.confirm('마지막 확인: 전체 주문서를 삭제하시겠습니까?');
+        if (!doubleConfirmed) return;
+
+        try {
+            deleteAllOrdersButton.disabled = true;
+            const snapshot = await firebase.firestore().collection('Orders').get();
+            if (snapshot.empty) {
+                messageDiv.innerHTML = '<p>삭제할 주문서가 없습니다.</p>';
+                return;
+            }
+
+            // Firebase batch 최대 500건 제한 처리
+            const batchSize = 500;
+            const docs = snapshot.docs;
+            for (let i = 0; i < docs.length; i += batchSize) {
+                const batch = firebase.firestore().batch();
+                docs.slice(i, i + batchSize).forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            }
+
+            await reInitializeOrderMap();
+            await reInitializeProductMap();
+            orderDetailsDiv.innerHTML = '';
+            messageDiv.innerHTML = `<p>전체 주문서 ${docs.length}건 삭제 완료.</p>`;
+            loadOrderNumbers2(orderDropdown, messageDiv);
+            attachOrderChangeHandler(orderDropdown, orderDetailsDiv, messageDiv);
+        } catch (error) {
+            console.error('전체 삭제 오류:', error);
+            messageDiv.innerHTML = `<p>전체 삭제 중 오류 발생: ${error.message}</p>`;
+        } finally {
+            deleteAllOrdersButton.disabled = false;
+        }
     });
 });
