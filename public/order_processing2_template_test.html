@@ -1,0 +1,346 @@
+<!-- order_processing2_template_test.html -->
+<!-- 외부 의존성 없음. 브라우저에서 바로 열어서 확인 가능 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Template Test — order_processing2</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        h2 { color: #569cd6; }
+        .pass { color: #4ec9b0; }
+        .fail { color: #f44747; }
+        .section { margin: 20px 0; padding: 16px; border: 1px solid #333; border-radius: 4px; }
+        .result { margin: 4px 0; }
+        table { border-collapse: collapse; margin-top: 12px; width: 100%; }
+        th, td { border: 1px solid #555; padding: 6px 10px; font-size: 12px; }
+        th { background: #2d2d2d; }
+        .preview-label { color: #9cdcfe; font-size: 13px; margin-top: 16px; }
+        #summary { font-size: 18px; margin-top: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>order_processing2 Template 단위 테스트</h2>
+    <p style="color:#888">order_processing2.html의 &lt;template&gt; 태그가 올바르게 정의되어 있는지,
+       cloneNode 후 데이터를 채울 수 있는지 검증합니다.</p>
+
+    <div id="testResults"></div>
+    <div id="summary"></div>
+    <div id="renderPreview"></div>
+
+    <!-- order_processing2.html에서 template 태그만 그대로 복사 -->
+
+    <template id="orderSummaryTemplate">
+        <div class="order-summary">
+            <h3>주문번호: <span data-field="order-number"></span></h3>
+            <p><strong>운송장번호:</strong> <span data-field="운송장번호"></span></p>
+            <p><strong><b style="color: red;">서비스제품금액:</b></strong> <span data-field="서비스제품금액"></span></p>
+            <p><strong><b style="color: blue;">서비스총판매가금액:</b></strong> <span data-field="서비스총판매가금액"></span></p>
+            <p><strong>기본배송비:</strong> <span data-field="기본배송비"></span></p>
+            <p><strong>배송메세지:</strong> <span data-field="배송메세지"></span></p>
+            <p><strong>수취인이름:</strong> <span data-field="수취인이름"></span></p>
+            <p><strong>총수량:</strong> <span data-field="총수량"></span></p>
+            <p><strong>총결제금액:</strong> <span data-field="총결제금액"></span></p>
+            <p><strong>주문원가합산금액:</strong> <span data-field="주문원가합산금액"></span></p>
+        </div>
+    </template>
+
+    <template id="orderTableTemplate">
+        <h3>상품 정보</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>상품주문번호</th><th>판매자 상품코드</th><th>입고차수</th>
+                    <th>옵션정보</th><th>수량</th><th>포장수량</th><th>총가격</th>
+                    <th>원가</th><th>Counts</th><th>바코드</th>
+                    <th>옵션이미지</th><th>실제이미지</th><th>체크</th>
+                </tr>
+            </thead>
+            <tbody id="orderTableBody"></tbody>
+        </table>
+    </template>
+
+    <template id="orderRowTemplate">
+        <tr>
+            <td data-field="상품주문번호"></td>
+            <td data-field="판매자상품코드"></td>
+            <td data-field="입고차수"></td>
+            <td data-field="옵션정보"></td>
+            <td data-field="수량"></td>
+            <td><input type="number" class="packingQuantity" data-input="packingQuantity" min="0" value="0"></td>
+            <td data-field="총가격"></td>
+            <td data-field="원가"></td>
+            <td data-field="Counts"></td>
+            <td data-field="바코드"></td>
+            <td class="image-container"><img data-img="옵션이미지URL" alt="옵션이미지"></td>
+            <td class="image-container"><img data-img="실제이미지URL" alt="실제이미지"></td>
+            <td><input type="checkbox" class="barcodeCheck" data-input="barcodeCheck"></td>
+        </tr>
+    </template>
+
+    <template id="serviceTableTemplate">
+        <h3>서비스 상품 정보</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>판매자 상품코드</th><th>바코드</th><th>SellingPrice</th>
+                    <th>원가</th><th>수량</th><th>옵션이미지</th><th>실제이미지</th><th>삭제</th>
+                </tr>
+            </thead>
+            <tbody id="serviceTableBody"></tbody>
+        </table>
+    </template>
+
+    <template id="serviceRowTemplate">
+        <tr>
+            <td data-field="판매자상품코드"></td>
+            <td data-field="바코드"></td>
+            <td data-field="SellingPrice"></td>
+            <td data-field="원가"></td>
+            <td><input type="number" class="serviceQuantity" data-input="serviceQuantity" min="1" value="1"></td>
+            <td class="image-container"><img data-img="옵션이미지URL" alt="옵션이미지"></td>
+            <td class="image-container"><img data-img="실제이미지URL" alt="실제이미지"></td>
+            <td><button class="deleteServiceButton" data-barcode="">삭제</button></td>
+        </tr>
+    </template>
+
+    <script>
+    // ─── 테스트 유틸 ───────────────────────────────────────────────────────────
+    const results = [];
+    function test(name, fn) {
+        try {
+            fn();
+            results.push({ name, pass: true });
+        } catch (e) {
+            results.push({ name, pass: false, error: e.message });
+        }
+    }
+    function assert(condition, msg) {
+        if (!condition) throw new Error(msg || 'assertion failed');
+    }
+
+    // ─── 테스트 데이터 ────────────────────────────────────────────────────────
+    const mockOrder = {
+        'order-number':     'ORD-20260331-001',
+        '운송장번호':         '123456789',
+        '서비스제품금액':      '5000',
+        '서비스총판매가금액':   '12000',
+        '기본배송비':         '3000',
+        '배송메세지':         '문앞에 놓아주세요',
+        '수취인이름':         '홍길동',
+        '총수량':             '3',
+        '총결제금액':         '25000',
+        '주문원가합산금액':    '18000',
+    };
+
+    const mockProductRow = {
+        '상품주문번호':   'PO-001',
+        '판매자상품코드': '58_0101',
+        '입고차수':       '23차입고',
+        '옵션정보':       '빈티지',
+        '수량':           '2',
+        '총가격':         '10000',
+        '원가':           '6000',
+        'Counts':         '15',
+        '바코드':         '8801234567890',
+        'packingQuantity': { value: '1', max: '2' },
+        'barcodeCheck':    { checked: true },
+        '옵션이미지URL':   'https://via.placeholder.com/40?text=opt',
+        '실제이미지URL':   'https://via.placeholder.com/40?text=real',
+    };
+
+    const mockServiceRow = {
+        '판매자상품코드': '58_0102',
+        '바코드':         '8809876543210',
+        'SellingPrice':   '3000',
+        '원가':           '1500',
+        '옵션이미지URL':   'https://via.placeholder.com/40?text=svc',
+        '실제이미지URL':   'https://via.placeholder.com/40?text=real2',
+    };
+
+    // ─── 헬퍼: template에서 clone 후 data-field/data-img/data-input 채우기 ──
+    // 이 함수가 나중에 order_processing2_display.js 에서 쓰일 패턴
+    function fillTemplate(templateId, data) {
+        const tmpl = document.getElementById(templateId);
+        assert(tmpl, `template#${templateId} 없음`);
+        const clone = tmpl.content.cloneNode(true);
+
+        // data-field: textContent
+        clone.querySelectorAll('[data-field]').forEach(el => {
+            const key = el.dataset.field;
+            if (data[key] !== undefined) el.textContent = data[key];
+        });
+
+        // data-img: src
+        clone.querySelectorAll('[data-img]').forEach(el => {
+            const key = el.dataset.img;
+            if (data[key] !== undefined) el.src = data[key];
+        });
+
+        // data-input: value / checked / max
+        clone.querySelectorAll('[data-input]').forEach(el => {
+            const key = el.dataset.input;
+            const val = data[key];
+            if (val === undefined) return;
+            if (typeof val === 'object') {
+                Object.entries(val).forEach(([attr, v]) => {
+                    if (attr === 'checked') el.checked = v;
+                    else el[attr] = v;
+                });
+            } else {
+                el.value = val;
+            }
+        });
+
+        return clone;
+    }
+
+    // ─── 테스트 케이스 ────────────────────────────────────────────────────────
+
+    // T1: 모든 template 태그 존재 확인
+    test('T1: 5개 template 태그 모두 존재', () => {
+        const ids = ['orderSummaryTemplate','orderTableTemplate','orderRowTemplate','serviceTableTemplate','serviceRowTemplate'];
+        ids.forEach(id => assert(document.getElementById(id), `${id} 없음`));
+    });
+
+    // T2: orderSummaryTemplate — 10개 data-field 존재
+    test('T2: orderSummaryTemplate에 필요한 data-field 10개 존재', () => {
+        const tmpl = document.getElementById('orderSummaryTemplate');
+        const fields = [...tmpl.content.querySelectorAll('[data-field]')].map(el => el.dataset.field);
+        const required = Object.keys(mockOrder);
+        required.forEach(key => assert(fields.includes(key), `data-field="${key}" 없음`));
+    });
+
+    // T3: orderRowTemplate — 필수 data-field / data-input / data-img 존재
+    test('T3: orderRowTemplate에 필수 속성 존재', () => {
+        const tmpl = document.getElementById('orderRowTemplate');
+        const fields  = [...tmpl.content.querySelectorAll('[data-field]')].map(el => el.dataset.field);
+        const inputs  = [...tmpl.content.querySelectorAll('[data-input]')].map(el => el.dataset.input);
+        const imgs    = [...tmpl.content.querySelectorAll('[data-img]')].map(el => el.dataset.img);
+        ['상품주문번호','판매자상품코드','수량','바코드'].forEach(f => assert(fields.includes(f), `data-field="${f}" 없음`));
+        assert(inputs.includes('packingQuantity'), 'data-input="packingQuantity" 없음');
+        assert(inputs.includes('barcodeCheck'),    'data-input="barcodeCheck" 없음');
+        assert(imgs.includes('옵션이미지URL'),        'data-img="옵션이미지URL" 없음');
+        assert(imgs.includes('실제이미지URL'),        'data-img="실제이미지URL" 없음');
+    });
+
+    // T4: serviceRowTemplate — 필수 속성 존재
+    test('T4: serviceRowTemplate에 필수 속성 존재', () => {
+        const tmpl = document.getElementById('serviceRowTemplate');
+        const fields = [...tmpl.content.querySelectorAll('[data-field]')].map(el => el.dataset.field);
+        const inputs = [...tmpl.content.querySelectorAll('[data-input]')].map(el => el.dataset.input);
+        ['판매자상품코드','바코드','SellingPrice','원가'].forEach(f => assert(fields.includes(f), `data-field="${f}" 없음`));
+        assert(inputs.includes('serviceQuantity'), 'data-input="serviceQuantity" 없음');
+        const btn = tmpl.content.querySelector('.deleteServiceButton');
+        assert(btn, '.deleteServiceButton 없음');
+        assert(btn.hasAttribute('data-barcode'), 'deleteServiceButton에 data-barcode 없음');
+    });
+
+    // T5: cloneNode 후 데이터 채우기 — orderSummaryTemplate
+    test('T5: orderSummaryTemplate clone 후 데이터 정확히 채워짐', () => {
+        const clone = fillTemplate('orderSummaryTemplate', mockOrder);
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(clone);
+        assert(wrapper.querySelector('[data-field="order-number"]').textContent === mockOrder['order-number'], '주문번호 불일치');
+        assert(wrapper.querySelector('[data-field="수취인이름"]').textContent === mockOrder['수취인이름'], '수취인이름 불일치');
+    });
+
+    // T6: cloneNode 후 데이터 채우기 — orderRowTemplate
+    test('T6: orderRowTemplate clone 후 데이터 정확히 채워짐', () => {
+        const clone = fillTemplate('orderRowTemplate', mockProductRow);
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(clone);
+        assert(wrapper.querySelector('[data-field="판매자상품코드"]').textContent === '58_0101', '판매자상품코드 불일치');
+        assert(wrapper.querySelector('[data-field="바코드"]').textContent === '8801234567890', '바코드 불일치');
+        const packing = wrapper.querySelector('[data-input="packingQuantity"]');
+        assert(packing.value === '1', 'packingQuantity value 불일치');
+        assert(packing.max === '2',   'packingQuantity max 불일치');
+        const check = wrapper.querySelector('[data-input="barcodeCheck"]');
+        assert(check.checked === true, 'barcodeCheck checked 불일치');
+        const img = wrapper.querySelector('[data-img="옵션이미지URL"]');
+        assert(img.src.includes('placeholder'), '옵션이미지URL src 불일치');
+    });
+
+    // T7: cloneNode 후 데이터 채우기 — serviceRowTemplate
+    test('T7: serviceRowTemplate clone 후 데이터 정확히 채워짐', () => {
+        const clone = fillTemplate('serviceRowTemplate', mockServiceRow);
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(clone);
+        assert(wrapper.querySelector('[data-field="SellingPrice"]').textContent === '3000', 'SellingPrice 불일치');
+        assert(wrapper.querySelector('[data-field="바코드"]').textContent === '8809876543210', '바코드 불일치');
+    });
+
+    // T8: 여러 행 반복 clone — tbody에 3행 추가
+    test('T8: orderRowTemplate 3행 반복 추가', () => {
+        const tableTmpl = document.getElementById('orderTableTemplate');
+        const tableWrapper = document.createElement('div');
+        tableWrapper.appendChild(tableTmpl.content.cloneNode(true));
+        const tbody = tableWrapper.querySelector('#orderTableBody');
+        assert(tbody, 'tbody#orderTableBody 없음');
+
+        const rows = [
+            { ...mockProductRow, '판매자상품코드': 'A_001', '바코드': '111' },
+            { ...mockProductRow, '판매자상품코드': 'A_002', '바코드': '222' },
+            { ...mockProductRow, '판매자상품코드': 'A_003', '바코드': '333' },
+        ];
+        rows.forEach(row => {
+            const rowClone = fillTemplate('orderRowTemplate', row);
+            tbody.appendChild(rowClone);
+        });
+        assert(tbody.querySelectorAll('tr').length === 3, `행 수 불일치: ${tbody.querySelectorAll('tr').length}`);
+    });
+
+    // ─── 결과 출력 ────────────────────────────────────────────────────────────
+    const container = document.getElementById('testResults');
+    const passCount = results.filter(r => r.pass).length;
+
+    results.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'result section';
+        div.innerHTML = r.pass
+            ? `<span class="pass">✅ PASS</span> — ${r.name}`
+            : `<span class="fail">❌ FAIL</span> — ${r.name}<br><small style="color:#f88">${r.error}</small>`;
+        container.appendChild(div);
+    });
+
+    const summary = document.getElementById('summary');
+    summary.className = passCount === results.length ? 'pass' : 'fail';
+    summary.textContent = `결과: ${passCount} / ${results.length} 통과`;
+
+    // ─── 렌더 미리보기 ─────────────────────────────────────────────────────────
+    const preview = document.getElementById('renderPreview');
+    preview.innerHTML = '<h2 style="color:#569cd6;margin-top:40px">렌더 미리보기</h2>';
+
+    // 요약 미리보기
+    const summaryLabel = document.createElement('p');
+    summaryLabel.className = 'preview-label';
+    summaryLabel.textContent = '▶ orderSummaryTemplate';
+    preview.appendChild(summaryLabel);
+    preview.appendChild(fillTemplate('orderSummaryTemplate', mockOrder));
+
+    // 상품 테이블 미리보기
+    const tableLabel = document.createElement('p');
+    tableLabel.className = 'preview-label';
+    tableLabel.textContent = '▶ orderTableTemplate + orderRowTemplate (2행)';
+    preview.appendChild(tableLabel);
+    const tWrapper = document.createElement('div');
+    tWrapper.appendChild(document.getElementById('orderTableTemplate').content.cloneNode(true));
+    const tbody2 = tWrapper.querySelector('#orderTableBody');
+    [mockProductRow, { ...mockProductRow, '판매자상품코드': '58_0102', 'barcodeCheck': { checked: false } }].forEach(row => {
+        tbody2.appendChild(fillTemplate('orderRowTemplate', row));
+    });
+    preview.appendChild(tWrapper);
+
+    // 서비스 테이블 미리보기
+    const svcLabel = document.createElement('p');
+    svcLabel.className = 'preview-label';
+    svcLabel.textContent = '▶ serviceTableTemplate + serviceRowTemplate (1행)';
+    preview.appendChild(svcLabel);
+    const sWrapper = document.createElement('div');
+    sWrapper.appendChild(document.getElementById('serviceTableTemplate').content.cloneNode(true));
+    const stbody = sWrapper.querySelector('#serviceTableBody');
+    stbody.appendChild(fillTemplate('serviceRowTemplate', mockServiceRow));
+    preview.appendChild(sWrapper);
+    </script>
+</body>
+</html>
