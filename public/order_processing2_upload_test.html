@@ -1,0 +1,213 @@
+<!-- order_processing2_upload_test.html -->
+<!-- 외부 의존성 없음. Firebase/XLSX 불필요. 브라우저에서 바로 열기 가능 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Test — order_processing2</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        h2 { color: #569cd6; }
+        .pass { color: #4ec9b0; }
+        .fail { color: #f44747; }
+        .section { margin: 6px 0; padding: 12px 16px; border: 1px solid #333; border-radius: 4px; }
+        #summary { font-size: 18px; margin-top: 24px; font-weight: bold; }
+        small { color: #f88; }
+    </style>
+</head>
+<body>
+    <h2>order_processing2_upload.js 단위 테스트</h2>
+    <p style="color:#888">Firebase·XLSX 없이 순수 함수(parseOrderRow, groupByOrderNumber, calcServiceFee)만 검증합니다.</p>
+
+    <div id="testResults"></div>
+    <div id="summary"></div>
+
+    <script type="module">
+    // ─── 테스트할 순수 함수 인라인 복사 ─────────────────────────────────────
+    const COLUMNS = {
+        주문번호:       '주문번호',
+        판매자상품코드: '판매자 상품코드',
+        상품주문번호:   '상품주문번호',
+        옵션:           '옵션정보',
+        수량:           '상품 수량(출력용)',
+        상품주문금액:   '상품별 총 주문금액',
+        상품결제금액:   '상품결제금액',
+        기본배송비:     '기본 배송비',
+        배송메세지:     '배송 메세지',
+        수취인이름:     '수취인 이름',
+        운송장번호:     '운송장번호',
+    };
+
+    function parseOrderRow(row) {
+        const option = (row[COLUMNS.옵션] || '').replace('선택: ', '');
+        const 상품주문금액 = parseFloat(row[COLUMNS.상품주문금액]) || 0;
+        const 상품결제금액 = parseFloat(row[COLUMNS.상품결제금액]) || 0;
+        return {
+            상품주문번호:           row[COLUMNS.상품주문번호] || '',
+            주문번호:               row[COLUMNS.주문번호] || '',
+            SellerCode:             row[COLUMNS.판매자상품코드] || '',
+            상품명:                 row['상품명'] || '',
+            상품수량:               parseInt(row[COLUMNS.수량], 10) || 0,
+            상품별총주문금액:       상품결제금액,
+            상품주문금액,
+            상품결제금액,
+            서비스를위한총결제금액: 0,
+            서비스를위한총원가금액: 0,
+            총원가금액:             0,
+            할인율:                 상품주문금액 > 0 ? (1.0 - 상품결제금액 / 상품주문금액) * 100 : 0,
+            옵션정보:               option,
+        };
+    }
+
+    function groupByOrderNumber(rows) {
+        const ordersMap = {};
+        rows.forEach(row => {
+            const orderData          = parseOrderRow(row);
+            const orderNumber        = orderData.주문번호;
+            const productOrderNumber = orderData.상품주문번호;
+            if (!ordersMap[orderNumber]) {
+                ordersMap[orderNumber] = {
+                    ProductOrders: {},
+                    총수량: 0, 총주문금액: 0, 총결제금액: 0,
+                    서비스를위한총결제금액: 0,
+                    서비스를위한총원가금액: 0,
+                    총원가금액: 0,
+                    기본배송비: row[COLUMNS.기본배송비] || '',
+                    배송메세지: row[COLUMNS.배송메세지] || '',
+                    수취인이름: row[COLUMNS.수취인이름] || '',
+                    운송장번호: row[COLUMNS.운송장번호] || '',
+                    판매처: '스마트스토어',
+                };
+            }
+            ordersMap[orderNumber].ProductOrders[productOrderNumber] = orderData;
+            ordersMap[orderNumber].총수량     += orderData.상품수량;
+            ordersMap[orderNumber].총주문금액 += orderData.상품별총주문금액;
+            ordersMap[orderNumber].총결제금액 += orderData.상품결제금액;
+        });
+        return ordersMap;
+    }
+
+    function calcServiceFee(서비스를위한총결제금액, 서비스를위한총원가금액) {
+        return Math.floor((서비스를위한총결제금액 - 서비스를위한총원가금액) * 0.8 / 10) * 10;
+    }
+
+    // ─── 테스트 유틸 ────────────────────────────────────────────────────────
+    const results = [];
+    function test(name, fn) {
+        try { fn(); results.push({ name, pass: true }); }
+        catch (e) { results.push({ name, pass: false, error: e.message }); }
+    }
+    function assert(condition, msg) {
+        if (!condition) throw new Error(msg || 'assertion failed');
+    }
+    function assertEq(a, b, msg) {
+        if (a !== b) throw new Error(msg || `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+    }
+    function assertCloseTo(a, b, msg, epsilon = 0.0001) {
+        if (Math.abs(a - b) > epsilon) throw new Error(msg || `expected ≈${b}, got ${a}`);
+    }
+
+    // ─── 목 데이터 ──────────────────────────────────────────────────────────
+    const mockRow = {
+        '주문번호':              'ORD-001',
+        '상품주문번호':          'PO-001',
+        '판매자 상품코드':       '58_0101',
+        '상품명':                '테스트 상품',
+        '옵션정보':              '선택: 빈티지',
+        '상품 수량(출력용)':     '2',
+        '상품별 총 주문금액':    '10000',
+        '상품결제금액':          '8000',
+        '기본 배송비':           '3000',
+        '배송 메세지':           '문앞에 놓아주세요',
+        '수취인 이름':           '홍길동',
+        '운송장번호':            '1234567890',
+    };
+
+    // ─── 테스트 케이스 ───────────────────────────────────────────────────────
+
+    test('T1: parseOrderRow — 기본 필드 매핑', () => {
+        const row = parseOrderRow(mockRow);
+        assertEq(row.주문번호,   'ORD-001');
+        assertEq(row.SellerCode, '58_0101');
+        assertEq(row.상품수량,   2);
+    });
+
+    test('T2: parseOrderRow — "선택: " 제거', () => {
+        const row = parseOrderRow(mockRow);
+        assertEq(row.옵션정보, '빈티지');
+    });
+
+    test('T3: parseOrderRow — 할인율 계산 (부동소수점 근사)', () => {
+        const row = parseOrderRow(mockRow);
+        // (1 - 8000/10000) * 100 = 20
+        assertCloseTo(row.할인율, 20, `할인율 불일치: ${row.할인율}`);
+    });
+
+    test('T4: parseOrderRow — 주문금액 0일 때 할인율 0', () => {
+        const row = parseOrderRow({ ...mockRow, '상품별 총 주문금액': '0' });
+        assertEq(row.할인율, 0);
+    });
+
+    test('T5: groupByOrderNumber — 단일 주문 그룹핑', () => {
+        const map = groupByOrderNumber([mockRow]);
+        assert('ORD-001' in map);
+        assert('PO-001' in map['ORD-001'].ProductOrders);
+        assertEq(map['ORD-001'].수취인이름, '홍길동');
+        assertEq(map['ORD-001'].판매처, '스마트스토어');
+    });
+
+    test('T6: groupByOrderNumber — 같은 주문번호 2행 합산', () => {
+        const row2 = { ...mockRow, '상품주문번호': 'PO-001b', '상품결제금액': '6000', '상품 수량(출력용)': '3' };
+        const map  = groupByOrderNumber([mockRow, row2]);
+        assertEq(Object.keys(map['ORD-001'].ProductOrders).length, 2);
+        assertEq(map['ORD-001'].총수량, 5, `총수량: ${map['ORD-001'].총수량}`);
+        assertEq(map['ORD-001'].총결제금액, 14000, `총결제금액: ${map['ORD-001'].총결제금액}`);
+    });
+
+    test('T7: groupByOrderNumber — 다른 주문번호 분리', () => {
+        const row2 = { ...mockRow, '주문번호': 'ORD-002', '상품주문번호': 'PO-002' };
+        const map  = groupByOrderNumber([mockRow, row2]);
+        assert('ORD-001' in map);
+        assert('ORD-002' in map);
+        assertEq(Object.keys(map).length, 2);
+    });
+
+    test('T8: calcServiceFee — 기본 계산', () => {
+        // (10000 - 6000) * 0.8 = 3200
+        assertEq(calcServiceFee(10000, 6000), 3200);
+    });
+
+    test('T9: calcServiceFee — 10원 단위 내림', () => {
+        // (10005 - 6000) * 0.8 = 3204 → 3200
+        assertEq(calcServiceFee(10005, 6000), 3200);
+    });
+
+    test('T10: calcServiceFee — 결제금액 = 원가일 때 0', () => {
+        assertEq(calcServiceFee(5000, 5000), 0);
+    });
+
+    test('T11: 할인율 50% 이상이면 서비스 대상 제외 — 할인율 계산 확인', () => {
+        const highDiscountRow = { ...mockRow, '상품별 총 주문금액': '10000', '상품결제금액': '4999' };
+        const row = parseOrderRow(highDiscountRow);
+        assert(row.할인율 >= 50, `할인율이 50 미만으로 계산됨: ${row.할인율}`);
+    });
+
+    // ─── 결과 렌더링 ─────────────────────────────────────────────────────────
+    const container = document.getElementById('testResults');
+    const passCount = results.filter(r => r.pass).length;
+
+    results.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'section';
+        div.innerHTML = r.pass
+            ? `<span class="pass">✅ PASS</span> — ${r.name}`
+            : `<span class="fail">❌ FAIL</span> — ${r.name}<br><small>${r.error}</small>`;
+        container.appendChild(div);
+    });
+
+    const summary = document.getElementById('summary');
+    summary.className = passCount === results.length ? 'pass' : 'fail';
+    summary.textContent = `결과: ${passCount} / ${results.length} 통과`;
+    </script>
+</body>
+</html>
