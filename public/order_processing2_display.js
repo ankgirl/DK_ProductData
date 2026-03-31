@@ -214,12 +214,46 @@ async function loadOrderNumbers2(orderDropdown, messageDiv) {
     }
 }
 
+// 현재 렌더링된 상품 테이블의 체크박스·포장수량 상태를 바코드 기준으로 저장
+function saveCheckState(orderDetailsDiv) {
+    const state = new Map(); // barcode → { checked, packingQty }
+    orderDetailsDiv.querySelectorAll('tbody tr').forEach(row => {
+        const barcode      = row.querySelector('[data-field="바코드"]')?.textContent?.trim();
+        const checkbox     = row.querySelector('.barcodeCheck');
+        const packingInput = row.querySelector('.packingQuantity');
+        if (barcode && checkbox) {
+            state.set(barcode, {
+                checked:    checkbox.checked,
+                packingQty: packingInput ? packingInput.value : '0',
+            });
+        }
+    });
+    return state;
+}
+
+// 저장된 상태를 새로 렌더링된 테이블에 복원
+function restoreCheckState(orderDetailsDiv, state) {
+    if (!state || state.size === 0) return;
+    orderDetailsDiv.querySelectorAll('tbody tr').forEach(row => {
+        const barcode      = row.querySelector('[data-field="바코드"]')?.textContent?.trim();
+        const saved        = state.get(barcode);
+        if (!saved) return;
+        const checkbox     = row.querySelector('.barcodeCheck');
+        const packingInput = row.querySelector('.packingQuantity');
+        if (checkbox)     checkbox.checked   = saved.checked;
+        if (packingInput) packingInput.value  = saved.packingQty;
+    });
+}
+
 function attachOrderChangeHandler(orderDropdown, orderDetailsDiv, messageDiv) {
     orderDropdown.addEventListener('change', async function () {
         const orderNumber = orderDropdown.value;
         if (!orderNumber) return;
 
         try {
+            // 재렌더링 전 체크 상태 저장
+            const checkState = saveCheckState(orderDetailsDiv);
+
             const orderData       = await getOrderByOrderNumber(orderNumber);
             const productOrders   = orderData.ProductOrders  || {};
             const productServices = orderData.ProductService || [];
@@ -232,6 +266,9 @@ function attachOrderChangeHandler(orderDropdown, orderDetailsDiv, messageDiv) {
             renderOrderSummary(orderData, orderNumber, orderDetailsDiv, totalCost, serviceTotalSales);
             renderOrderTable(sorted, orderDetailsDiv);
             renderServiceTable(productServices, orderDetailsDiv, orderNumber, orderDropdown, messageDiv);
+
+            // 재렌더링 후 체크 상태 복원
+            restoreCheckState(orderDetailsDiv, checkState);
 
         } catch (error) {
             console.error('Error loading order details:', error);
