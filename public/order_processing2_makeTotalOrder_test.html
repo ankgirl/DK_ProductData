@@ -1,0 +1,175 @@
+<!-- order_processing2_makeTotalOrder_test.html -->
+<!-- 외부 의존성 없음. Firebase 불필요. 브라우저에서 바로 열기 가능 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Make Total Order Test — order_processing2</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        h2 { color: #569cd6; }
+        .pass { color: #4ec9b0; }
+        .fail { color: #f44747; }
+        .section { margin: 6px 0; padding: 12px 16px; border: 1px solid #333; border-radius: 4px; }
+        #summary { font-size: 18px; margin-top: 24px; font-weight: bold; }
+        small { color: #f88; }
+    </style>
+</head>
+<body>
+    <h2>order_processing2_makeTotalOrder.js 단위 테스트</h2>
+    <p style="color:#888">Firebase 없이 순수 함수(buildTotalOrderData)만 검증합니다.</p>
+
+    <div id="testResults"></div>
+    <div id="summary"></div>
+
+    <script type="module">
+    // ─── 테스트할 순수 함수 인라인 복사 ─────────────────────────────────────
+    function buildTotalOrderData(orders) {
+        const totalOrderData = {
+            ProductOrders:  {},
+            총수량:         0,
+            총주문금액:     0,
+            총결제금액:     0,
+            총원가금액:     0,
+            기본배송비:     '',
+            배송메세지:     '',
+            수취인이름:     '',
+            운송장번호:     '',
+            서비스제품금액: 0,
+        };
+
+        orders.forEach(order => {
+            Object.values(order.ProductOrders).forEach(productOrder => {
+                const barcode = productOrder.바코드;
+                if (!barcode) return;
+
+                if (totalOrderData.ProductOrders[barcode]) {
+                    totalOrderData.ProductOrders[barcode].상품수량 += productOrder.상품수량;
+                } else {
+                    totalOrderData.ProductOrders[barcode] = {
+                        SellerCode:       productOrder.SellerCode
+                                            ? productOrder.SellerCode.replace('SET_', '')
+                                            : '',
+                        바코드:           barcode,
+                        보여주기용옵션명: productOrder.보여주기용옵션명 || '',
+                        상품명:           productOrder.상품명 || '',
+                        상품수량:         productOrder.상품수량 || 0,
+                        실제이미지URL:    productOrder.실제이미지URL || '',
+                        옵션이미지URL:    productOrder.옵션이미지URL || '',
+                        옵션정보:         productOrder.옵션정보 || '',
+                        입고차수:         productOrder.입고차수 || '',
+                    };
+                }
+            });
+        });
+
+        totalOrderData.총수량 = Object.values(totalOrderData.ProductOrders)
+            .reduce((sum, item) => sum + item.상품수량, 0);
+
+        return totalOrderData;
+    }
+
+    // ─── 테스트 유틸 ────────────────────────────────────────────────────────
+    const results = [];
+    function test(name, fn) {
+        try { fn(); results.push({ name, pass: true }); }
+        catch (e) { results.push({ name, pass: false, error: e.message }); }
+    }
+    function assert(condition, msg) {
+        if (!condition) throw new Error(msg || 'assertion failed');
+    }
+    function assertEq(a, b, msg) {
+        if (a !== b) throw new Error(msg || `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+    }
+
+    // ─── 목 데이터 ──────────────────────────────────────────────────────────
+    const order1 = {
+        ProductOrders: {
+            'PO-001': { SellerCode: '58_0101', 바코드: 'BC-AAA', 보여주기용옵션명: '빈티지', 상품명: '상품A', 상품수량: 2, 실제이미지URL: '', 옵션이미지URL: '', 옵션정보: '빈티지', 입고차수: '1' },
+            'PO-002': { SellerCode: '58_0102', 바코드: 'BC-BBB', 보여주기용옵션명: '감성',   상품명: '상품B', 상품수량: 1, 실제이미지URL: '', 옵션이미지URL: '', 옵션정보: '감성',   입고차수: '1' },
+        }
+    };
+    const order2 = {
+        ProductOrders: {
+            'PO-003': { SellerCode: '58_0101', 바코드: 'BC-AAA', 보여주기용옵션명: '빈티지', 상품명: '상품A', 상품수량: 3, 실제이미지URL: '', 옵션이미지URL: '', 옵션정보: '빈티지', 입고차수: '1' },
+        }
+    };
+    const orderNoBarcodeItem = {
+        ProductOrders: {
+            'PO-004': { SellerCode: '58_0103', 바코드: '', 상품명: '바코드없는상품', 상품수량: 5 },
+        }
+    };
+    const orderSetCode = {
+        ProductOrders: {
+            'PO-005': { SellerCode: 'SET_58_0101', 바코드: 'BC-CCC', 상품명: '세트상품', 상품수량: 1 },
+        }
+    };
+
+    // ─── 테스트 케이스 ───────────────────────────────────────────────────────
+
+    test('T1: buildTotalOrderData — 빈 배열이면 ProductOrders 비어있음', () => {
+        const result = buildTotalOrderData([]);
+        assertEq(Object.keys(result.ProductOrders).length, 0);
+        assertEq(result.총수량, 0);
+    });
+
+    test('T2: buildTotalOrderData — 단일 주문, 바코드별로 그룹핑', () => {
+        const result = buildTotalOrderData([order1]);
+        assert('BC-AAA' in result.ProductOrders, 'BC-AAA 없음');
+        assert('BC-BBB' in result.ProductOrders, 'BC-BBB 없음');
+        assertEq(Object.keys(result.ProductOrders).length, 2);
+    });
+
+    test('T3: buildTotalOrderData — 같은 바코드 수량 합산', () => {
+        const result = buildTotalOrderData([order1, order2]);
+        assertEq(result.ProductOrders['BC-AAA'].상품수량, 5, `BC-AAA 수량: ${result.ProductOrders['BC-AAA']?.상품수량}`);
+    });
+
+    test('T4: buildTotalOrderData — 총수량 올바르게 계산', () => {
+        const result = buildTotalOrderData([order1, order2]);
+        // BC-AAA: 2+3=5, BC-BBB: 1 → 총6
+        assertEq(result.총수량, 6, `총수량: ${result.총수량}`);
+    });
+
+    test('T5: buildTotalOrderData — 바코드 없는 상품은 제외', () => {
+        const result = buildTotalOrderData([orderNoBarcodeItem]);
+        assertEq(Object.keys(result.ProductOrders).length, 0, '바코드 없는 상품이 포함됨');
+        assertEq(result.총수량, 0);
+    });
+
+    test('T6: buildTotalOrderData — SET_ SellerCode 에서 SET_ 제거', () => {
+        const result = buildTotalOrderData([orderSetCode]);
+        assertEq(result.ProductOrders['BC-CCC'].SellerCode, '58_0101', `SellerCode: ${result.ProductOrders['BC-CCC']?.SellerCode}`);
+    });
+
+    test('T7: buildTotalOrderData — 반환 객체에 필요한 최상위 키 존재', () => {
+        const result = buildTotalOrderData([]);
+        const keys = ['ProductOrders', '총수량', '총주문금액', '총결제금액', '총원가금액', '서비스제품금액'];
+        keys.forEach(k => assert(k in result, `'${k}' 키 없음`));
+    });
+
+    test('T8: buildTotalOrderData — 여러 주문 다른 바코드는 독립 항목으로 남음', () => {
+        const result = buildTotalOrderData([order1, order2]);
+        assert('BC-BBB' in result.ProductOrders, 'BC-BBB가 사라짐');
+        assertEq(result.ProductOrders['BC-BBB'].상품수량, 1);
+    });
+
+    // ─── 결과 렌더링 ─────────────────────────────────────────────────────────
+    const container = document.getElementById('testResults');
+    const passCount = results.filter(r => r.pass).length;
+
+    results.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'section';
+        div.innerHTML = r.pass
+            ? `<span class="pass">✅ PASS</span> — ${r.name}`
+            : `<span class="fail">❌ FAIL</span> — ${r.name}<br><small>${r.error}</small>`;
+        container.appendChild(div);
+    });
+
+    const summary = document.getElementById('summary');
+    summary.className = passCount === results.length ? 'pass' : 'fail';
+    summary.textContent = `결과: ${passCount} / ${results.length} 통과`;
+    </script>
+</body>
+</html>
