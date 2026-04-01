@@ -191,7 +191,7 @@ export function renderServiceTable(productServices, container, orderNumber, orde
 
 // ─── Firebase 연동: 주문번호 목록 로드 + 드롭다운 + change 핸들러 ───────────
 
-async function loadOrderNumbers2(orderDropdown, messageDiv) {
+export async function loadOrderNumbers2(orderDropdown, messageDiv) {
     try {
         const snapshot = await firebase.firestore().collection('Orders').get();
         orderDropdown.innerHTML = "<option value=''>주문 번호 선택</option>";
