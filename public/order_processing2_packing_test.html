@@ -1,0 +1,867 @@
+<!-- order_processing2_packing_test.html -->
+<!-- 포장완료 리팩토링 (collectDemand + computeUpdates) 종합 테스트 -->
+<!-- Firebase 불필요. 브라우저에서 바로 열기 가능 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>포장완료 리팩토링 테스트 (collectDemand + computeUpdates)</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        h2 { color: #569cd6; }
+        h3 { color: #9cdcfe; margin: 24px 0 6px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+        .pass   { color: #4ec9b0; }
+        .fail   { color: #f44747; }
+        .section { margin: 4px 0; padding: 10px 14px; border: 1px solid #333; border-radius: 4px; }
+        #summary { font-size: 18px; margin-top: 24px; font-weight: bold; }
+        small { color: #f88; }
+        .product-card { background: #252526; border: 1px solid #444; padding: 10px; margin: 8px 0; border-radius: 4px; font-size: 12px; }
+        .product-card b { color: #ce9178; }
+    </style>
+</head>
+<body>
+    <h2>포장완료 리팩토링 종합 테스트</h2>
+
+    <div class="product-card">
+        <b>65_9998</b> (옵션 6개, 재고: [0, 3, 3, 3, 3, 3]) |
+        바코드: 9998-A ~ 9998-F | 원가: 1500<br>
+        <b>SET_65_9998</b> 재고: 7
+    </div>
+    <div class="product-card">
+        <b>65_9999</b> (옵션 6개, 재고: [6, 6, 6, 6, 6, 6]) |
+        바코드: 9999-A ~ 9999-F | 원가: 2000<br>
+        <b>SET_65_9999</b> 재고: 14
+    </div>
+    <div class="product-card">
+        <b>70_0001</b> (옵션 3개, 재고: [5, 5, 5]) |
+        바코드: 7001-A ~ 7001-C | 원가: 1000<br>
+        SET 없음
+    </div>
+
+    <div id="testResults"></div>
+    <div id="summary"></div>
+
+    <!-- 템플릿 (DOM 렌더링용) -->
+    <template id="orderTableTemplate">
+        <table>
+            <thead><tr>
+                <th>상품주문번호</th><th>판매자 상품코드</th><th>입고차수</th>
+                <th>옵션정보</th><th>수량</th><th>포장수량</th>
+                <th>총가격</th><th>원가</th><th>Counts</th>
+                <th>바코드</th><th>옵션이미지</th><th>실제이미지</th><th>체크</th>
+            </tr></thead>
+            <tbody id="orderTableBody"></tbody>
+        </table>
+    </template>
+    <template id="orderRowTemplate">
+        <tr>
+            <td data-field="상품주문번호"></td>
+            <td data-field="판매자상품코드"></td>
+            <td data-field="입고차수"></td>
+            <td data-field="옵션정보"></td>
+            <td data-field="수량"></td>
+            <td><input type="number" class="packingQuantity" data-input="packingQuantity" min="0" value="0"></td>
+            <td data-field="총가격"></td>
+            <td data-field="원가"></td>
+            <td data-field="Counts"></td>
+            <td data-field="바코드"></td>
+            <td class="image-container"><img data-img="옵션이미지URL" alt=""></td>
+            <td class="image-container"><img data-img="실제이미지URL" alt=""></td>
+            <td><input type="checkbox" class="barcodeCheck" data-input="barcodeCheck"></td>
+        </tr>
+    </template>
+
+    <script type="module">
+    // ════════════════════════════════════════════════════════════════════
+    // 테스트 데이터
+    // ════════════════════════════════════════════════════════════════════
+    const OPTS = ['A','B','C','D','E','F'];
+
+    function make9998() {
+        const opt = {};
+        OPTS.forEach((k, i) => { opt[`옵션${k}`] = { Counts: i === 0 ? 0 : 3, 바코드: `9998-${k}` }; });
+        return { id: '65_9998', SellerCode: '65_9998', 원가: 1500,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+    function makeSet9998(counts = 7) {
+        return { id: 'SET_65_9998', SellerCode: 'SET_65_9998',
+                 OptionDatas: { '옵션1': { Counts: counts } } };
+    }
+    function make9999() {
+        const opt = {};
+        OPTS.forEach(k => { opt[`옵션${k}`] = { Counts: 6, 바코드: `9999-${k}` }; });
+        return { id: '65_9999', SellerCode: '65_9999', 원가: 2000,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+    function makeSet9999(counts = 14) {
+        return { id: 'SET_65_9999', SellerCode: 'SET_65_9999',
+                 OptionDatas: { '옵션1': { Counts: counts } } };
+    }
+    function make70_0001() {
+        const opt = {};
+        ['A','B','C'].forEach(k => { opt[`옵션${k}`] = { Counts: 5, 바코드: `7001-${k}` }; });
+        return { id: '70_0001', SellerCode: '70_0001', 원가: 1000,
+                 소분류명: '2차입고', OptionDatas: opt };
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Mock productMap (getProductByBarcode / getProductBySellerCode 대체)
+    // ════════════════════════════════════════════════════════════════════
+    let mockProductMap = new Map();
+
+    function resetMocks() {
+        mockProductMap = new Map();
+        mockProductMap.set('65_9998', make9998());
+        mockProductMap.set('65_9999', make9999());
+        mockProductMap.set('70_0001', make70_0001());
+        mockProductMap.set('SET_65_9998', makeSet9998());
+        mockProductMap.set('SET_65_9999', makeSet9999());
+    }
+
+    async function getProductByBarcode(barcode) {
+        for (const [id, data] of mockProductMap.entries()) {
+            if (data.OptionDatas) {
+                for (const opt in data.OptionDatas) {
+                    if (data.OptionDatas[opt].바코드 === barcode) {
+                        return { id, ...data, matchedOption: opt };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    async function getProductBySellerCode(sellerCode) {
+        return mockProductMap.get(sellerCode) || null;
+    }
+
+    // Mock Firebase db (SET 조회용)
+    function makeMockDb() {
+        return {
+            collection: (name) => ({
+                doc: (id) => ({
+                    get: async () => {
+                        const data = mockProductMap.get(id);
+                        return {
+                            exists: !!data,
+                            data: () => data ? JSON.parse(JSON.stringify(data)) : null,
+                        };
+                    }
+                })
+            })
+        };
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // collectDemand (display.js 로직 인라인 복사)
+    // ════════════════════════════════════════════════════════════════════
+    function collectDemand(orderDetailsDiv, orderData) {
+        const barcodeDemand = {};
+        const setDemand = {};
+
+        for (const row of orderDetailsDiv.querySelectorAll('tbody tr')) {
+            const sellerCode = row.querySelector('[data-field="판매자상품코드"]')?.textContent || '';
+            const packingInput = row.querySelector('.packingQuantity');
+            if (!packingInput || packingInput.value === '') continue;
+            const qty = parseInt(packingInput.value, 10);
+
+            if (sellerCode.startsWith('SET_')) {
+                // SET 상품은 6개 옵션 행으로 펼쳐지지만 실제로는 1개 주문
+                if (!setDemand[sellerCode]) {
+                    setDemand[sellerCode] = qty;
+                }
+            } else {
+                const barcode = row.querySelector('[data-field="바코드"]')?.textContent;
+                if (barcode) barcodeDemand[barcode] = (barcodeDemand[barcode] || 0) + qty;
+            }
+        }
+
+        for (const service of (orderData.ProductService || [])) {
+            if (service.바코드) {
+                barcodeDemand[service.바코드] = (barcodeDemand[service.바코드] || 0) + 1;
+            }
+        }
+
+        return { barcodeDemand, setDemand };
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // computeUpdates (display.js 로직 인라인 복사)
+    // ════════════════════════════════════════════════════════════════════
+    async function computeUpdates(barcodeDemand, setDemand, db) {
+        const productGroups = {};
+        const setProductIds = new Set(Object.keys(setDemand));
+
+        for (const [barcode, qty] of Object.entries(barcodeDemand)) {
+            const product = await getProductByBarcode(barcode);
+            if (!product) continue;
+
+            let optionKey;
+            for (const k in product.OptionDatas) {
+                if (product.OptionDatas[k].바코드 === barcode) { optionKey = k; break; }
+            }
+
+            if (!productGroups[product.id]) {
+                productGroups[product.id] = { product, options: {} };
+                const setProduct = await getProductBySellerCode('SET_' + product.id);
+                if (setProduct) setProductIds.add(setProduct.id);
+            }
+            productGroups[product.id].options[optionKey] =
+                (productGroups[product.id].options[optionKey] || 0) + qty;
+        }
+
+        const setCountsMap = {};
+        for (const setId of setProductIds) {
+            const doc = await db.collection('Products').doc(setId).get();
+            if (doc.exists) {
+                setCountsMap[setId] = doc.data().OptionDatas?.['옵션1']?.Counts || 0;
+            }
+        }
+
+        const productUpdatesMap = {};
+        const setResults = {};
+
+        for (const [setId, qty] of Object.entries(setDemand)) {
+            if (setCountsMap[setId] !== undefined) {
+                setCountsMap[setId] -= qty;
+            }
+        }
+
+        for (const [productId, group] of Object.entries(productGroups)) {
+            const clonedOptions = {};
+            for (const k in group.product.OptionDatas) {
+                clonedOptions[k] = { ...group.product.OptionDatas[k] };
+            }
+
+            for (const [optKey, qty] of Object.entries(group.options)) {
+                if (clonedOptions[optKey]) {
+                    clonedOptions[optKey].Counts = (clonedOptions[optKey].Counts || 0) - qty;
+                }
+            }
+
+            const setId = 'SET_' + productId;
+            const setAvailable = setCountsMap[setId] ?? 0;
+
+            if (setAvailable > 0) {
+                let setsNeeded = 0;
+                for (const optKey in clonedOptions) {
+                    const deficit = -(clonedOptions[optKey].Counts ?? 0);
+                    if (deficit > setsNeeded) setsNeeded = deficit;
+                }
+                setsNeeded = Math.min(setsNeeded, setAvailable);
+
+                if (setsNeeded > 0) {
+                    for (const optKey in clonedOptions) {
+                        clonedOptions[optKey].Counts += setsNeeded;
+                    }
+                    setCountsMap[setId] -= setsNeeded;
+                }
+            }
+
+            for (const optKey in clonedOptions) {
+                if (clonedOptions[optKey].Counts < 0) clonedOptions[optKey].Counts = 0;
+            }
+
+            productUpdatesMap[productId] = {
+                id: productId,
+                data: { ...group.product, OptionDatas: clonedOptions },
+            };
+        }
+
+        for (const [setId, counts] of Object.entries(setCountsMap)) {
+            setResults[setId] = { UpdatedCounts: counts };
+        }
+
+        return { productUpdatesMap, setResults, setCountsMap };
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // DOM 헬퍼
+    // ════════════════════════════════════════════════════════════════════
+    function fillField(node, name, val) {
+        const el = node.querySelector(`[data-field="${name}"]`);
+        if (el) el.textContent = val ?? '';
+    }
+
+    function renderRows(container, rows) {
+        const tableNode = document.getElementById('orderTableTemplate').content.cloneNode(true);
+        const tbody = tableNode.querySelector('#orderTableBody');
+        rows.forEach(r => {
+            const rowNode = document.getElementById('orderRowTemplate').content.cloneNode(true);
+            fillField(rowNode, '판매자상품코드', r.sellerCode);
+            fillField(rowNode, '바코드', r.barcode);
+            fillField(rowNode, '수량', r.qty);
+            const pInput = rowNode.querySelector('.packingQuantity');
+            if (pInput) pInput.value = r.packingQty ?? '0';
+            tbody.appendChild(rowNode);
+        });
+        container.appendChild(tableNode);
+    }
+
+    function mkContainer() {
+        const d = document.createElement('div');
+        d.style.display = 'none';
+        document.body.appendChild(d);
+        return d;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // 테스트 프레임워크
+    // ════════════════════════════════════════════════════════════════════
+    const results = [];
+    async function test(name, fn) {
+        try { await fn(); results.push({ name, pass: true }); }
+        catch (e) { results.push({ name, pass: false, error: e.message }); }
+    }
+    function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+    function assertEq(a, b, msg) {
+        if (a !== b) throw new Error(msg || `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // G1: collectDemand - DOM 수량 집계
+    // ════════════════════════════════════════════════════════════════════
+    await test('G1-T1: 단일 상품 1개 → barcodeDemand에 수량 1', () => {
+        const c = mkContainer();
+        renderRows(c, [{ sellerCode: '65_9999', barcode: '9999-A', qty: 1, packingQty: '1' }]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        assertEq(barcodeDemand['9999-A'], 1);
+        assertEq(Object.keys(setDemand).length, 0);
+    });
+
+    await test('G1-T2: 같은 바코드 2행 (수량 1+2) → 합산 3', () => {
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: '65_9999', barcode: '9999-A', qty: 1, packingQty: '1' },
+            { sellerCode: '65_9999', barcode: '9999-A', qty: 2, packingQty: '2' },
+        ]);
+        const { barcodeDemand } = collectDemand(c, {});
+        assertEq(barcodeDemand['9999-A'], 3);
+    });
+
+    await test('G1-T3: SET 상품 → setDemand에 기록, barcodeDemand에 안 감', () => {
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: 'SET_65_9998', barcode: '', qty: 1, packingQty: '1' },
+            { sellerCode: '65_9999', barcode: '9999-B', qty: 1, packingQty: '1' },
+        ]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        assertEq(setDemand['SET_65_9998'], 1);
+        assert(!barcodeDemand[''], 'SET 바코드가 barcodeDemand에 들어감');
+        assertEq(barcodeDemand['9999-B'], 1);
+    });
+
+    await test('G1-T4: 서비스 제품 → barcodeDemand에 합산', () => {
+        const c = mkContainer();
+        renderRows(c, [{ sellerCode: '65_9999', barcode: '9999-A', qty: 1, packingQty: '1' }]);
+        const orderData = { ProductService: [{ 바코드: '9999-A' }, { 바코드: '9998-B' }] };
+        const { barcodeDemand } = collectDemand(c, orderData);
+        assertEq(barcodeDemand['9999-A'], 2, '원주문1 + 서비스1 = 2');
+        assertEq(barcodeDemand['9998-B'], 1);
+    });
+
+    await test('G1-T5: 빈 주문 → 빈 결과', () => {
+        const c = mkContainer();
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        assertEq(Object.keys(barcodeDemand).length, 0);
+        assertEq(Object.keys(setDemand).length, 0);
+    });
+
+    await test('G1-T6: 포장수량 0인 행 무시', () => {
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: '65_9999', barcode: '9999-A', qty: 1, packingQty: '0' },
+            { sellerCode: '65_9999', barcode: '9999-B', qty: 1, packingQty: '1' },
+        ]);
+        const { barcodeDemand } = collectDemand(c, {});
+        assert(!barcodeDemand['9999-A'], '포장수량 0인데 집계됨');
+        assertEq(barcodeDemand['9999-B'], 1);
+    });
+
+    await test('G1-T7: 65_9998 6옵션 + SET + 서비스 2개 — 복합 집계', () => {
+        const c = mkContainer();
+        const rows = OPTS.map(k => ({
+            sellerCode: '65_9998', barcode: `9998-${k}`, qty: 1, packingQty: '1'
+        }));
+        rows.push({ sellerCode: 'SET_65_9998', barcode: '', qty: 1, packingQty: '1' });
+        renderRows(c, rows);
+        const orderData = { ProductService: [{ 바코드: '9998-A' }, { 바코드: '9998-C' }] };
+        const { barcodeDemand, setDemand } = collectDemand(c, orderData);
+        assertEq(barcodeDemand['9998-A'], 2, '원주문1 + 서비스1');
+        assertEq(barcodeDemand['9998-C'], 2, '원주문1 + 서비스1');
+        assertEq(barcodeDemand['9998-B'], 1);
+        assertEq(setDemand['SET_65_9998'], 1);
+    });
+
+    await test('G1-T8: SET 6행 펼쳐짐 → 첫 행만 집계, 합산 안됨', () => {
+        const c = mkContainer();
+        // SET 상품은 6개 옵션 행으로 펼쳐짐 (실제 주문처리 화면과 동일)
+        renderRows(c, [
+            { sellerCode: 'SET_65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-B', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-C', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-D', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-E', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-F', qty: 1, packingQty: '1' },
+        ]);
+        const { setDemand } = collectDemand(c, {});
+        assertEq(setDemand['SET_65_9998'], 1, `SET이 6으로 합산됨: ${setDemand['SET_65_9998']}`);
+    });
+
+    await test('G1-T9: ORDER-D 시나리오 — SET 6행 + 개별1행 + 서비스5개', () => {
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: '65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-B', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-C', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-D', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-E', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-F', qty: 1, packingQty: '1' },
+        ]);
+        const orderData = { ProductService: [
+            { 바코드: '9998-B' }, { 바코드: '9998-B' }, { 바코드: '9998-B' },
+            { 바코드: '9998-B' }, { 바코드: '9998-B' },
+        ]};
+        const { barcodeDemand, setDemand } = collectDemand(c, orderData);
+        assertEq(setDemand['SET_65_9998'], 1, 'SET은 1이어야 함');
+        assertEq(barcodeDemand['9998-A'], 1, '개별 그린라이트 1');
+        assertEq(barcodeDemand['9998-B'], 5, '서비스 캔디병 5');
+    });
+
+    await test('G1-T10: ORDER-D 전체 계산 — [0,4,4,4,4,4] SET=7 → [0,0,5,5,5,5] SET=5', async () => {
+        resetMocks();
+        // 초기 상태: [0,4,4,4,4,4] SET=7
+        const p = mockProductMap.get('65_9998');
+        p.OptionDatas['옵션A'].Counts = 0;
+        OPTS.slice(1).forEach(k => { p.OptionDatas[`옵션${k}`].Counts = 4; });
+
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: '65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-B', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-C', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-D', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-E', qty: 1, packingQty: '1' },
+            { sellerCode: 'SET_65_9998', barcode: '9998-F', qty: 1, packingQty: '1' },
+        ]);
+        const orderData = { ProductService: [
+            { 바코드: '9998-B' }, { 바코드: '9998-B' }, { 바코드: '9998-B' },
+            { 바코드: '9998-B' }, { 바코드: '9998-B' },
+        ]};
+        const { barcodeDemand, setDemand } = collectDemand(c, orderData);
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(barcodeDemand, setDemand, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 0, `옵션B(캔디병): ${opts['옵션B'].Counts}`);
+        assertEq(opts['옵션C'].Counts, 5, `옵션C: ${opts['옵션C'].Counts}`);
+        assertEq(opts['옵션D'].Counts, 5, `옵션D: ${opts['옵션D'].Counts}`);
+        assertEq(opts['옵션E'].Counts, 5, `옵션E: ${opts['옵션E'].Counts}`);
+        assertEq(opts['옵션F'].Counts, 5, `옵션F: ${opts['옵션F'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 5, `SET: ${setCountsMap['SET_65_9998']}`);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G2: computeUpdates - 일반 차감 (SET 보정 없음)
+    // ════════════════════════════════════════════════════════════════════
+    await test('G2-T1: 65_9999 옵션A 1개 차감 → Counts 6→5', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap } = await computeUpdates({ '9999-A': 1 }, {}, db);
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션A'].Counts, 5);
+    });
+
+    await test('G2-T2: 65_9999 옵션A 6개 차감 → Counts 6→0, SET 미사용', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9999-A': 6 }, {}, db);
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션A'].Counts, 0);
+        assertEq(setCountsMap['SET_65_9999'], 14, 'SET 변경됨');
+    });
+
+    await test('G2-T3: 65_9999 옵션A+B 각 2개 → A:4, B:4', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap } = await computeUpdates({ '9999-A': 2, '9999-B': 2 }, {}, db);
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션A'].Counts, 4);
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션B'].Counts, 4);
+    });
+
+    await test('G2-T4: SET 없는 제품(70_0001) 옵션A 3개 차감 → 5→2', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '7001-A': 3 }, {}, db);
+        assertEq(productUpdatesMap['70_0001'].data.OptionDatas['옵션A'].Counts, 2);
+        assert(!setCountsMap['SET_70_0001'], 'SET_70_0001이 생성됨');
+    });
+
+    await test('G2-T5: 두 제품 동시 차감 — 65_9999 옵션A(1), 70_0001 옵션B(2)', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap } = await computeUpdates({ '9999-A': 1, '7001-B': 2 }, {}, db);
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션A'].Counts, 5);
+        assertEq(productUpdatesMap['70_0001'].data.OptionDatas['옵션B'].Counts, 3);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G3: computeUpdates - SET 보정
+    // ════════════════════════════════════════════════════════════════════
+    await test('G3-T1: TC05 핵심 — 65_9998 옵션A(0) 1개 주문 → [0,4,4,4,4,4] SET=6', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9998-A': 1 }, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 4, `옵션B: ${opts['옵션B'].Counts}`);
+        assertEq(opts['옵션C'].Counts, 4, `옵션C: ${opts['옵션C'].Counts}`);
+        assertEq(opts['옵션D'].Counts, 4, `옵션D: ${opts['옵션D'].Counts}`);
+        assertEq(opts['옵션E'].Counts, 4, `옵션E: ${opts['옵션E'].Counts}`);
+        assertEq(opts['옵션F'].Counts, 4, `옵션F: ${opts['옵션F'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 6, `SET: ${setCountsMap['SET_65_9998']}`);
+    });
+
+    await test('G3-T2: 65_9998 옵션A(0) 2개 주문 → setsNeeded=2, [0,5,5,5,5,5] SET=5', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9998-A': 2 }, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 5, `옵션B: ${opts['옵션B'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 5);
+    });
+
+    await test('G3-T3: 65_9998 옵션A(0)+옵션B(3) 각 1개 → SET 1개 사용, [0,3,4,4,4,4] SET=6', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9998-A': 1, '9998-B': 1 }, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 3, `옵션B: 3+1-1=${opts['옵션B'].Counts}`);
+        assertEq(opts['옵션C'].Counts, 4, `옵션C: ${opts['옵션C'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 6);
+    });
+
+    await test('G3-T4: SET 직접 주문(1) + 보정(1) → SET 7-1-1=5', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { setCountsMap } = await computeUpdates(
+            { '9998-A': 1 },           // 보정 1 필요
+            { 'SET_65_9998': 1 },       // 직접 주문 1
+            db
+        );
+        assertEq(setCountsMap['SET_65_9998'], 5, `SET: ${setCountsMap['SET_65_9998']}`);
+    });
+
+    await test('G3-T5: SET 재고 0 → 보정 불가, 음수 클램프 0', async () => {
+        resetMocks();
+        mockProductMap.set('SET_65_9998', makeSet9998(0));
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9998-A': 1 }, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0, '음수 클램프 안됨');
+        assertEq(opts['옵션B'].Counts, 3, '보정 안해야 함');
+        assertEq(setCountsMap['SET_65_9998'], 0);
+    });
+
+    await test('G3-T6: SET 재고 1 → 보정 1만 가능, 나머지 클램프', async () => {
+        resetMocks();
+        mockProductMap.set('SET_65_9998', makeSet9998(1));
+        // 옵션A(0)에서 3개 주문 → deficit=3, setAvailable=1 → setsNeeded=1
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9998-A': 3 }, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        // 0 - 3 + 1 = -2 → clamp 0
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 4, `옵션B: 3+1=${opts['옵션B'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 0);
+    });
+
+    await test('G3-T7: 서비스 제품이 SET 보정 트리거 — 9998-A 서비스 1개', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        // 서비스 바코드만 (DOM 행 없이)
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9998-A': 1 }, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0);
+        assertEq(opts['옵션B'].Counts, 4);
+        assertEq(setCountsMap['SET_65_9998'], 6);
+    });
+
+    await test('G3-T8: 65_9998 전 옵션 1개씩 주문 — 옵션A에만 보정, [0,3,3,3,3,3] SET=6', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const demand = {};
+        OPTS.forEach(k => { demand[`9998-${k}`] = 1; });
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(demand, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 3, `옵션B: 3+1-1=${opts['옵션B'].Counts}`);
+        assertEq(opts['옵션C'].Counts, 3, `옵션C: ${opts['옵션C'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 6);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G4: computeUpdates - productMap 오염 방지
+    // ════════════════════════════════════════════════════════════════════
+    await test('G4-T1: computeUpdates 후 원본 productMap 변경 안됨', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const origCounts = mockProductMap.get('65_9999').OptionDatas['옵션A'].Counts;
+        await computeUpdates({ '9999-A': 3 }, {}, db);
+        assertEq(mockProductMap.get('65_9999').OptionDatas['옵션A'].Counts, origCounts,
+            'productMap이 오염됨');
+    });
+
+    await test('G4-T2: SET 보정 후 원본 SET productMap 변경 안됨', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const origSetCounts = mockProductMap.get('SET_65_9998').OptionDatas['옵션1'].Counts;
+        await computeUpdates({ '9998-A': 1 }, {}, db);
+        assertEq(mockProductMap.get('SET_65_9998').OptionDatas['옵션1'].Counts, origSetCounts,
+            'SET productMap이 오염됨');
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G5: computeUpdates - setResults (generateBatchContent 호환)
+    // ════════════════════════════════════════════════════════════════════
+    await test('G5-T1: SET 보정 시 setResults에 UpdatedCounts 포함', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { setResults } = await computeUpdates({ '9998-A': 1 }, {}, db);
+        assertEq(setResults['SET_65_9998'].UpdatedCounts, 6);
+    });
+
+    await test('G5-T2: SET 직접 주문만 (보정 없음) → setResults 반영', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { setResults } = await computeUpdates({}, { 'SET_65_9998': 2 }, db);
+        assertEq(setResults['SET_65_9998'].UpdatedCounts, 5, `SET: ${setResults['SET_65_9998'].UpdatedCounts}`);
+    });
+
+    await test('G5-T3: SET 미관련 주문 → 해당 setResults에도 원래 값 포함', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { setResults } = await computeUpdates({ '9999-A': 1 }, {}, db);
+        assertEq(setResults['SET_65_9999'].UpdatedCounts, 14);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G6: 통합 시나리오 (collectDemand → computeUpdates)
+    // ════════════════════════════════════════════════════════════════════
+    await test('G6-T1: TC05 전체 흐름 — DOM(옵션A:1) + no service → [0,4,4,4,4,4] SET=6', async () => {
+        resetMocks();
+        const c = mkContainer();
+        renderRows(c, [{ sellerCode: '65_9998', barcode: '9998-A', qty: 1, packingQty: '1' }]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(barcodeDemand, setDemand, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0);
+        assertEq(opts['옵션B'].Counts, 4);
+        assertEq(setCountsMap['SET_65_9998'], 6);
+    });
+
+    await test('G6-T2: 서비스(9998-A) + 원주문(9998-A:1) → 총2개 차감, SET 2개 사용 → [0,5,5,5,5,5] SET=5', async () => {
+        resetMocks();
+        const c = mkContainer();
+        renderRows(c, [{ sellerCode: '65_9998', barcode: '9998-A', qty: 1, packingQty: '1' }]);
+        const orderData = { ProductService: [{ 바코드: '9998-A' }] };
+        const { barcodeDemand, setDemand } = collectDemand(c, orderData);
+        assertEq(barcodeDemand['9998-A'], 2, '합산 확인');
+
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(barcodeDemand, setDemand, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 5, `옵션B: ${opts['옵션B'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 5);
+    });
+
+    await test('G6-T3: 65_9999 + 65_9998 복합 주문 — 각각 독립 계산', async () => {
+        resetMocks();
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: '65_9999', barcode: '9999-A', qty: 2, packingQty: '2' },
+            { sellerCode: '65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+        ]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(barcodeDemand, setDemand, db);
+
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션A'].Counts, 4);
+        assertEq(setCountsMap['SET_65_9999'], 14, '65_9999 SET 변경 없어야 함');
+
+        assertEq(productUpdatesMap['65_9998'].data.OptionDatas['옵션A'].Counts, 0);
+        assertEq(setCountsMap['SET_65_9998'], 6);
+    });
+
+    await test('G6-T4: SET 직접 주문 + 보정 동시 — SET_65_9998 직접1 + 보정1 = SET 5', async () => {
+        resetMocks();
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: 'SET_65_9998', barcode: '', qty: 1, packingQty: '1' },
+            { sellerCode: '65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+        ]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        assertEq(setDemand['SET_65_9998'], 1);
+        assertEq(barcodeDemand['9998-A'], 1);
+
+        const db = makeMockDb();
+        const { setCountsMap } = await computeUpdates(barcodeDemand, setDemand, db);
+        // SET=7, 직접주문-1=6, 보정-1=5
+        assertEq(setCountsMap['SET_65_9998'], 5);
+    });
+
+    await test('G6-T5: SET 없는 제품(70_0001) 과다 주문 → 음수 클램프 0', async () => {
+        resetMocks();
+        const c = mkContainer();
+        renderRows(c, [{ sellerCode: '70_0001', barcode: '7001-A', qty: 10, packingQty: '10' }]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        const db = makeMockDb();
+        const { productUpdatesMap } = await computeUpdates(barcodeDemand, setDemand, db);
+        assertEq(productUpdatesMap['70_0001'].data.OptionDatas['옵션A'].Counts, 0, '음수 클램프 안됨');
+    });
+
+    await test('G6-T6: 서비스만 있고 DOM 행 없음 — 서비스 바코드만 차감', async () => {
+        resetMocks();
+        const c = mkContainer();
+        const orderData = { ProductService: [{ 바코드: '9999-B' }] };
+        const { barcodeDemand, setDemand } = collectDemand(c, orderData);
+        assertEq(barcodeDemand['9999-B'], 1);
+
+        const db = makeMockDb();
+        const { productUpdatesMap } = await computeUpdates(barcodeDemand, setDemand, db);
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션B'].Counts, 5);
+    });
+
+    await test('G6-T7: 3제품 동시 — 65_9998(보정) + 65_9999(일반) + 70_0001(일반)', async () => {
+        resetMocks();
+        const c = mkContainer();
+        renderRows(c, [
+            { sellerCode: '65_9998', barcode: '9998-A', qty: 1, packingQty: '1' },
+            { sellerCode: '65_9999', barcode: '9999-C', qty: 3, packingQty: '3' },
+            { sellerCode: '70_0001', barcode: '7001-B', qty: 2, packingQty: '2' },
+        ]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(barcodeDemand, setDemand, db);
+
+        assertEq(productUpdatesMap['65_9998'].data.OptionDatas['옵션A'].Counts, 0);
+        assertEq(productUpdatesMap['65_9998'].data.OptionDatas['옵션B'].Counts, 4);
+        assertEq(setCountsMap['SET_65_9998'], 6);
+
+        assertEq(productUpdatesMap['65_9999'].data.OptionDatas['옵션C'].Counts, 3);
+        assertEq(setCountsMap['SET_65_9999'], 14);
+
+        assertEq(productUpdatesMap['70_0001'].data.OptionDatas['옵션B'].Counts, 3);
+    });
+
+    await test('G6-T8: 대량 SET 보정 — 옵션A(0) 5개 주문, SET=7 → setsNeeded=5, [0,8,8,8,8,8] SET=2', async () => {
+        resetMocks();
+        const c = mkContainer();
+        renderRows(c, [{ sellerCode: '65_9998', barcode: '9998-A', qty: 5, packingQty: '5' }]);
+        const { barcodeDemand, setDemand } = collectDemand(c, {});
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(barcodeDemand, setDemand, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 8, `옵션B: 3+5=${opts['옵션B'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 2);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G7: 엣지 케이스
+    // ════════════════════════════════════════════════════════════════════
+    await test('G7-T1: barcodeDemand 빈 객체, setDemand만 있음 → SET만 차감', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({}, { 'SET_65_9998': 3 }, db);
+        assertEq(Object.keys(productUpdatesMap).length, 0);
+        assertEq(setCountsMap['SET_65_9998'], 4);
+    });
+
+    await test('G7-T2: 존재하지 않는 바코드 → 무시', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { productUpdatesMap } = await computeUpdates({ 'UNKNOWN-BC': 1 }, {}, db);
+        assertEq(Object.keys(productUpdatesMap).length, 0);
+    });
+
+    await test('G7-T3: SET 직접 주문이 SET 재고 초과 → 음수 허용 (주문 데이터 그대로)', async () => {
+        resetMocks();
+        const db = makeMockDb();
+        const { setCountsMap } = await computeUpdates({}, { 'SET_65_9998': 10 }, db);
+        assertEq(setCountsMap['SET_65_9998'], -3, 'SET 직접 주문은 클램프 안 함');
+    });
+
+    await test('G7-T4: 여러 옵션 동시 음수 — 가장 큰 deficit로 SET 사용', async () => {
+        resetMocks();
+        // 옵션A(0): 3개 주문 → deficit=3
+        // 옵션B(3): 5개 주문 → deficit=2
+        // setsNeeded = max(3,2) = 3
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates(
+            { '9998-A': 3, '9998-B': 5 }, {}, db
+        );
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        // A: 0-3+3=0, B: 3-5+3=1, C~F: 3+3=6
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 1, `옵션B: ${opts['옵션B'].Counts}`);
+        assertEq(opts['옵션C'].Counts, 6, `옵션C: ${opts['옵션C'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 4, `SET: 7-3=${setCountsMap['SET_65_9998']}`);
+    });
+
+    await test('G7-T5: SET 부족으로 일부만 보정 — deficit=5, SET=3 → setsNeeded=3', async () => {
+        resetMocks();
+        mockProductMap.set('SET_65_9998', makeSet9998(3));
+        const db = makeMockDb();
+        const { productUpdatesMap, setCountsMap } = await computeUpdates({ '9998-A': 5 }, {}, db);
+        const opts = productUpdatesMap['65_9998'].data.OptionDatas;
+        // A: 0-5+3=-2 → clamp 0, B~F: 3+3=6
+        assertEq(opts['옵션A'].Counts, 0, `옵션A: ${opts['옵션A'].Counts}`);
+        assertEq(opts['옵션B'].Counts, 6, `옵션B: ${opts['옵션B'].Counts}`);
+        assertEq(setCountsMap['SET_65_9998'], 0);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // 결과 렌더링
+    // ════════════════════════════════════════════════════════════════════
+    const OUTPUT = document.getElementById('testResults');
+    const groupNames = {
+        G1: 'collectDemand — DOM + 서비스 수량 집계',
+        G2: 'computeUpdates — 일반 차감 (SET 보정 없음)',
+        G3: 'computeUpdates — SET 보정',
+        G4: 'computeUpdates — productMap 오염 방지',
+        G5: 'computeUpdates — setResults (generateBatchContent 호환)',
+        G6: '통합 시나리오 (collectDemand → computeUpdates)',
+        G7: '엣지 케이스',
+    };
+    const groups = {};
+    results.forEach(r => {
+        const g = r.name.split('-')[0];
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(r);
+    });
+    Object.entries(groups).forEach(([key, tests]) => {
+        const h = document.createElement('h3');
+        h.textContent = `${key}: ${groupNames[key] || key}`;
+        OUTPUT.appendChild(h);
+        tests.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'section';
+            div.innerHTML = r.pass
+                ? `<span class="pass">PASS</span> — ${r.name}`
+                : `<span class="fail">FAIL</span> — ${r.name}<br><small>${r.error}</small>`;
+            OUTPUT.appendChild(div);
+        });
+    });
+    const passCount = results.filter(r => r.pass).length;
+    const summary   = document.getElementById('summary');
+    summary.className  = passCount === results.length ? 'pass' : 'fail';
+    summary.textContent = `결과: ${passCount} / ${results.length} 통과`;
+    </script>
+</body>
+</html>

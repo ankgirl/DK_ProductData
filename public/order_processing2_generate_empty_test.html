@@ -1,0 +1,117 @@
+<!-- order_processing2_generate_empty_test.html -->
+<!-- 외부 의존성 없음. Firebase 불필요. 브라우저에서 바로 열기 가능 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Generate Empty Order Test — order_processing2</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        h2 { color: #569cd6; }
+        .pass { color: #4ec9b0; }
+        .fail { color: #f44747; }
+        .section { margin: 6px 0; padding: 12px 16px; border: 1px solid #333; border-radius: 4px; }
+        #summary { font-size: 18px; margin-top: 24px; font-weight: bold; }
+        small { color: #f88; }
+    </style>
+</head>
+<body>
+    <h2>order_processing2_generate_empty.js 단위 테스트</h2>
+    <p style="color:#888">Firebase 없이 순수 함수(createEmptyOrderData)만 검증합니다.</p>
+
+    <div id="testResults"></div>
+    <div id="summary"></div>
+
+    <script type="module">
+    // ─── 테스트할 순수 함수 인라인 복사 ─────────────────────────────────────
+    function createEmptyOrderData(orderNumber) {
+        return {
+            ProductOrders:  {},
+            총수량:         0,
+            총주문금액:     0,
+            총결제금액:     0,
+            총원가금액:     0,
+            기본배송비:     '',
+            배송메세지:     '',
+            수취인이름:     '',
+            운송장번호:     '',
+            서비스제품금액: 0,
+            판매처:         '',
+        };
+    }
+
+    // ─── 테스트 유틸 ────────────────────────────────────────────────────────
+    const results = [];
+    function test(name, fn) {
+        try { fn(); results.push({ name, pass: true }); }
+        catch (e) { results.push({ name, pass: false, error: e.message }); }
+    }
+    function assert(condition, msg) {
+        if (!condition) throw new Error(msg || 'assertion failed');
+    }
+    function assertEq(a, b, msg) {
+        if (a !== b) throw new Error(msg || `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+    }
+
+    // ─── 테스트 케이스 ───────────────────────────────────────────────────────
+
+    test('T1: createEmptyOrderData — ProductOrders는 빈 객체', () => {
+        const data = createEmptyOrderData('20260331123456789');
+        assert(typeof data.ProductOrders === 'object');
+        assertEq(Object.keys(data.ProductOrders).length, 0);
+    });
+
+    test('T2: createEmptyOrderData — 수량 및 금액 필드 모두 0', () => {
+        const data = createEmptyOrderData('20260331123456789');
+        assertEq(data.총수량,         0);
+        assertEq(data.총주문금액,     0);
+        assertEq(data.총결제금액,     0);
+        assertEq(data.총원가금액,     0);
+        assertEq(data.서비스제품금액, 0);
+    });
+
+    test('T3: createEmptyOrderData — 문자열 필드 모두 빈 문자열', () => {
+        const data = createEmptyOrderData('20260331123456789');
+        assertEq(data.기본배송비, '');
+        assertEq(data.배송메세지, '');
+        assertEq(data.수취인이름, '');
+        assertEq(data.운송장번호, '');
+        assertEq(data.판매처,     '');
+    });
+
+    test('T4: createEmptyOrderData — 필요한 모든 키가 존재함', () => {
+        const data = createEmptyOrderData('20260331123456789');
+        const requiredKeys = [
+            'ProductOrders', '총수량', '총주문금액', '총결제금액',
+            '총원가금액', '기본배송비', '배송메세지', '수취인이름',
+            '운송장번호', '서비스제품금액', '판매처',
+        ];
+        requiredKeys.forEach(k => assert(k in data, `'${k}' 키 없음`));
+    });
+
+    test('T5: createEmptyOrderData — 호출마다 독립된 ProductOrders 객체', () => {
+        const a = createEmptyOrderData('A');
+        const b = createEmptyOrderData('B');
+        a.ProductOrders['test'] = 1;
+        assert(!('test' in b.ProductOrders), 'ProductOrders 객체가 공유됨');
+    });
+
+    // ─── 결과 렌더링 ─────────────────────────────────────────────────────────
+    const container = document.getElementById('testResults');
+    const passCount = results.filter(r => r.pass).length;
+
+    results.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'section';
+        div.innerHTML = r.pass
+            ? `<span class="pass">✅ PASS</span> — ${r.name}`
+            : `<span class="fail">❌ FAIL</span> — ${r.name}<br><small>${r.error}</small>`;
+        container.appendChild(div);
+    });
+
+    const summary = document.getElementById('summary');
+    summary.className = passCount === results.length ? 'pass' : 'fail';
+    summary.textContent = `결과: ${passCount} / ${results.length} 통과`;
+    </script>
+</body>
+</html>

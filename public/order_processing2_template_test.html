@@ -1,0 +1,771 @@
+<!-- order_processing2_template_test.html -->
+<!-- 65_9998 / 65_9999 테스트 데이터 기반 종합 테스트 -->
+<!-- Firebase 불필요. 브라우저에서 바로 열기 가능 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Processing 2 — 종합 테스트 (65_9998 / 65_9999)</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        h2 { color: #569cd6; }
+        h3 { color: #9cdcfe; margin: 24px 0 6px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+        .pass   { color: #4ec9b0; }
+        .fail   { color: #f44747; }
+        .section { margin: 4px 0; padding: 10px 14px; border: 1px solid #333; border-radius: 4px; }
+        #summary { font-size: 18px; margin-top: 24px; font-weight: bold; }
+        small { color: #f88; }
+        .product-card { background: #252526; border: 1px solid #444; padding: 10px; margin: 8px 0; border-radius: 4px; font-size: 12px; }
+        .product-card b { color: #ce9178; }
+    </style>
+</head>
+<body>
+    <h2>Order Processing 2 — 종합 테스트</h2>
+
+    <div class="product-card">
+        <b>65_9998</b> (옵션 6개, 재고: [0, 3, 3, 3, 3, 3]) &nbsp;|&nbsp;
+        바코드: 9998-A ~ 9998-F &nbsp;|&nbsp; 원가: 1500, SellingPrice: 3000<br>
+        <b>SET_65_9998</b> 재고: 7
+    </div>
+    <div class="product-card">
+        <b>65_9999</b> (옵션 6개, 재고: [6, 6, 6, 6, 6, 6]) &nbsp;|&nbsp;
+        바코드: 9999-A ~ 9999-F &nbsp;|&nbsp; 원가: 2000, SellingPrice: 4000<br>
+        <b>SET_65_9999</b> 재고: 14
+    </div>
+
+    <div id="testResults"></div>
+    <div id="summary"></div>
+
+    <!-- ── 템플릿 (order_processing2.html 과 동일) ──────────────── -->
+    <template id="orderSummaryTemplate">
+        <div class="order-summary">
+            <h3>주문번호: <span data-field="order-number"></span></h3>
+            <p><strong>서비스제품금액:</strong> <span data-field="서비스제품금액"></span></p>
+            <p><strong>서비스총판매가금액:</strong> <span data-field="서비스총판매가금액"></span></p>
+            <p><strong>총수량:</strong> <span data-field="총수량"></span></p>
+            <p><strong>총결제금액:</strong> <span data-field="총결제금액"></span></p>
+        </div>
+    </template>
+    <template id="orderTableTemplate">
+        <table>
+            <thead><tr>
+                <th>상품주문번호</th><th>판매자 상품코드</th><th>입고차수</th>
+                <th>옵션정보</th><th>수량</th><th>포장수량</th>
+                <th>총가격</th><th>원가</th><th>Counts</th>
+                <th>바코드</th><th>옵션이미지</th><th>실제이미지</th><th>체크</th>
+            </tr></thead>
+            <tbody id="orderTableBody"></tbody>
+        </table>
+    </template>
+    <template id="orderRowTemplate">
+        <tr>
+            <td data-field="상품주문번호"></td>
+            <td data-field="판매자상품코드"></td>
+            <td data-field="입고차수"></td>
+            <td data-field="옵션정보"></td>
+            <td data-field="수량"></td>
+            <td><input type="number" class="packingQuantity" data-input="packingQuantity" min="0" value="0"></td>
+            <td data-field="총가격"></td>
+            <td data-field="원가"></td>
+            <td data-field="Counts"></td>
+            <td data-field="바코드"></td>
+            <td class="image-container"><img data-img="옵션이미지URL" alt="옵션이미지"></td>
+            <td class="image-container"><img data-img="실제이미지URL" alt="실제이미지"></td>
+            <td><input type="checkbox" class="barcodeCheck" data-input="barcodeCheck"></td>
+        </tr>
+    </template>
+    <template id="serviceTableTemplate">
+        <table>
+            <thead><tr>
+                <th>판매자 상품코드</th><th>바코드</th><th>SellingPrice</th>
+                <th>원가</th><th>수량</th><th>옵션이미지</th><th>실제이미지</th><th>삭제</th>
+            </tr></thead>
+            <tbody id="serviceTableBody"></tbody>
+        </table>
+    </template>
+    <template id="serviceRowTemplate">
+        <tr>
+            <td data-field="판매자상품코드"></td>
+            <td data-field="바코드"></td>
+            <td data-field="SellingPrice"></td>
+            <td data-field="원가"></td>
+            <td><input type="number" class="serviceQuantity" min="1" value="1"></td>
+            <td><img data-img="옵션이미지URL" alt=""></td>
+            <td><img data-img="실제이미지URL" alt=""></td>
+            <td><button class="deleteServiceButton" data-barcode="">삭제</button></td>
+        </tr>
+    </template>
+
+    <script type="module">
+    // ════════════════════════════════════════════════════════════════════
+    // 테스트 데이터
+    // ════════════════════════════════════════════════════════════════════
+    const OPTS = ['A','B','C','D','E','F'];
+
+    function make9998() {
+        const opt = {};
+        OPTS.forEach((k, i) => { opt[`옵션${k}`] = { Counts: i === 0 ? 0 : 3, 바코드: `9998-${k}` }; });
+        return { id: '65_9998', SellerCode: '65_9998', 원가: 1500, SellingPrice: 3000,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+    function makeSet9998() {
+        return { id: 'SET_65_9998', SellerCode: 'SET_65_9998',
+                 OptionDatas: { '옵션1': { Counts: 7 } } };
+    }
+    function make9999() {
+        const opt = {};
+        OPTS.forEach(k => { opt[`옵션${k}`] = { Counts: 6, 바코드: `9999-${k}` }; });
+        return { id: '65_9999', SellerCode: '65_9999', 원가: 2000, SellingPrice: 4000,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+    function makeSet9999() {
+        return { id: 'SET_65_9999', SellerCode: 'SET_65_9999',
+                 OptionDatas: { '옵션1': { Counts: 14 } } };
+    }
+    function makeOrder(sellerCode, optKey, qty, barcode) {
+        return { SellerCode: sellerCode, 상품주문번호: `PO-${sellerCode}-${optKey}`,
+                 보여주기용옵션명: optKey, 옵션정보: optKey,
+                 상품수량: qty, 바코드: barcode,
+                 상품별총주문금액: 5000, 원가: 1500, Counts: 3 };
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // 인라인 순수 함수 (order_processing2_display.js / upload.js 에서 복사)
+    // ════════════════════════════════════════════════════════════════════
+    function sortProductOrders(productOrders) {
+        return Object.values(productOrders).sort((a, b) => {
+            const codeA = (a.SellerCode || '').replace(/^SET_/, '');
+            const codeB = (b.SellerCode || '').replace(/^SET_/, '');
+            if (codeA < codeB) return -1;
+            if (codeA > codeB) return 1;
+            if ((a.보여주기용옵션명 || '') < (b.보여주기용옵션명 || '')) return -1;
+            if ((a.보여주기용옵션명 || '') > (b.보여주기용옵션명 || '')) return 1;
+            return 0;
+        });
+    }
+    function calcServiceFee(결제, 원가) {
+        return Math.floor((결제 - 원가) * 0.8 / 10) * 10;
+    }
+    function fillField(node, name, val) {
+        const el = node.querySelector(`[data-field="${name}"]`);
+        if (el) el.textContent = val ?? '';
+    }
+    function fillImg(node, name, src) {
+        const el = node.querySelector(`[data-img="${name}"]`);
+        if (el) el.src = src || '';
+    }
+    function renderOrderTable(sortedOrders, container) {
+        const tableNode = document.getElementById('orderTableTemplate').content.cloneNode(true);
+        const tbody     = tableNode.querySelector('#orderTableBody');
+        sortedOrders.forEach(order => {
+            const rowNode = document.getElementById('orderRowTemplate').content.cloneNode(true);
+            fillField(rowNode, '상품주문번호',   order.상품주문번호);
+            fillField(rowNode, '판매자상품코드', order.SellerCode);
+            fillField(rowNode, '옵션정보',       order.보여주기용옵션명);
+            fillField(rowNode, '원가',           order.원가);
+            fillField(rowNode, 'Counts',         order.Counts);
+            fillField(rowNode, '바코드',         order.바코드);
+            const qTd = rowNode.querySelector('[data-field="수량"]');
+            if (qTd) {
+                qTd.textContent = order.상품수량;
+                if (order.상품수량 !== 1) { qTd.style.fontWeight = 'bold'; qTd.style.color = 'red'; }
+            }
+            const pInput = rowNode.querySelector('[data-input="packingQuantity"]');
+            if (pInput) pInput.max = order.상품수량;
+            tbody.appendChild(rowNode);
+        });
+        container.appendChild(tableNode);
+    }
+    function renderServiceTable(productServices, container) {
+        const tableNode = document.getElementById('serviceTableTemplate').content.cloneNode(true);
+        const tbody     = tableNode.querySelector('#serviceTableBody');
+        productServices.forEach(service => {
+            const rowNode = document.getElementById('serviceRowTemplate').content.cloneNode(true);
+            fillField(rowNode, '판매자상품코드', service.SellerCode);
+            fillField(rowNode, '바코드',         service.바코드);
+            fillField(rowNode, 'SellingPrice',   service.SellingPrice);
+            fillField(rowNode, '원가',           service.원가);
+            const btn = rowNode.querySelector('.deleteServiceButton');
+            if (btn) btn.dataset.barcode = service.바코드;
+            tbody.appendChild(rowNode);
+        });
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(tableNode);
+        container.appendChild(wrapper);
+    }
+    function saveCheckState(container) {
+        const state = new Map();
+        container.querySelectorAll('tbody tr').forEach(row => {
+            const barcode  = row.querySelector('[data-field="바코드"]')?.textContent?.trim();
+            const checkbox = row.querySelector('.barcodeCheck');
+            const input    = row.querySelector('.packingQuantity');
+            if (barcode && checkbox)
+                state.set(barcode, { checked: checkbox.checked,
+                                     packingQty: input ? input.value : '0' });
+        });
+        return state;
+    }
+    function restoreCheckState(container, state) {
+        if (!state || state.size === 0) return;
+        container.querySelectorAll('tbody tr').forEach(row => {
+            const barcode = row.querySelector('[data-field="바코드"]')?.textContent?.trim();
+            const saved   = state.get(barcode);
+            if (!saved) return;
+            const checkbox = row.querySelector('.barcodeCheck');
+            const input    = row.querySelector('.packingQuantity');
+            if (checkbox) checkbox.checked  = saved.checked;
+            if (input)    input.value        = saved.packingQty;
+        });
+    }
+    function validatePacking(totalQty, rows) {
+        let packed = 0;
+        rows.forEach(row => {
+            const input = row.querySelector('.packingQuantity');
+            if (input) packed += parseInt(input.value, 10) || 0;
+        });
+        return packed === totalQty;
+    }
+    function restoreOptionCounts(product, optionDatas) {
+        if (product.OptionDatas) {
+            for (const key in product.OptionDatas) {
+                if (!Object.prototype.hasOwnProperty.call(optionDatas, key))
+                    optionDatas[key] = { ...product.OptionDatas[key] };
+            }
+        }
+        for (const key in optionDatas) {
+            const opt = optionDatas[key];
+            if (opt && typeof opt.Counts === 'number') opt.Counts += 1;
+        }
+    }
+    function simulateDecrease(productSnapshot, setProductSnapshot, optionKey, qty) {
+        const optionDatas = { [optionKey]: { ...productSnapshot.OptionDatas[optionKey] } };
+        optionDatas[optionKey].Counts -= qty;
+        let setUsed = false;
+        if (optionDatas[optionKey].Counts < 0) {
+            const setCounts = setProductSnapshot?.OptionDatas?.['옵션1']?.Counts ?? 0;
+            if (setCounts > 0) {
+                setProductSnapshot.OptionDatas['옵션1'].Counts -= 1;
+                restoreOptionCounts(productSnapshot, optionDatas);
+                setUsed = true;
+            } else {
+                optionDatas[optionKey].Counts = 0;
+            }
+        }
+        return { optionDatas, setUsed };
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // 테스트 프레임워크
+    // ════════════════════════════════════════════════════════════════════
+    const results = [];
+    function test(name, fn) {
+        try { fn(); results.push({ name, pass: true }); }
+        catch (e) { results.push({ name, pass: false, error: e.message }); }
+    }
+    function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+    function assertEq(a, b, msg) {
+        if (a !== b) throw new Error(msg || `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+    }
+    function mkContainer() {
+        const d = document.createElement('div');
+        document.body.appendChild(d);
+        return d;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // G1: 정렬 (sortProductOrders)
+    // ════════════════════════════════════════════════════════════════════
+    test('G1-T1: 65_9998 옵션 3개 — 옵션명 알파벳 순 정렬', () => {
+        const sorted = sortProductOrders({
+            'PO-F': makeOrder('65_9998','옵션F',1,'9998-F'),
+            'PO-A': makeOrder('65_9998','옵션A',1,'9998-A'),
+            'PO-C': makeOrder('65_9998','옵션C',1,'9998-C'),
+        });
+        assertEq(sorted[0].보여주기용옵션명, '옵션A');
+        assertEq(sorted[1].보여주기용옵션명, '옵션C');
+        assertEq(sorted[2].보여주기용옵션명, '옵션F');
+    });
+
+    test('G1-T2: 65_9999 전체 6옵션 — A→F 순 정렬', () => {
+        const orders = {};
+        ['F','B','D','A','E','C'].forEach(k => {
+            orders[`PO-${k}`] = makeOrder('65_9999',`옵션${k}`,1,`9999-${k}`);
+        });
+        const sorted = sortProductOrders(orders);
+        assertEq(sorted.map(s => s.보여주기용옵션명).join(','), '옵션A,옵션B,옵션C,옵션D,옵션E,옵션F');
+    });
+
+    test('G1-T3: 65_9998 + 65_9999 혼합 — 65_9998이 65_9999보다 먼저', () => {
+        const sorted = sortProductOrders({
+            'PO-9999A': makeOrder('65_9999','옵션A',2,'9999-A'),
+            'PO-9998A': makeOrder('65_9998','옵션A',1,'9998-A'),
+        });
+        assertEq(sorted[0].SellerCode, '65_9998');
+        assertEq(sorted[1].SellerCode, '65_9999');
+    });
+
+    test('G1-T4: SET_65_9998 — SET_ 제거 후 65_9998 그룹으로 65_9999보다 앞에 정렬', () => {
+        const sorted = sortProductOrders({
+            'PO-9999A': makeOrder('65_9999','옵션A',2,'9999-A'),
+            'PO-set':   makeOrder('SET_65_9998','옵션1',1,'SET-BC'),
+            'PO-9998B': makeOrder('65_9998','옵션B',1,'9998-B'),
+        });
+        const codes = sorted.map(s => s.SellerCode);
+        assert(codes.indexOf('65_9999') > codes.indexOf('SET_65_9998'),
+               `SET_65_9998(${codes.indexOf('SET_65_9998')}) 이 65_9999(${codes.indexOf('65_9999')})보다 뒤`);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G2: 렌더링 (renderOrderTable)
+    // ════════════════════════════════════════════════════════════════════
+    test('G2-T1: 65_9998 6개 옵션 주문 → 6행 렌더링', () => {
+        const c = mkContainer();
+        renderOrderTable(OPTS.map(k => makeOrder('65_9998',`옵션${k}`,1,`9998-${k}`)), c);
+        assertEq(c.querySelectorAll('tbody tr').length, 6);
+    });
+
+    test('G2-T2: 65_9999 바코드가 cells[9] 위치에 있음 (checkBarcode 호환)', () => {
+        const c = mkContainer();
+        renderOrderTable([makeOrder('65_9999','옵션A',1,'9999-A')], c);
+        assertEq(c.querySelector('tbody tr').cells[9].textContent, '9999-A');
+    });
+
+    test('G2-T3: 수량 1 — 빨간색 스타일 미적용', () => {
+        const c = mkContainer();
+        renderOrderTable([makeOrder('65_9999','옵션A',1,'9999-A')], c);
+        assert(!c.querySelector('[data-field="수량"]').style.color,
+               '수량 1인데 color 스타일 적용됨');
+    });
+
+    test('G2-T4: 수량 3 — bold red 스타일 적용', () => {
+        const c = mkContainer();
+        renderOrderTable([makeOrder('65_9998','옵션B',3,'9998-B')], c);
+        assertEq(c.querySelector('[data-field="수량"]').style.color, 'red');
+        assertEq(c.querySelector('[data-field="수량"]').style.fontWeight, 'bold');
+    });
+
+    test('G2-T5: 65_9998 옵션A — Counts=0 셀에 표시', () => {
+        const c     = mkContainer();
+        const order = { ...makeOrder('65_9998','옵션A',1,'9998-A'), Counts: 0 };
+        renderOrderTable([order], c);
+        assertEq(c.querySelector('[data-field="Counts"]').textContent, '0');
+    });
+
+    test('G2-T6: 65_9998 + 65_9999 혼합 주문 4행 — 정렬 후 렌더링 확인', () => {
+        const c = mkContainer();
+        renderOrderTable(sortProductOrders({
+            'PO-9999B': makeOrder('65_9999','옵션B',2,'9999-B'),
+            'PO-9998A': makeOrder('65_9998','옵션A',1,'9998-A'),
+            'PO-9999A': makeOrder('65_9999','옵션A',2,'9999-A'),
+            'PO-9998B': makeOrder('65_9998','옵션B',1,'9998-B'),
+        }), c);
+        const rows = c.querySelectorAll('tbody tr');
+        assertEq(rows.length, 4);
+        // 정렬 후 65_9998이 앞에
+        assertEq(rows[0].querySelector('[data-field="바코드"]').textContent, '9998-A');
+        assertEq(rows[1].querySelector('[data-field="바코드"]').textContent, '9998-B');
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G3: 서비스 렌더링 (renderServiceTable)
+    // ════════════════════════════════════════════════════════════════════
+    test('G3-T1: 65_9999 서비스 1개 → 1행 렌더링', () => {
+        const c = mkContainer();
+        renderServiceTable([{SellerCode:'65_9999',바코드:'9999-A',SellingPrice:4000,원가:2000}], c);
+        assertEq(c.querySelectorAll('tbody tr').length, 1);
+    });
+
+    test('G3-T2: 서비스 행 바코드·SellingPrice·원가 표시 확인', () => {
+        const c = mkContainer();
+        renderServiceTable([{SellerCode:'65_9998',바코드:'9998-B',SellingPrice:3000,원가:1500}], c);
+        const row = c.querySelector('tbody tr');
+        assertEq(row.querySelector('[data-field="바코드"]').textContent,       '9998-B');
+        assertEq(row.querySelector('[data-field="SellingPrice"]').textContent, '3000');
+        assertEq(row.querySelector('[data-field="원가"]').textContent,         '1500');
+    });
+
+    test('G3-T3: 65_9998 + 65_9999 서비스 동시 추가 → 2행', () => {
+        const c = mkContainer();
+        renderServiceTable([
+            {SellerCode:'65_9998',바코드:'9998-A',SellingPrice:3000,원가:1500},
+            {SellerCode:'65_9999',바코드:'9999-A',SellingPrice:4000,원가:2000},
+        ], c);
+        assertEq(c.querySelectorAll('tbody tr').length, 2);
+    });
+
+    test('G3-T4: 삭제 버튼 data-barcode 속성 설정 확인', () => {
+        const c = mkContainer();
+        renderServiceTable([{SellerCode:'65_9999',바코드:'9999-C',SellingPrice:4000,원가:2000}], c);
+        assertEq(c.querySelector('.deleteServiceButton').dataset.barcode, '9999-C');
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G4: 바코드 체크 상태 보존 (핵심 버그 수정 검증) ⭐
+    // 시나리오: 구매 상품 바코드 체크 → 서비스 추가(재렌더링) → 체크 유지
+    // ════════════════════════════════════════════════════════════════════
+    test('G4-T1: 65_9998 옵션B 체크 후 saveCheckState → Map에 저장됨', () => {
+        const c = mkContainer();
+        renderOrderTable([makeOrder('65_9998','옵션B',1,'9998-B')], c);
+        c.querySelector('.barcodeCheck').checked = true;
+        const state = saveCheckState(c);
+        assert(state.has('9998-B'), '9998-B 저장 안됨');
+        assertEq(state.get('9998-B').checked, true);
+    });
+
+    test('G4-T2: 65_9998 체크 후 서비스(65_9999) 추가 → 재렌더링 후 체크 유지', () => {
+        const c = mkContainer();
+        const orders = [
+            makeOrder('65_9998','옵션B',1,'9998-B'),
+            makeOrder('65_9998','옵션C',1,'9998-C'),
+        ];
+        renderOrderTable(orders, c);
+        // 옵션B만 체크 + 포장수량 1
+        const rows0 = [...c.querySelectorAll('tbody tr')];
+        rows0[0].querySelector('.barcodeCheck').checked   = true;
+        rows0[0].querySelector('.packingQuantity').value  = '1';
+
+        const state = saveCheckState(c);
+
+        // 서비스 추가로 인한 재렌더링 시뮬레이션
+        c.innerHTML = '';
+        renderOrderTable(orders, c);
+        renderServiceTable([{SellerCode:'65_9999',바코드:'9999-A',SellingPrice:4000,원가:2000}], c);
+        restoreCheckState(c, state);
+
+        const rows1 = [...c.querySelectorAll('tbody tr')];
+        assertEq(rows1[0].querySelector('.barcodeCheck').checked,  true,  '옵션B 체크 복원 안됨');
+        assertEq(rows1[0].querySelector('.packingQuantity').value,  '1',  '옵션B 포장수량 복원 안됨');
+        assertEq(rows1[1].querySelector('.barcodeCheck').checked,  false, '옵션C는 미체크여야 함');
+    });
+
+    test('G4-T3: 65_9999 6개 옵션 중 A·C·E 체크 → 재렌더링 후 3개 복원, 나머지 미체크', () => {
+        const c = mkContainer();
+        const orders = OPTS.map(k => makeOrder('65_9999',`옵션${k}`,1,`9999-${k}`));
+        renderOrderTable(orders, c);
+        [0,2,4].forEach(i => {
+            c.querySelectorAll('tbody tr')[i].querySelector('.barcodeCheck').checked   = true;
+            c.querySelectorAll('tbody tr')[i].querySelector('.packingQuantity').value  = '1';
+        });
+        const state = saveCheckState(c);
+
+        c.innerHTML = '';
+        renderOrderTable(orders, c);
+        restoreCheckState(c, state);
+
+        const rows = [...c.querySelectorAll('tbody tr')];
+        [0,2,4].forEach(i => assertEq(rows[i].querySelector('.barcodeCheck').checked, true,  `옵션${['A','C','E'][i/2]} 복원 안됨`));
+        [1,3,5].forEach(i => assertEq(rows[i].querySelector('.barcodeCheck').checked, false, `옵션${['B','D','F'][(i-1)/2]} 미체크여야 함`));
+    });
+
+    test('G4-T4: 65_9998 체크 + 65_9999 서비스(65_9998 옵션A) 추가 → 65_9998 체크 유지', () => {
+        const c = mkContainer();
+        const orders = [
+            makeOrder('65_9998','옵션B',1,'9998-B'),
+            makeOrder('65_9999','옵션A',2,'9999-A'),
+        ];
+        renderOrderTable(orders, c);
+        c.querySelectorAll('tbody tr')[0].querySelector('.barcodeCheck').checked  = true;
+        c.querySelectorAll('tbody tr')[0].querySelector('.packingQuantity').value = '1';
+        const state = saveCheckState(c);
+
+        c.innerHTML = '';
+        renderOrderTable(orders, c);
+        renderServiceTable([{SellerCode:'65_9998',바코드:'9998-A',SellingPrice:3000,원가:1500}], c);
+        restoreCheckState(c, state);
+
+        const rows = c.querySelectorAll('tbody tr');
+        assertEq(rows[0].querySelector('.barcodeCheck').checked, true,  '65_9998 옵션B 복원 안됨');
+        assertEq(rows[1].querySelector('.barcodeCheck').checked, false, '65_9999 옵션A는 미체크여야 함');
+    });
+
+    test('G4-T5: 전체 체크 완료 후 서비스 추가 → 3개 체크 유지', () => {
+        const c = mkContainer();
+        const orders = [
+            makeOrder('65_9998','옵션B',1,'9998-B'),
+            makeOrder('65_9998','옵션C',1,'9998-C'),
+            makeOrder('65_9999','옵션A',1,'9999-A'),
+        ];
+        renderOrderTable(orders, c);
+        c.querySelectorAll('tbody tr').forEach(row => {
+            row.querySelector('.barcodeCheck').checked  = true;
+            row.querySelector('.packingQuantity').value = '1';
+        });
+        const state = saveCheckState(c);
+
+        c.innerHTML = '';
+        renderOrderTable(orders, c);
+        renderServiceTable([{SellerCode:'65_9999',바코드:'9999-B',SellingPrice:4000,원가:2000}], c);
+        restoreCheckState(c, state);
+
+        let cnt = 0;
+        c.querySelectorAll('tbody tr').forEach(r => {
+            if (r.querySelector('.barcodeCheck')?.checked) cnt++;
+        });
+        assertEq(cnt, 3, `체크된 구매 상품 수: ${cnt} (3이어야 함)`);
+    });
+
+    test('G4-T6: 체크 없이 서비스 추가 → 재렌더링 후도 전체 미체크', () => {
+        const c = mkContainer();
+        const orders = [makeOrder('65_9998','옵션B',1,'9998-B')];
+        renderOrderTable(orders, c);
+        const state = saveCheckState(c);   // 모두 unchecked 저장
+
+        c.innerHTML = '';
+        renderOrderTable(orders, c);
+        renderServiceTable([{SellerCode:'65_9999',바코드:'9999-A',SellingPrice:4000,원가:2000}], c);
+        restoreCheckState(c, state);
+
+        assertEq(c.querySelector('.barcodeCheck').checked, false, '미체크여야 함');
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G5: 포장 수량 검증 (validatePacking)
+    // ════════════════════════════════════════════════════════════════════
+    test('G5-T1: 65_9999 6개 주문, 6개 포장 → 통과', () => {
+        const c = mkContainer();
+        renderOrderTable(OPTS.map(k => makeOrder('65_9999',`옵션${k}`,1,`9999-${k}`)), c);
+        c.querySelectorAll('.packingQuantity').forEach(inp => { inp.value = '1'; });
+        assert(validatePacking(6, [...c.querySelectorAll('tbody tr')]));
+    });
+
+    test('G5-T2: 65_9999 6개 주문, 5개 포장 → 실패', () => {
+        const c = mkContainer();
+        renderOrderTable(OPTS.map(k => makeOrder('65_9999',`옵션${k}`,1,`9999-${k}`)), c);
+        [...c.querySelectorAll('.packingQuantity')].forEach((inp,i) => { inp.value = i < 5 ? '1' : '0'; });
+        assert(!validatePacking(6, [...c.querySelectorAll('tbody tr')]));
+    });
+
+    test('G5-T3: 65_9998(수량2) + 65_9999(수량3+3) = 총8, 정확히 포장 → 통과', () => {
+        const c = mkContainer();
+        const orders = [
+            makeOrder('65_9998','옵션B',2,'9998-B'),
+            makeOrder('65_9999','옵션A',3,'9999-A'),
+            makeOrder('65_9999','옵션B',3,'9999-B'),
+        ];
+        renderOrderTable(orders, c);
+        const inputs = [...c.querySelectorAll('.packingQuantity')];
+        inputs[0].value = '2'; inputs[1].value = '3'; inputs[2].value = '3';
+        assert(validatePacking(8, [...c.querySelectorAll('tbody tr')]));
+    });
+
+    test('G5-T4: 65_9998(2) + 65_9999(3+3) = 총8, 1개 누락 → 실패', () => {
+        const c = mkContainer();
+        const orders = [
+            makeOrder('65_9998','옵션B',2,'9998-B'),
+            makeOrder('65_9999','옵션A',3,'9999-A'),
+            makeOrder('65_9999','옵션B',3,'9999-B'),
+        ];
+        renderOrderTable(orders, c);
+        const inputs = [...c.querySelectorAll('.packingQuantity')];
+        inputs[0].value = '2'; inputs[1].value = '3'; inputs[2].value = '2'; // 1 누락
+        assert(!validatePacking(8, [...c.querySelectorAll('tbody tr')]));
+    });
+
+    test('G5-T5: 포장수량 모두 0 → 실패', () => {
+        const c = mkContainer();
+        renderOrderTable([makeOrder('65_9999','옵션A',1,'9999-A')], c);
+        assert(!validatePacking(1, [...c.querySelectorAll('tbody tr')]));
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G6: 재고 차감 로직
+    // ════════════════════════════════════════════════════════════════════
+    test('G6-T1: 65_9999 옵션A(재고6) 1개 차감 → 5', () => {
+        const { optionDatas } = simulateDecrease(make9999(), makeSet9999(), '옵션A', 1);
+        assertEq(optionDatas['옵션A'].Counts, 5);
+    });
+
+    test('G6-T2: 65_9999 옵션A(재고6) 6개 차감 → 0, SET 미사용', () => {
+        const set = makeSet9999();
+        const { optionDatas, setUsed } = simulateDecrease(make9999(), set, '옵션A', 6);
+        assertEq(optionDatas['옵션A'].Counts, 0);
+        assert(!setUsed, 'SET이 불필요하게 사용됨');
+        assertEq(set.OptionDatas['옵션1'].Counts, 14, 'SET 재고 변경됨');
+    });
+
+    test('G6-T3: 65_9998 옵션A(재고0) + SET재고7 → SET 사용, SET 재고 6', () => {
+        const set = makeSet9998();
+        const { setUsed } = simulateDecrease(make9998(), set, '옵션A', 1);
+        assert(setUsed, 'SET이 사용되지 않음');
+        assertEq(set.OptionDatas['옵션1'].Counts, 6);
+    });
+
+    test('G6-T4: 65_9998 옵션A(재고0) + SET재고7 → restoreOptionCounts로 옵션A Counts=0 (차감→-1→+1)', () => {
+        const { optionDatas } = simulateDecrease(make9998(), makeSet9998(), '옵션A', 1);
+        // 0 - 1 = -1 → SET 사용 → restoreOptionCounts: -1+1 = 0
+        assertEq(optionDatas['옵션A'].Counts, 0, `옵션A: ${optionDatas['옵션A'].Counts}`);
+    });
+
+    test('G6-T5: 65_9998 옵션A(재고0) + SET 사용 → 다른 옵션(B~F) +1 적용됨 (3→4)', () => {
+        const { optionDatas } = simulateDecrease(make9998(), makeSet9998(), '옵션A', 1);
+        // restoreOptionCounts: 원본 B~F (Counts:3) → 3+1=4
+        assertEq(optionDatas['옵션B']?.Counts, 4, `옵션B: ${optionDatas['옵션B']?.Counts}`);
+        assertEq(optionDatas['옵션C']?.Counts, 4, `옵션C: ${optionDatas['옵션C']?.Counts}`);
+    });
+
+    test('G6-T6: 65_9998 옵션A(재고0) + SET재고도 0 → SET 미사용, Counts 0 클램프', () => {
+        const emptySet = { id:'SET_65_9998', SellerCode:'SET_65_9998',
+                           OptionDatas:{'옵션1':{Counts:0}} };
+        const { optionDatas, setUsed } = simulateDecrease(make9998(), emptySet, '옵션A', 1);
+        assert(!setUsed, 'SET 재고 없는데 사용됨');
+        assertEq(optionDatas['옵션A'].Counts, 0, '음수로 내려가면 안됨');
+    });
+
+    test('G6-T7: 65_9999 옵션B(재고6) 3개 차감 → 3, SET 미사용', () => {
+        const set = makeSet9999();
+        const { optionDatas, setUsed } = simulateDecrease(make9999(), set, '옵션B', 3);
+        assertEq(optionDatas['옵션B'].Counts, 3);
+        assert(!setUsed);
+        assertEq(set.OptionDatas['옵션1'].Counts, 14);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G7: 서비스제품금액 계산 (calcServiceFee)
+    // ════════════════════════════════════════════════════════════════════
+    test('G7-T1: 65_9999 서비스 1개 — (4000-2000)*0.8 = 1600', () => {
+        assertEq(calcServiceFee(4000, 2000), 1600);
+    });
+
+    test('G7-T2: 65_9998 서비스 1개 — (3000-1500)*0.8 = 1200', () => {
+        assertEq(calcServiceFee(3000, 1500), 1200);
+    });
+
+    test('G7-T3: 65_9998 + 65_9999 서비스 동시 — 합산 fee (7000-3500)*0.8 = 2800', () => {
+        assertEq(calcServiceFee(7000, 3500), 2800);
+    });
+
+    test('G7-T4: 서비스 없음 → fee 0', () => {
+        assertEq(calcServiceFee(0, 0), 0);
+    });
+
+    test('G7-T5: 결제금액 = 원가 → fee 0', () => {
+        assertEq(calcServiceFee(2000, 2000), 0);
+    });
+
+    test('G7-T6: 소수점 나오는 경우 — 10원 단위 내림 확인', () => {
+        // (4005 - 2000) * 0.8 = 1604 → 내림 → 1600
+        assertEq(calcServiceFee(4005, 2000), 1600);
+    });
+
+    test('G7-T7: 65_9999 서비스 2개 — fee (8000-4000)*0.8 = 3200', () => {
+        assertEq(calcServiceFee(8000, 4000), 3200);
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // G8: 옵션키 매핑 (SmartStore 표시명 → Firebase OptionDatas 키)
+    //     upload.js processOrderDetails 의 새 로직 단위 테스트
+    // ════════════════════════════════════════════════════════════════════
+
+    // 실제 65_9999 Firebase 구조 모사: 키가 '001_[_활기찬 나비_]' 형식
+    // 실제 65_9999: Firebase OptionDatas 키가 '001_[_활기찬 나비_].jpg' 형식 (실측)
+    function makeReal9999() {
+        const OPTION_NAMES = ['활기찬 나비','베이직 체크무늬','소원 리본','나비 정원','페스티벌 다이아','달콤한 꿈의 거품'];
+        const opt = {};
+        OPTION_NAMES.forEach((name, i) => {
+            const key = `${(i+1).toString().padStart(3,'0')}_[_${name}_].jpg`;
+            opt[key] = { Counts: 6, 바코드: `9999${(11+i).toString()}` };
+        });
+        return { id: '65_9999', SellerCode: '65_9999', 원가: 1800,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+    function makeReal9998() {
+        const OPTION_NAMES = ['그린 라이트','캔디 병','달콤한 속삭임','스위트 타로','카라멜','밤바다'];
+        const opt = {};
+        OPTION_NAMES.forEach((name, i) => {
+            const key = `${(i+1).toString().padStart(3,'0')}_[_${name}_].jpg`;
+            opt[key] = { Counts: i === 0 ? 0 : 3, 바코드: `9998${(11+i).toString()}` };
+        });
+        return { id: '65_9998', SellerCode: '65_9998', 원가: 1500,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+
+    // upload.js의 optionKey 결정 로직 (인라인 복사)
+    function resolveOptionKey(option, productDoc) {
+        let optionKey = option;
+        if (productDoc && !productDoc.OptionDatas?.[option]) {
+            const matched = Object.keys(productDoc.OptionDatas || {})
+                .find(k => k.includes(`_[_${option}_]`));
+            if (matched) optionKey = matched;
+        }
+        return optionKey;
+    }
+
+    test('G8-T1: 65_9999 "활기찬 나비" → "001_[_활기찬 나비_].jpg" 키 변환', () => {
+        const key = resolveOptionKey('활기찬 나비', makeReal9999());
+        assertEq(key, '001_[_활기찬 나비_].jpg');
+    });
+
+    test('G8-T2: 65_9999 "달콤한 꿈의 거품" → "006_[_달콤한 꿈의 거품_].jpg" 키 변환', () => {
+        const key = resolveOptionKey('달콤한 꿈의 거품', makeReal9999());
+        assertEq(key, '006_[_달콤한 꿈의 거품_].jpg');
+    });
+
+    test('G8-T3: 65_9998 "그린 라이트" → "001_[_그린 라이트_].jpg" 키 변환', () => {
+        const key = resolveOptionKey('그린 라이트', makeReal9998());
+        assertEq(key, '001_[_그린 라이트_].jpg');
+    });
+
+    test('G8-T4: 변환된 키로 OptionDatas 바코드 조회 성공 (65_9999 활기찬 나비 → 999911)', () => {
+        const productDoc = makeReal9999();
+        const key = resolveOptionKey('활기찬 나비', productDoc);
+        assertEq(productDoc.OptionDatas[key]?.바코드, '999911');
+    });
+
+    test('G8-T5: 변환된 키로 OptionDatas Counts 조회 성공 (65_9999 활기찬 나비 → 6)', () => {
+        const productDoc = makeReal9999();
+        const key = resolveOptionKey('활기찬 나비', productDoc);
+        assertEq(productDoc.OptionDatas[key]?.Counts, 6);
+    });
+
+    test('G8-T6: 키가 단순 표시명인 일반 제품 — 직접 매칭 (변환 없음)', () => {
+        const simpleDoc = {
+            id: 'simple',
+            OptionDatas: { '스위트베리 시즌': { Counts: 5, 바코드: 'BC001' } }
+        };
+        const key = resolveOptionKey('스위트베리 시즌', simpleDoc);
+        assertEq(key, '스위트베리 시즌');
+        assertEq(simpleDoc.OptionDatas[key]?.바코드, 'BC001');
+    });
+
+    test('G8-T7: 존재하지 않는 옵션명 — 변환 실패 시 원래 option 그대로 반환', () => {
+        const key = resolveOptionKey('없는옵션', makeReal9999());
+        assertEq(key, '없는옵션');
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // 결과 렌더링
+    // ════════════════════════════════════════════════════════════════════
+    const OUTPUT = document.getElementById('testResults');
+    const groupNames = {
+        G1:'정렬 (sortProductOrders)', G2:'렌더링 (renderOrderTable)',
+        G3:'서비스 렌더링 (renderServiceTable)', G4:'바코드 체크 상태 보존 ⭐',
+        G5:'포장 수량 검증 (validatePacking)', G6:'재고 차감 로직 (decreaseCounts)',
+        G7:'서비스제품금액 계산 (calcServiceFee)',
+        G8:'옵션키 매핑 (SmartStore 표시명 → Firebase 키) ⭐',
+    };
+    const groups = {};
+    results.forEach(r => {
+        const g = r.name.split('-')[0];
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(r);
+    });
+    Object.entries(groups).forEach(([key, tests]) => {
+        const h = document.createElement('h3');
+        h.textContent = `${key}: ${groupNames[key] || key}`;
+        OUTPUT.appendChild(h);
+        tests.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'section';
+            div.innerHTML = r.pass
+                ? `<span class="pass">✅ PASS</span> — ${r.name}`
+                : `<span class="fail">❌ FAIL</span> — ${r.name}<br><small>${r.error}</small>`;
+            OUTPUT.appendChild(div);
+        });
+    });
+    const passCount = results.filter(r => r.pass).length;
+    const summary   = document.getElementById('summary');
+    summary.className  = passCount === results.length ? 'pass' : 'fail';
+    summary.textContent = `결과: ${passCount} / ${results.length} 통과`;
+    </script>
+</body>
+</html>

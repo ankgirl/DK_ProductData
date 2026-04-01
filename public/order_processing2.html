@@ -1,0 +1,237 @@
+<!-- order_processing2.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Processing 2</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>Order Processing 2</h1>
+
+        <!-- 업로드 -->
+        <form id="uploadForm">
+            <label for="xlsxFile">Upload XLSX File:</label>
+            <input type="file" id="xlsxFile" accept=".xlsx" required>
+            <button type="submit">Upload</button>
+            <button type="button" id="deleteAllOrdersButton" style="margin-left:12px; background:#c0392b; color:#fff;">전체 주문서 삭제</button>
+        </form>
+
+        <br><br>
+
+        <!-- 주문 선택 -->
+        <div>
+            <label for="orderNumberInput">주문번호:</label>
+            <input type="text" id="orderNumberInput">
+            <label for="orderDropdown">Select Order Number:</label>
+            <select id="orderDropdown"></select>
+        </div>
+
+        <!-- 운송장번호 -->
+        <div>
+            <label for="deliveryNumberInput">운송장번호:</label>
+            <input type="text" id="deliveryNumberInput">
+        </div>
+
+        <!-- 바코드 입력 -->
+        <div id="barcodeSection">
+            <label for="barcodeInput">구매 상품 바코드:</label>
+            <input type="text" id="barcodeInput">
+            <label for="serviceBarcodeInput">서비스 상품 바코드:</label>
+            <input type="text" id="serviceBarcodeInput">
+        </div>
+
+        <br><br>
+
+        <!-- 액션 버튼 -->
+        <button id="makeTotalOrderButton" class="large-button">통합주문추가</button>
+        <br><br>
+        <button id="manualBarcodeButton" class="large-button">바코드수동처리</button>
+        <button id="saveCurrentStateButton" class="large-button">현재상태저장</button>
+        <button id="packingCompleteButton" class="large-button">포장완료</button>
+        <br><br>
+        <button id="CreateEmptyOrderButton" class="large-button">빈 주문서 생성</button>
+        <button id="deleteOrderButton" class="large-button">주문서 삭제</button>
+
+        <br><br><br><br>
+
+        <!-- 주문 정보 출력 영역 -->
+        <div id="orderDetails"></div>
+        <div id="serviceDetails"></div>
+        <div id="message"></div>
+    </div>
+
+    <!-- =====================================================================
+         Template: 주문 요약 정보
+         사용처: order_processing2_display.js — 주문 선택 시 상단 요약 렌더링
+         채울 data-field 목록:
+           order-number, 운송장번호, 서비스제품금액, 서비스총판매가금액,
+           기본배송비, 배송메세지, 수취인이름, 총수량, 총결제금액, 주문원가합산금액
+    ====================================================================== -->
+    <template id="orderSummaryTemplate">
+        <div class="order-summary">
+            <h3>주문번호: <span data-field="order-number"></span></h3>
+            <p><strong>운송장번호:</strong> <span data-field="운송장번호"></span></p>
+            <p><strong><b style="color: red;">서비스제품금액:</b></strong> <span data-field="서비스제품금액"></span></p>
+            <p><strong><b style="color: blue;">서비스총판매가금액:</b></strong> <span data-field="서비스총판매가금액"></span></p>
+            <p><strong>기본배송비:</strong> <span data-field="기본배송비"></span></p>
+            <p><strong>배송메세지:</strong> <span data-field="배송메세지"></span></p>
+            <p><strong>수취인이름:</strong> <span data-field="수취인이름"></span></p>
+            <p><strong>총수량:</strong> <span data-field="총수량"></span></p>
+            <p><strong>총결제금액:</strong> <span data-field="총결제금액"></span></p>
+            <p><strong>주문원가합산금액:</strong> <span data-field="주문원가합산금액"></span></p>
+        </div>
+    </template>
+
+    <!-- =====================================================================
+         Template: 상품 테이블 헤더 + tbody
+         사용처: order_processing2_display.js — 상품 목록 테이블 골격
+    ====================================================================== -->
+    <template id="orderTableTemplate">
+        <h3>상품 정보</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>상품주문번호</th>
+                    <th>판매자 상품코드</th>
+                    <th>입고차수</th>
+                    <th>옵션정보</th>
+                    <th>수량</th>
+                    <th>포장수량</th>
+                    <th>총가격</th>
+                    <th>원가</th>
+                    <th>Counts</th>
+                    <th>바코드</th>
+                    <th>옵션이미지</th>
+                    <th>실제이미지</th>
+                    <th>체크</th>
+                </tr>
+            </thead>
+            <tbody id="orderTableBody"></tbody>
+        </table>
+    </template>
+
+    <!-- =====================================================================
+         Template: 상품 테이블 행 (tr)
+         사용처: order_processing2_display.js — 상품 한 줄씩 cloneNode 후 채움
+         채울 data-field 목록:
+           상품주문번호, 판매자상품코드, 입고차수, 옵션정보, 수량,
+           총가격, 원가, Counts, 바코드
+         채울 data-input:
+           packingQuantity (number input, max = 상품수량)
+           barcodeCheck   (checkbox, checked = found)
+         채울 data-img:
+           옵션이미지URL, 실제이미지URL
+    ====================================================================== -->
+    <template id="orderRowTemplate">
+        <tr>
+            <td data-field="상품주문번호"></td>
+            <td data-field="판매자상품코드"></td>
+            <td data-field="입고차수"></td>
+            <td data-field="옵션정보"></td>
+            <td data-field="수량"></td>
+            <td>
+                <input type="number"
+                    class="packingQuantity"
+                    data-input="packingQuantity"
+                    min="0"
+                    value="0"
+                    data-label="포장수량">
+            </td>
+            <td data-field="총가격"></td>
+            <td data-field="원가"></td>
+            <td data-field="Counts"></td>
+            <td data-field="바코드"></td>
+            <td class="image-container">
+                <img data-img="옵션이미지URL" alt="옵션이미지">
+            </td>
+            <td class="image-container">
+                <img data-img="실제이미지URL" alt="실제이미지">
+            </td>
+            <td>
+                <input type="checkbox"
+                    class="barcodeCheck"
+                    data-input="barcodeCheck">
+            </td>
+        </tr>
+    </template>
+
+    <!-- =====================================================================
+         Template: 서비스 상품 테이블 헤더 + tbody
+         사용처: order_processing2_display.js — 서비스 상품 목록 테이블 골격
+    ====================================================================== -->
+    <template id="serviceTableTemplate">
+        <h3>서비스 상품 정보</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>판매자 상품코드</th>
+                    <th>바코드</th>
+                    <th>SellingPrice</th>
+                    <th>원가</th>
+                    <th>수량</th>
+                    <th>옵션이미지</th>
+                    <th>실제이미지</th>
+                    <th>삭제</th>
+                </tr>
+            </thead>
+            <tbody id="serviceTableBody"></tbody>
+        </table>
+    </template>
+
+    <!-- =====================================================================
+         Template: 서비스 상품 테이블 행 (tr)
+         사용처: order_processing2_display.js — 서비스 상품 한 줄씩 cloneNode 후 채움
+         채울 data-field 목록:
+           판매자상품코드, 바코드, SellingPrice, 원가
+         채울 data-input:
+           serviceQuantity (number input)
+         채울 data-img:
+           옵션이미지URL, 실제이미지URL
+         채울 data-attr (data-barcode):
+           deleteServiceButton
+    ====================================================================== -->
+    <template id="serviceRowTemplate">
+        <tr>
+            <td data-field="판매자상품코드"></td>
+            <td data-field="바코드"></td>
+            <td data-field="SellingPrice"></td>
+            <td data-field="원가"></td>
+            <td>
+                <input type="number"
+                    class="serviceQuantity"
+                    data-input="serviceQuantity"
+                    min="1"
+                    value="1"
+                    data-label="수량">
+            </td>
+            <td class="image-container">
+                <img data-img="옵션이미지URL" alt="옵션이미지">
+            </td>
+            <td class="image-container">
+                <img data-img="실제이미지URL" alt="실제이미지">
+            </td>
+            <td>
+                <button class="deleteServiceButton" data-barcode="">삭제</button>
+            </td>
+        </tr>
+    </template>
+
+    <!-- Firebase 라이브러리 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+    <script src="firebaseConfig.js"></script>
+    <script src="loadNavbar.js"></script>
+    <script type="module" src="aGlobalMain.js"></script>
+
+    <!-- order_processing2 모듈 -->
+    <script type="module" src="order_processing2_upload.js"></script>
+    <script type="module" src="order_processing2_display.js"></script>
+    <script type="module" src="order_processing2_generate_empty.js"></script>
+    <script type="module" src="order_processing2_makeTotalOrder.js"></script>
+</body>
+</html>
