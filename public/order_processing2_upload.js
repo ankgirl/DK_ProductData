@@ -1,8 +1,23 @@
 // order_processing2_upload.js
 
 import { generateImageURLs } from './generateImageURLs.js';
-import { loadOrderNumbers } from './orderHelpers.js';
 import { getProductBySellerCode, reInitializeOrderMap, reInitializeProductMap } from './aGlobalMain.js';
+
+// 드롭다운만 갱신 (change 핸들러 추가 없음 — display.js에서 관리)
+async function refreshOrderDropdown(orderDropdown, messageDiv) {
+    const snapshot = await firebase.firestore().collection('Orders').get();
+    orderDropdown.innerHTML = "<option value=''>주문 번호 선택</option>";
+    if (snapshot.empty) {
+        messageDiv.innerHTML += '<p>주문 번호가 없습니다.</p>';
+        return;
+    }
+    snapshot.forEach(doc => {
+        const option = document.createElement('option');
+        option.value = doc.id;
+        option.textContent = doc.id;
+        orderDropdown.appendChild(option);
+    });
+}
 
 // ─── 스마트스토어 컬럼 매핑 ──────────────────────────────────────────────────
 export const COLUMNS = {
@@ -154,8 +169,18 @@ async function processOrderDetails(orderDetails, batch) {
             }
         } else {
             const productDoc = await getProductBySellerCode(sellerCode);
-            if (productDoc?.OptionDatas?.[option]) {
-                const optData  = productDoc.OptionDatas[option];
+
+            // SmartStore 옵션명(예: '활기찬 나비')으로 직접 키를 못 찾으면
+            // OptionDatas 키 중 '_[_활기찬 나비_]' 를 포함하는 키를 탐색
+            let optionKey = option;
+            if (productDoc && !productDoc.OptionDatas?.[option]) {
+                const matched = Object.keys(productDoc.OptionDatas || {})
+                    .find(k => k.includes(`_[_${option}_]`));
+                if (matched) optionKey = matched;
+            }
+
+            if (productDoc?.OptionDatas?.[optionKey]) {
+                const optData  = productDoc.OptionDatas[optionKey];
                 const barcode  = optData.바코드 || '';
                 const 원가     = parseFloat(productDoc.원가) || 0;
                 const 입고차수 = productDoc.소분류명?.replace('차입고', '') || '';
@@ -219,7 +244,7 @@ async function processOrders(orders, messageDiv, orderDropdown) {
         messageDiv.innerHTML += `<p>배치 저장 중 오류 발생: ${error.message}</p>`;
     }
 
-    loadOrderNumbers(orderDropdown, messageDiv);
+    refreshOrderDropdown(orderDropdown, messageDiv);
 }
 
 // ─── DOMContentLoaded ────────────────────────────────────────────────────────

@@ -652,6 +652,87 @@
     });
 
     // ════════════════════════════════════════════════════════════════════
+    // G8: 옵션키 매핑 (SmartStore 표시명 → Firebase OptionDatas 키)
+    //     upload.js processOrderDetails 의 새 로직 단위 테스트
+    // ════════════════════════════════════════════════════════════════════
+
+    // 실제 65_9999 Firebase 구조 모사: 키가 '001_[_활기찬 나비_]' 형식
+    // 실제 65_9999: Firebase OptionDatas 키가 '001_[_활기찬 나비_].jpg' 형식 (실측)
+    function makeReal9999() {
+        const OPTION_NAMES = ['활기찬 나비','베이직 체크무늬','소원 리본','나비 정원','페스티벌 다이아','달콤한 꿈의 거품'];
+        const opt = {};
+        OPTION_NAMES.forEach((name, i) => {
+            const key = `${(i+1).toString().padStart(3,'0')}_[_${name}_].jpg`;
+            opt[key] = { Counts: 6, 바코드: `9999${(11+i).toString()}` };
+        });
+        return { id: '65_9999', SellerCode: '65_9999', 원가: 1800,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+    function makeReal9998() {
+        const OPTION_NAMES = ['그린 라이트','캔디 병','달콤한 속삭임','스위트 타로','카라멜','밤바다'];
+        const opt = {};
+        OPTION_NAMES.forEach((name, i) => {
+            const key = `${(i+1).toString().padStart(3,'0')}_[_${name}_].jpg`;
+            opt[key] = { Counts: i === 0 ? 0 : 3, 바코드: `9998${(11+i).toString()}` };
+        });
+        return { id: '65_9998', SellerCode: '65_9998', 원가: 1500,
+                 소분류명: '1차입고', OptionDatas: opt };
+    }
+
+    // upload.js의 optionKey 결정 로직 (인라인 복사)
+    function resolveOptionKey(option, productDoc) {
+        let optionKey = option;
+        if (productDoc && !productDoc.OptionDatas?.[option]) {
+            const matched = Object.keys(productDoc.OptionDatas || {})
+                .find(k => k.includes(`_[_${option}_]`));
+            if (matched) optionKey = matched;
+        }
+        return optionKey;
+    }
+
+    test('G8-T1: 65_9999 "활기찬 나비" → "001_[_활기찬 나비_].jpg" 키 변환', () => {
+        const key = resolveOptionKey('활기찬 나비', makeReal9999());
+        assertEq(key, '001_[_활기찬 나비_].jpg');
+    });
+
+    test('G8-T2: 65_9999 "달콤한 꿈의 거품" → "006_[_달콤한 꿈의 거품_].jpg" 키 변환', () => {
+        const key = resolveOptionKey('달콤한 꿈의 거품', makeReal9999());
+        assertEq(key, '006_[_달콤한 꿈의 거품_].jpg');
+    });
+
+    test('G8-T3: 65_9998 "그린 라이트" → "001_[_그린 라이트_].jpg" 키 변환', () => {
+        const key = resolveOptionKey('그린 라이트', makeReal9998());
+        assertEq(key, '001_[_그린 라이트_].jpg');
+    });
+
+    test('G8-T4: 변환된 키로 OptionDatas 바코드 조회 성공 (65_9999 활기찬 나비 → 999911)', () => {
+        const productDoc = makeReal9999();
+        const key = resolveOptionKey('활기찬 나비', productDoc);
+        assertEq(productDoc.OptionDatas[key]?.바코드, '999911');
+    });
+
+    test('G8-T5: 변환된 키로 OptionDatas Counts 조회 성공 (65_9999 활기찬 나비 → 6)', () => {
+        const productDoc = makeReal9999();
+        const key = resolveOptionKey('활기찬 나비', productDoc);
+        assertEq(productDoc.OptionDatas[key]?.Counts, 6);
+    });
+
+    test('G8-T6: 키가 단순 표시명인 일반 제품 — 직접 매칭 (변환 없음)', () => {
+        const simpleDoc = {
+            id: 'simple',
+            OptionDatas: { '스위트베리 시즌': { Counts: 5, 바코드: 'BC001' } }
+        };
+        const key = resolveOptionKey('스위트베리 시즌', simpleDoc);
+        assertEq(key, '스위트베리 시즌');
+        assertEq(simpleDoc.OptionDatas[key]?.바코드, 'BC001');
+    });
+
+    test('G8-T7: 존재하지 않는 옵션명 — 변환 실패 시 원래 option 그대로 반환', () => {
+        const key = resolveOptionKey('없는옵션', makeReal9999());
+        assertEq(key, '없는옵션');
+    });
+
+    // ════════════════════════════════════════════════════════════════════
     // 결과 렌더링
     // ════════════════════════════════════════════════════════════════════
     const OUTPUT = document.getElementById('testResults');
@@ -660,6 +741,7 @@
         G3:'서비스 렌더링 (renderServiceTable)', G4:'바코드 체크 상태 보존 ⭐',
         G5:'포장 수량 검증 (validatePacking)', G6:'재고 차감 로직 (decreaseCounts)',
         G7:'서비스제품금액 계산 (calcServiceFee)',
+        G8:'옵션키 매핑 (SmartStore 표시명 → Firebase 키) ⭐',
     };
     const groups = {};
     results.forEach(r => {
