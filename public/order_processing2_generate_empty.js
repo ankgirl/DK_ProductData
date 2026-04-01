@@ -25,25 +25,23 @@ export function createEmptyOrderData(orderNumber) {
     };
 }
 
-// ─── DOMContentLoaded ────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function () {
-    const createEmptyOrderButton = document.getElementById('CreateEmptyOrderButton');
-    const messageDiv             = document.getElementById('message');
-    const orderDropdown          = document.getElementById('orderDropdown');
+// ─── 초기화 ──────────────────────────────────────────────────────────────────
+const createEmptyOrderButton = document.getElementById('CreateEmptyOrderButton');
+const messageDiv             = document.getElementById('message');
+const orderDropdown          = document.getElementById('orderDropdown');
 
-    createEmptyOrderButton.addEventListener('click', async function () {
-        const orderNumber    = generateOrderNumber();
-        const emptyOrderData = createEmptyOrderData(orderNumber);
+createEmptyOrderButton.addEventListener('click', async function () {
+    const orderNumber    = generateOrderNumber();
+    const emptyOrderData = createEmptyOrderData(orderNumber);
 
-        try {
-            const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
-            await orderDocRef.set(emptyOrderData, { merge: true });
-            await reInitializeOrderMap();
-            messageDiv.innerHTML += `<p>빈 주문서 ${orderNumber} 생성 성공!</p>`;
-            loadOrderNumbers2(orderDropdown, messageDiv);
-        } catch (error) {
-            console.error('Error writing document:', error);
-            messageDiv.innerHTML += `<p>빈 주문서 ${orderNumber} 생성 중 오류 발생: ${error.message}</p>`;
-        }
-    });
+    try {
+        const orderDocRef = firebase.firestore().collection('Orders').doc(orderNumber);
+        await orderDocRef.set(emptyOrderData, { merge: true });
+        await reInitializeOrderMap();
+        messageDiv.innerHTML += `<p>빈 주문서 ${orderNumber} 생성 성공!</p>`;
+        loadOrderNumbers2(orderDropdown, messageDiv);
+    } catch (error) {
+        console.error('Error writing document:', error);
+        messageDiv.innerHTML += `<p>빈 주문서 ${orderNumber} 생성 중 오류 발생: ${error.message}</p>`;
+    }
 });

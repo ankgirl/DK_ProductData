@@ -55,25 +55,23 @@ export function buildTotalOrderData(orders) {
     return totalOrderData;
 }
 
-// ─── DOMContentLoaded ────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async function () {
-    const makeTotalOrderButton = document.getElementById('makeTotalOrderButton');
-    const messageDiv           = document.getElementById('message');
-    const orderDropdown        = document.getElementById('orderDropdown');
+// ─── 초기화 ──────────────────────────────────────────────────────────────────
+const makeTotalOrderButton = document.getElementById('makeTotalOrderButton');
+const messageDiv           = document.getElementById('message');
+const orderDropdown        = document.getElementById('orderDropdown');
 
-    makeTotalOrderButton.addEventListener('click', async function () {
-        try {
-            const orders         = await getAllOrders();
-            const totalOrderData = buildTotalOrderData(orders);
+makeTotalOrderButton.addEventListener('click', async function () {
+    try {
+        const orders         = await getAllOrders();
+        const totalOrderData = buildTotalOrderData(orders);
 
-            const orderDocRef = firebase.firestore().collection('Orders').doc(TOTAL_ORDER_NUMBER);
-            await orderDocRef.set(totalOrderData, { merge: true });
-            await reInitializeOrderMap();
-            messageDiv.innerHTML += `<p>통합 주문서 ${TOTAL_ORDER_NUMBER} 생성 성공!</p>`;
-            loadOrderNumbers2(orderDropdown, messageDiv);
-        } catch (error) {
-            console.error('Error writing document:', error);
-            messageDiv.innerHTML += `<p>통합 주문서 생성 중 오류 발생: ${error.message}</p>`;
-        }
-    });
+        const orderDocRef = firebase.firestore().collection('Orders').doc(TOTAL_ORDER_NUMBER);
+        await orderDocRef.set(totalOrderData, { merge: true });
+        await reInitializeOrderMap();
+        messageDiv.innerHTML += `<p>통합 주문서 ${TOTAL_ORDER_NUMBER} 생성 성공!</p>`;
+        loadOrderNumbers2(orderDropdown, messageDiv);
+    } catch (error) {
+        console.error('Error writing document:', error);
+        messageDiv.innerHTML += `<p>통합 주문서 생성 중 오류 발생: ${error.message}</p>`;
+    }
 });

@@ -462,24 +462,23 @@ async function validatePacking(orderData, orderDetailsDiv, barcodeInput) {
     return true;
 }
 
-// ─── DOMContentLoaded ────────────────────────────────────────────────────────
+// ─── 초기화 ──────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', function () {
-    const orderDropdown         = document.getElementById('orderDropdown');
-    const orderDetailsDiv       = document.getElementById('orderDetails');
-    const messageDiv            = document.getElementById('message');
-    const barcodeInput          = document.getElementById('barcodeInput');
-    const serviceBarcodeInput   = document.getElementById('serviceBarcodeInput');
-    const packingCompleteButton = document.getElementById('packingCompleteButton');
-    const saveCurrentStateButton = document.getElementById('saveCurrentStateButton');
-    const manualBarcodeButton   = document.getElementById('manualBarcodeButton');
-    const deleteOrderButton        = document.getElementById('deleteOrderButton');
-    const deleteAllOrdersButton    = document.getElementById('deleteAllOrdersButton');
-    const orderNumberInput      = document.getElementById('orderNumberInput');
-    const deliveryNumberInput   = document.getElementById('deliveryNumberInput');
+const orderDropdown         = document.getElementById('orderDropdown');
+const orderDetailsDiv       = document.getElementById('orderDetails');
+const messageDiv            = document.getElementById('message');
+const barcodeInput          = document.getElementById('barcodeInput');
+const serviceBarcodeInput   = document.getElementById('serviceBarcodeInput');
+const packingCompleteButton = document.getElementById('packingCompleteButton');
+const saveCurrentStateButton = document.getElementById('saveCurrentStateButton');
+const manualBarcodeButton   = document.getElementById('manualBarcodeButton');
+const deleteOrderButton        = document.getElementById('deleteOrderButton');
+const deleteAllOrdersButton    = document.getElementById('deleteAllOrdersButton');
+const orderNumberInput      = document.getElementById('orderNumberInput');
+const deliveryNumberInput   = document.getElementById('deliveryNumberInput');
 
-    loadOrderNumbers2(orderDropdown, messageDiv);
-    attachOrderChangeHandler(orderDropdown, orderDetailsDiv, messageDiv);
+loadOrderNumbers2(orderDropdown, messageDiv);
+attachOrderChangeHandler(orderDropdown, orderDetailsDiv, messageDiv);
 
     // 주문번호 직접 입력
     orderNumberInput.addEventListener('keydown', (event) => {
@@ -710,4 +709,4 @@ document.addEventListener('DOMContentLoaded', function () {
             deleteAllOrdersButton.disabled = false;
         }
     });
-});
+

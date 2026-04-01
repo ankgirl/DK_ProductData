@@ -247,37 +247,35 @@ async function processOrders(orders, messageDiv, orderDropdown) {
     refreshOrderDropdown(orderDropdown, messageDiv);
 }
 
-// ─── DOMContentLoaded ────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function () {
-    const uploadForm    = document.getElementById('uploadForm');
-    const submitButton  = uploadForm.querySelector("button[type='submit']");
-    const messageDiv    = document.getElementById('message');
-    const orderDropdown = document.getElementById('orderDropdown');
+// ─── 초기화 ──────────────────────────────────────────────────────────────────
+const uploadForm    = document.getElementById('uploadForm');
+const submitButton  = uploadForm.querySelector("button[type='submit']");
+const messageDiv    = document.getElementById('message');
+const orderDropdown = document.getElementById('orderDropdown');
 
-    uploadForm.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        submitButton.disabled = true;
+uploadForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    submitButton.disabled = true;
 
-        try {
-            const xlsxFile = document.getElementById('xlsxFile').files[0];
-            if (!xlsxFile) {
-                alert('XLSX 파일을 선택해주세요.');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const data      = new Uint8Array(e.target.result);
-                const workbook  = XLSX.read(data, { type: 'array' });
-                const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                processOrders(worksheet, messageDiv, orderDropdown);
-            };
-            reader.readAsArrayBuffer(xlsxFile);
-        } catch (error) {
-            console.error('에러 발생:', error);
-            alert('파일 처리 중 오류가 발생했습니다.');
-        } finally {
-            submitButton.disabled = false;
+    try {
+        const xlsxFile = document.getElementById('xlsxFile').files[0];
+        if (!xlsxFile) {
+            alert('XLSX 파일을 선택해주세요.');
+            return;
         }
-    });
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const data      = new Uint8Array(e.target.result);
+            const workbook  = XLSX.read(data, { type: 'array' });
+            const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            processOrders(worksheet, messageDiv, orderDropdown);
+        };
+        reader.readAsArrayBuffer(xlsxFile);
+    } catch (error) {
+        console.error('에러 발생:', error);
+        alert('파일 처리 중 오류가 발생했습니다.');
+    } finally {
+        submitButton.disabled = false;
+    }
 });
