@@ -57,6 +57,45 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
+// 이미지 URL 생성 함수 (generateImageURLs.js와 동일한 로직 - 입고차수 구간별 파일명 규칙 적용)
+// 입고차수 <= 23: {sellerCode}%20sku{optionNumber}.jpg
+// 입고차수 > 23:  {sellerCode}%20sku_{optionNumber}.jpg
+function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
+    if (!입고차수) {
+        return { 보여주기용옵션명: '', 옵션이미지URL: '', 실제이미지URL: '' };
+    }
+    const cleaned입고차수 = 입고차수.replace("차입고", "");
+    let optionNumber = option.replace("옵션", "");
+    const 입고차수정보 = parseInt(cleaned입고차수, 10);
+    let 이미지명 = '';
+    let 보여주기용옵션명 = '';
+    const optionNames = groupOptions ? groupOptions.split(",").map(opt => opt.trim()) : [];
+
+    if (!isNaN(optionNumber)) {
+        optionNumber = optionNumber.padStart(3, '0');
+        if (입고차수정보 <= 23) {
+            이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
+        } else {
+            이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
+        }
+        보여주기용옵션명 = `${option}`;
+    } else {
+        const index = optionNames.indexOf(option);
+        if (index === -1) {
+            return { 보여주기용옵션명: '', 옵션이미지URL: '', 실제이미지URL: '' };
+        }
+        const optionIndex = (index + 1).toString().padStart(3, '0');
+        이미지명 = `${sellerCode}%20sku_${optionIndex}_[_${optionNumber}_].jpg`;
+        보여주기용옵션명 = `${optionIndex}_[_${optionNumber}_].jpg`;
+    }
+    const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
+    return {
+        보여주기용옵션명,
+        옵션이미지URL: `${baseUrl}/option/${이미지명}`,
+        실제이미지URL: `${baseUrl}/real/${이미지명}`
+    };
+}
+
 // 옵션 데이터를 생성하는 함수
 function generateOptionDatas(product, existingOptionDatas) {
     const optionNames = product.GroupOptions ? product.GroupOptions.split(",").map(opt => opt.trim()) : [];
@@ -72,6 +111,17 @@ function generateOptionDatas(product, existingOptionDatas) {
         }
         optionDatas[optionName].Counts = optionCounts[index] !== undefined ? optionCounts[index] : optionDatas[optionName].Counts;
         optionDatas[optionName].Price = discountedPrice + (optionPrices[index] !== undefined ? optionPrices[index] : 0);
+
+        // 이미지 URL이 아직 저장되지 않은 경우에만 생성하여 저장
+        // (최초 업로드 시 URL을 고정 → 이후 sellerCode/소분류명 변경 시에도 원래 이미지 위치 유지)
+        if (!optionDatas[optionName].옵션이미지URL) {
+            const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(
+                product.SellerCode, optionName, product.소분류명, product.GroupOptions
+            );
+            optionDatas[optionName].옵션이미지URL = 옵션이미지URL;
+            optionDatas[optionName].실제이미지URL = 실제이미지URL;
+            optionDatas[optionName].보여주기용옵션명 = 보여주기용옵션명;
+        }
     });
 
     return optionDatas;

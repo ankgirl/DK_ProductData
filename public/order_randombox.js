@@ -119,11 +119,19 @@ export async function checkBarcode(barcode, messageDiv) {
         
         
         console.log(productData.GroupOptions);
-        const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);
-
-        productData.옵션이미지URL = 옵션이미지URL;
-        productData.실제이미지URL = 실제이미지URL;
-        productData.보여주기용옵션명 = 보여주기용옵션명;
+        const storedOptionData = productData.OptionDatas?.[optionKey];
+        if (storedOptionData?.옵션이미지URL) {
+            // 저장된 URL 사용 (sellerCode/소분류명 변경 후에도 원래 이미지 위치 유지)
+            productData.옵션이미지URL = storedOptionData.옵션이미지URL;
+            productData.실제이미지URL = storedOptionData.실제이미지URL;
+            productData.보여주기용옵션명 = storedOptionData.보여주기용옵션명 || optionKey;
+        } else {
+            // 저장된 URL 없음 → 기존 방식으로 생성 (기존 상품 하위 호환)
+            const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(productData.SellerCode, optionKey, productData.소분류명, productData.GroupOptions);
+            productData.옵션이미지URL = 옵션이미지URL;
+            productData.실제이미지URL = 실제이미지URL;
+            productData.보여주기용옵션명 = 보여주기용옵션명;
+        }
         
         //console.log(productData);
         // globalOrderData 사용
