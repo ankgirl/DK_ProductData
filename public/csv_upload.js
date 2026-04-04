@@ -1,3 +1,5 @@
+import { generateImageURLs } from './generateImageURLs.js';
+
 document.addEventListener("DOMContentLoaded", function() {
     const uploadForm = document.getElementById("uploadForm");
 
@@ -72,6 +74,17 @@ function generateOptionDatas(product, existingOptionDatas) {
         }
         optionDatas[optionName].Counts = optionCounts[index] !== undefined ? optionCounts[index] : optionDatas[optionName].Counts;
         optionDatas[optionName].Price = discountedPrice + (optionPrices[index] !== undefined ? optionPrices[index] : 0);
+
+        // 이미지 URL이 아직 저장되지 않은 경우에만 생성하여 저장
+        // (최초 업로드 시 URL을 고정 → 이후 sellerCode/소분류명 변경 시에도 원래 이미지 위치 유지)
+        if (!optionDatas[optionName].옵션이미지URL) {
+            const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(
+                product.SellerCode, optionName, product.소분류명, product.GroupOptions
+            );
+            optionDatas[optionName].옵션이미지URL = 옵션이미지URL;
+            optionDatas[optionName].실제이미지URL = 실제이미지URL;
+            optionDatas[optionName].보여주기용옵션명 = 보여주기용옵션명;
+        }
     });
 
     return optionDatas;
