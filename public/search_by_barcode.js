@@ -76,8 +76,8 @@ async function searchProductBySellerCode(sellerCode) {
         // const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
         console.log(sellerCode);
         console.log("SET_" + sellerCode);
-        const currentProduct = await getProductBySellerCode (sellerCode);
-        const currentSellerCodeSet = await getProductBySellerCode ("SET_" + sellerCode);
+        currentProduct = await getProductBySellerCode (sellerCode);
+        currentSellerCodeSet = await getProductBySellerCode ("SET_" + sellerCode);
 
         // 문서가 존재하면 데이터 표시, 아니면 "No such product found!" 메시지 표시
         if (currentProduct) {

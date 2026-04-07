@@ -17,6 +17,19 @@
             <input type="text" id="barcode" name="barcode" required>
             <button type="submit">Search</button>
         </form>
+        <br>
+        <form id="changeSellerCodeForm">
+            <label for="afterSellerCode">변경후 Seller Code:</label>
+            <input type="text" id="changeAfterSellerCodeInput" name="changeAfterSellerCodeInput" required>
+            <button type="submit">셀러코드 변경</button>
+        </form>
+        <br>
+        <form id="changeCategoryForm">
+            <label for="afterCategory">변경후 입고차수:</label>
+            <input type="text" id="changeAfterCategory" name="changeAfterCategory" required>
+            <button type="submit">입고차수 변경</button>
+        </form>
+
         <div id="result"></div>
         <div id="message"></div> <!-- messageDiv 요소 추가 -->
     </div>
@@ -26,8 +39,8 @@
     <script src="./firebaseConfig.js"></script> <!-- firebaseConfig.js 파일 로드 -->
     <script src="./loadNavbar.js"></script>
     <script src="aSaveInventoryToSmartStore.js"></script>
-    <script src="displayProductData.js"></script>    
+    <script src="displayProductData.js"></script>
     <script type="module" src="./search_by_barcode.js"></script>
-    <script type="module" src="./search_by_seller_code_changeinfo.js"></script>
+    <script type="module" src="./search_by_barcode_changeinfo.js"></script>
 </body>
 </html>
