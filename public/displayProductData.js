@@ -210,11 +210,14 @@ function displayProductData(data, setData,  container = document.getElementById(
         index++;
         const option = optionName.replace("선택: ", "");
         if (option) {
-            const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(data.SellerCode, option, data.소분류명, data.GroupOptions);
-
-            data.OptionDatas[optionName].보여주기용옵션명 = 보여주기용옵션명;
-            data.OptionDatas[optionName].옵션이미지URL = 옵션이미지URL;
-            data.OptionDatas[optionName].실제이미지URL = 실제이미지URL;
+            // 저장된 URL이 있으면 그대로 사용 (sellerCode/소분류명 변경 후에도 원래 이미지 위치 유지)
+            // 저장된 URL이 없으면 현재 값으로 생성 (기존 상품 하위 호환)
+            if (!data.OptionDatas[optionName].옵션이미지URL) {
+                const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(data.SellerCode, option, data.소분류명, data.GroupOptions);
+                data.OptionDatas[optionName].보여주기용옵션명 = 보여주기용옵션명;
+                data.OptionDatas[optionName].옵션이미지URL = 옵션이미지URL;
+                data.OptionDatas[optionName].실제이미지URL = 실제이미지URL;
+            }
         }
     }    
     container.innerHTML = generateProductDetailsHTML(data, setData);

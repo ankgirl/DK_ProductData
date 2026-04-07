@@ -137,8 +137,16 @@ async function processOrderDetails(orderDetails, batch) {
                     const price      = (orderData.상품결제금액 / optionCount) || 0;
                     const 입고차수   = productDocDivide.소분류명?.replace('차입고', '') || '';
 
-                    const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } =
-                        generateImageURLs(sellerCodeDivide, opt, 입고차수, productDocDivide.GroupOptions);
+                    let 보여주기용옵션명, 옵션이미지URL, 실제이미지URL;
+                    if (optData.옵션이미지URL) {
+                        // 저장된 URL 사용 (sellerCode/소분류명 변경 후에도 원래 이미지 위치 유지)
+                        옵션이미지URL = optData.옵션이미지URL;
+                        실제이미지URL = optData.실제이미지URL;
+                        보여주기용옵션명 = optData.보여주기용옵션명 || opt;
+                    } else {
+                        // 저장된 URL 없음 → 기존 방식으로 생성 (기존 상품 하위 호환)
+                        ({ 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCodeDivide, opt, 입고차수, productDocDivide.GroupOptions));
+                    }
 
                     orderDetails.ProductOrders[`${productOrderNumber}_${opt}`] = {
                         상품주문번호:     productOrderNumber,
@@ -185,8 +193,16 @@ async function processOrderDetails(orderDetails, batch) {
                 const 원가     = parseFloat(productDoc.원가) || 0;
                 const 입고차수 = productDoc.소분류명?.replace('차입고', '') || '';
 
-                const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } =
-                    generateImageURLs(sellerCode, option, 입고차수, productDoc.GroupOptions);
+                let 보여주기용옵션명, 옵션이미지URL, 실제이미지URL;
+                if (optData.옵션이미지URL) {
+                    // 저장된 URL 사용 (sellerCode/소분류명 변경 후에도 원래 이미지 위치 유지)
+                    옵션이미지URL = optData.옵션이미지URL;
+                    실제이미지URL = optData.실제이미지URL;
+                    보여주기용옵션명 = optData.보여주기용옵션명 || option;
+                } else {
+                    // 저장된 URL 없음 → 기존 방식으로 생성 (기존 상품 하위 호환)
+                    ({ 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(sellerCode, option, 입고차수, productDoc.GroupOptions));
+                }
 
                 Object.assign(orderData, {
                     Counts: optData.Counts || '',
