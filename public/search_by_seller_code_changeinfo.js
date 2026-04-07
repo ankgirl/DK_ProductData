@@ -2,6 +2,29 @@
 
 import { getProductBySellerCode } from './aGlobalMain.js';
 import { getCurrentSellerCode, getCurrentProduct } from './search_by_seller_code.js';
+import { generateImageURLs } from './generateImageURLs.js';
+
+// 변경 전 셀러코드/소분류명으로 이미지 URL을 OptionDatas에 고정
+function lockImageURLs(product) {
+    if (!product.OptionDatas) return product;
+    const 입고차수 = product.소분류명;
+    const updatedOptionDatas = { ...product.OptionDatas };
+    for (const optionName of Object.keys(updatedOptionDatas)) {
+        if (!updatedOptionDatas[optionName].옵션이미지URL) {
+            const option = optionName.replace('선택: ', '');
+            const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(
+                product.SellerCode, option, 입고차수, product.GroupOptions
+            );
+            updatedOptionDatas[optionName] = {
+                ...updatedOptionDatas[optionName],
+                옵션이미지URL,
+                실제이미지URL,
+                보여주기용옵션명,
+            };
+        }
+    }
+    return { ...product, OptionDatas: updatedOptionDatas };
+}
 
 document.addEventListener("DOMContentLoaded", function () {
     console.log("search_by_seller_code_changeinfo loaded");
@@ -11,51 +34,52 @@ document.addEventListener("DOMContentLoaded", function () {
     const messageDiv = document.getElementById("message");
     const changeSellerCodeForm = document.getElementById("changeSellerCodeForm");
     const changeCategoryForm = document.getElementById("changeCategoryForm");
-    
 
-    // submit 이벤트 리스너 등록
     changeSellerCodeForm?.addEventListener("submit", async function (event) {
-        event.preventDefault(); // 기본 폼 제출 동작 중단
+        event.preventDefault();
 
         try {
-            // 1. 현재 상품 정보 가져오기
             let currentSellerCode = await getCurrentSellerCode();
             let currentProduct = await getCurrentProduct();
 
-            let newSellerCode = afterSellerCodeInput.value; // 입력된 새로운 판매자 코드
+            let newSellerCode = afterSellerCodeInput.value.trim();
+            const withCategory = document.getElementById("changeSellerCodeWithCategory").checked;
 
-            // 입력된 값 검증
-            if (!newSellerCode || newSellerCode.trim() === "") {
+            if (!newSellerCode) {
                 alert("변경할 판매자 코드를 입력해주세요.");
                 return;
             }
 
-            // 2. 변경 여부 확인 팝업 띄우기
-            const confirmChange = confirm(
-                `현재 판매자 코드: ${currentSellerCode}\n새 판매자 코드: ${newSellerCode}\n판매자 코드를 변경하시겠습니까?`
-            );
-
-            if (!confirmChange) {
-                return; // 사용자가 취소하면 종료
+            // 입고차수 계산 (체크박스 체크 시)
+            let newCategory = null;
+            if (withCategory) {
+                const prefix = newSellerCode.split("_")[0];
+                newCategory = /^\d+$/.test(prefix) ? `${prefix}차입고` : prefix;
             }
 
-            // 3. 데이터 복사 및 업데이트
-            const db = firebase.firestore(); // Firebase Firestore 객체
+            const confirmMsg = withCategory
+                ? `현재 판매자 코드: ${currentSellerCode}\n새 판매자 코드: ${newSellerCode}\n현재 입고차수: ${currentProduct.소분류명}\n새 입고차수: ${newCategory}\n판매자 코드와 입고차수를 변경하시겠습니까?`
+                : `현재 판매자 코드: ${currentSellerCode}\n새 판매자 코드: ${newSellerCode}\n판매자 코드를 변경하시겠습니까?`;
+
+            if (!confirm(confirmMsg)) return;
+
+            const db = firebase.firestore();
+            const productWithLockedImages = lockImageURLs(currentProduct);
             const updatedProductData = {
-                ...currentProduct,
-                SellerCode: newSellerCode, // SellerCode 필드 업데이트
+                ...productWithLockedImages,
+                SellerCode: newSellerCode,
+                ...(withCategory && { 소분류명: newCategory }),
             };
 
             await db.collection("Products").doc(newSellerCode).set(updatedProductData);
-
-            // 기존 데이터 삭제
             await db.collection("Products").doc(currentSellerCode).delete();
 
-            // 4. 성공 팝업 띄우기
-            alert(`판매자 코드가 ${currentSellerCode}에서 ${newSellerCode}로 성공적으로 변경되었습니다.`);
+            const msg = withCategory
+                ? `판매자 코드: ${currentSellerCode} → ${newSellerCode}, 입고차수: ${currentProduct.소분류명} → ${newCategory} 변경 완료`
+                : `판매자 코드: ${currentSellerCode} → ${newSellerCode} 변경 완료`;
 
-            // 화면에 메시지 표시
-            messageDiv.textContent = `판매자 코드가 ${currentSellerCode}에서 ${newSellerCode}로 변경되었습니다.`;
+            alert(msg);
+            messageDiv.textContent = msg;
 
         } catch (error) {
             console.error("에러 발생:", error);
@@ -87,10 +111,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 return; // 사용자가 취소하면 종료
             }
 
-            // 3. 소분류명 값 변경. 소분류명은 키값이 아니기때문에 필드만 변경
-            const db = firebase.firestore(); // Firebase Firestore 객체
+            // 3. 소분류명 변경 전 이미지 URL 고정 후 업데이트
+            const db = firebase.firestore();
+            const productWithLockedImages = lockImageURLs(currentProduct);
             await db.collection("Products").doc(currentSellerCode).update({
-                소분류명: newCategoryInput, // 새로운 카테고리 값으로 업데이트
+                소분류명: newCategoryInput,
+                OptionDatas: productWithLockedImages.OptionDatas,
             });
 
             // 4. 성공 팝업 띄우기

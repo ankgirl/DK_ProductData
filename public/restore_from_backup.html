@@ -1,0 +1,102 @@
+<!-- restore_from_backup.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>백업 DB에서 상품 복구</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>백업 DB에서 상품 복구</h1>
+        <form id="searchForm">
+            <label for="sellerCodeInput">복구할 Seller Code:</label>
+            <input type="text" id="sellerCodeInput" required>
+            <button type="submit">백업 DB에서 조회</button>
+        </form>
+        <div id="preview" style="margin-top:20px;"></div>
+        <div id="message" style="margin-top:10px;color:green;"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadNavbar.js"></script>
+    <script>
+        const PROJECT_ID = 'dakku-haru';
+        const BACKUP_DB = 'dakkuharu-data-clone';
+
+        // Firestore REST 응답 → 일반 JS 객체 변환
+        function convertValue(value) {
+            if ('stringValue'  in value) return value.stringValue;
+            if ('integerValue' in value) return parseInt(value.integerValue);
+            if ('doubleValue'  in value) return value.doubleValue;
+            if ('booleanValue' in value) return value.booleanValue;
+            if ('nullValue'    in value) return null;
+            if ('mapValue'     in value) return fromFirestoreFields(value.mapValue.fields || {});
+            if ('arrayValue'   in value) return (value.arrayValue.values || []).map(convertValue);
+            return null;
+        }
+
+        function fromFirestoreFields(fields) {
+            const result = {};
+            for (const [key, value] of Object.entries(fields)) {
+                result[key] = convertValue(value);
+            }
+            return result;
+        }
+
+        async function fetchFromBackup(sellerCode) {
+            const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${BACKUP_DB}/documents/Products/${encodeURIComponent(sellerCode)}`;
+            const res = await fetch(url);
+            if (!res.ok) {
+                if (res.status === 404) throw new Error('백업 DB에 해당 상품이 없습니다.');
+                throw new Error(`오류: ${res.status}`);
+            }
+            const json = await res.json();
+            return fromFirestoreFields(json.fields || {});
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const sellerCode = document.getElementById('sellerCodeInput').value.trim();
+            const previewDiv = document.getElementById('preview');
+            const messageDiv = document.getElementById('message');
+            previewDiv.innerHTML = '';
+            messageDiv.textContent = '';
+
+            try {
+                const data = await fetchFromBackup(sellerCode);
+
+                // 미리보기 테이블
+                let html = `<h3>백업 데이터 미리보기: ${sellerCode}</h3>`;
+                html += '<table><tbody>';
+                for (const [key, val] of Object.entries(data)) {
+                    const display = (typeof val === 'object') ? JSON.stringify(val) : val;
+                    html += `<tr><td><strong>${key}</strong></td><td style="word-break:break-all;">${display}</td></tr>`;
+                }
+                html += '</tbody></table>';
+                html += `<br><button id="restoreBtn">이 데이터를 운영 DB로 복구</button>`;
+                previewDiv.innerHTML = html;
+
+                document.getElementById('restoreBtn').addEventListener('click', async function() {
+                    // 운영 DB에 이미 있는지 확인
+                    const existing = await db.collection('Products').doc(sellerCode).get();
+                    if (existing.exists) {
+                        const ok = confirm(`운영 DB에 ${sellerCode}가 이미 존재합니다. 덮어쓰시겠습니까?`);
+                        if (!ok) return;
+                    }
+
+                    await db.collection('Products').doc(sellerCode).set(data);
+                    messageDiv.textContent = `${sellerCode} 복구 완료!`;
+                });
+
+            } catch (err) {
+                previewDiv.innerHTML = `<p style="color:red;">${err.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
