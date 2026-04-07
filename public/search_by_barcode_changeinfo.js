@@ -76,9 +76,21 @@ document.addEventListener("DOMContentLoaded", function () {
                 SellerCode: newSellerCode,
                 ...(withCategory && { 소분류명: newCategory }),
             };
-
             await db.collection("Products").doc(newSellerCode).set(updatedProductData);
             await db.collection("Products").doc(currentSellerCode).delete();
+
+            // SET_ 문서 변경 (존재하는 경우)
+            const setDocSnap = await db.collection("Products").doc(`SET_${currentSellerCode}`).get();
+            if (setDocSnap.exists) {
+                const setProduct = setDocSnap.data();
+                const updatedSetData = {
+                    ...setProduct,
+                    SellerCode: `SET_${newSellerCode}`,
+                    ...(withCategory && { 소분류명: newCategory }),
+                };
+                await db.collection("Products").doc(`SET_${newSellerCode}`).set(updatedSetData);
+                await db.collection("Products").doc(`SET_${currentSellerCode}`).delete();
+            }
 
             const msg = withCategory
                 ? `판매자 코드: ${currentSellerCode} → ${newSellerCode}, 입고차수: ${currentProduct.소분류명} → ${newCategory} 변경 완료`
