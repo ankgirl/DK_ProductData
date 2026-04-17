@@ -55,7 +55,7 @@ export function getCurrentProduct() {
 }
 
 
-async function searchProductBySellerCode(sellerCode) {
+export async function searchProductBySellerCode(sellerCode) {
     try {
 
         console.log("3");
@@ -76,8 +76,12 @@ async function searchProductBySellerCode(sellerCode) {
         // const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
         console.log(sellerCode);
         console.log("SET_" + sellerCode);
-        currentProduct = await getProductBySellerCode (sellerCode);
-        currentSellerCodeSet = await getProductBySellerCode ("SET_" + sellerCode);
+        const docRef = window.db.collection("Products").doc(sellerCode);
+        const setDocRef = window.db.collection("Products").doc("SET_" + sellerCode);
+        const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
+
+        currentProduct = docSnap.exists ? docSnap.data() : null;
+        currentSellerCodeSet = setDocSnap.exists ? setDocSnap.data() : null;
 
         // 문서가 존재하면 데이터 표시, 아니면 "No such product found!" 메시지 표시
         if (currentProduct) {

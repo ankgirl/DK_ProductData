@@ -359,9 +359,17 @@ function displayProductData(data, setData,  container = document.getElementById(
 
     document.getElementById('updateForm').addEventListener('submit', async function (event) {
         event.preventDefault();
+
+        // 적용 완료까지 폼 입력/버튼 비활성화
+        const formEl = event.target;
+        const formInputs = formEl.querySelectorAll('input, button');
+        formInputs.forEach(el => el.disabled = true);
+
+        try {
+
         const updatedOptionDatas = {};
         const updatedSetOptionDatas = {};
-        const formData = new FormData(event.target);
+        const formData = new FormData(formEl);
         let barcodeCheckNeeded = false;
         let hasChanges = false;
 
@@ -536,6 +544,11 @@ function displayProductData(data, setData,  container = document.getElementById(
         document.querySelectorAll('#updateForm input').forEach(input => {
             input.value = '';
         });
+
+        } finally {
+            // 적용 완료 후 폼 입력/버튼 활성화
+            formInputs.forEach(el => el.disabled = false);
+        }
     });
 
     document.querySelectorAll('#updateForm input').forEach(input => {

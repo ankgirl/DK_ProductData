@@ -45,7 +45,7 @@ export function getCurrentProduct() {
     return currentProduct;
 }
 
-async function searchProductBySellerCode(sellerCode) {
+export async function searchProductBySellerCode(sellerCode) {
     try {
 
         if(sellerCode.includes("SET_")) {

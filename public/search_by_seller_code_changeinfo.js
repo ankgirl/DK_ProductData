@@ -1,7 +1,7 @@
 // search_by_seller_code_changeinfo.js
 
 import { getProductBySellerCode } from './aGlobalMain.js';
-import { getCurrentSellerCode, getCurrentProduct } from './search_by_seller_code.js';
+import { getCurrentSellerCode, getCurrentProduct, searchProductBySellerCode } from './search_by_seller_code.js';
 import { generateImageURLs } from './generateImageURLs.js';
 
 // 변경 전 셀러코드/소분류명으로 이미지 URL을 OptionDatas에 고정
@@ -95,6 +95,9 @@ document.addEventListener("DOMContentLoaded", function () {
             alert(msg);
             messageDiv.textContent = msg;
 
+            // 새 셀러코드로 화면 갱신
+            await searchProductBySellerCode(newSellerCode);
+
         } catch (error) {
             console.error("에러 발생:", error);
             alert("판매자 코드 변경 중 오류가 발생했습니다. 다시 시도해주세요.");
@@ -135,6 +138,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
             // 4. 성공 팝업 띄우기
             alert(`카테고리가 성공적으로 ${currentProduct.소분류명}에서 ${newCategoryInput}로 변경되었습니다.`);
+
+            // 화면 갱신
+            await searchProductBySellerCode(currentSellerCode);
 
         } catch (error) {
             console.error("에러 발생:", error);
