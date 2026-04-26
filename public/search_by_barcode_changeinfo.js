@@ -76,20 +76,29 @@ document.addEventListener("DOMContentLoaded", function () {
                 SellerCode: newSellerCode,
                 ...(withCategory && { 소분류명: newCategory }),
             };
+            // SET_ 문서 먼저 확인 (일반 문서 변경 전)
+            const setDocSnap = await db.collection("Products").doc(`SET_${currentSellerCode}`).get();
+            const hasSetDoc = setDocSnap.exists;
+
             await db.collection("Products").doc(newSellerCode).set(updatedProductData);
             await db.collection("Products").doc(currentSellerCode).delete();
 
             // SET_ 문서 변경 (존재하는 경우)
-            const setDocSnap = await db.collection("Products").doc(`SET_${currentSellerCode}`).get();
-            if (setDocSnap.exists) {
-                const setProduct = setDocSnap.data();
-                const updatedSetData = {
-                    ...setProduct,
-                    SellerCode: `SET_${newSellerCode}`,
-                    ...(withCategory && { 소분류명: newCategory }),
-                };
-                await db.collection("Products").doc(`SET_${newSellerCode}`).set(updatedSetData);
-                await db.collection("Products").doc(`SET_${currentSellerCode}`).delete();
+            if (hasSetDoc) {
+                try {
+                    const setProduct = setDocSnap.data();
+                    const updatedSetData = {
+                        ...setProduct,
+                        SellerCode: `SET_${newSellerCode}`,
+                        ...(withCategory && { 소분류명: newCategory }),
+                    };
+                    await db.collection("Products").doc(`SET_${newSellerCode}`).set(updatedSetData);
+                    await db.collection("Products").doc(`SET_${currentSellerCode}`).delete();
+                    console.log(`SET_ 변경 완료: SET_${currentSellerCode} → SET_${newSellerCode}`);
+                } catch (setErr) {
+                    console.error("SET_ 변경 실패:", setErr);
+                    alert(`경고: SET_${currentSellerCode} → SET_${newSellerCode} 변경 실패. 수동 확인 필요.\n${setErr.message}`);
+                }
             }
 
             const msg = withCategory
