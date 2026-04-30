@@ -115,8 +115,10 @@ function generateProductDetailsHTML(data, setData) {
                 ${
                     data.OptionDatas
                     ? Object.entries(data.OptionDatas)
-                        .sort(([, aValues], [, bValues]) => {
-                            return aValues.보여주기용옵션명.localeCompare(bValues.보여주기용옵션명);
+                        .sort(([aKey, aValues], [bKey, bValues]) => {
+                            const a = aValues.보여주기용옵션명 || aKey || '';
+                            const b = bValues.보여주기용옵션명 || bKey || '';
+                            return a.localeCompare(b);
                         })
                         .map(([optionName, optionValues], index, array) => {
                             // setData가 null이거나 OptionDatas가 없을 때 안전하게 처리
@@ -360,8 +362,11 @@ function displayProductData(data, setData,  container = document.getElementById(
     document.getElementById('updateForm').addEventListener('submit', async function (event) {
         event.preventDefault();
 
-        // 적용 완료까지 폼 입력/버튼 비활성화
         const formEl = event.target;
+        // FormData는 disabled 전에 수집해야 함 (disabled input은 FormData에서 제외됨)
+        const formData = new FormData(formEl);
+
+        // FormData 수집 후 폼 입력/버튼 비활성화
         const formInputs = formEl.querySelectorAll('input, button');
         formInputs.forEach(el => el.disabled = true);
 
@@ -369,7 +374,6 @@ function displayProductData(data, setData,  container = document.getElementById(
 
         const updatedOptionDatas = {};
         const updatedSetOptionDatas = {};
-        const formData = new FormData(formEl);
         let barcodeCheckNeeded = false;
         let hasChanges = false;
 
