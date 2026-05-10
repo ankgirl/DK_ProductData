@@ -86,7 +86,7 @@ export function groupByOrderNumber(rows) {
                 기본배송비:                 row[COLUMNS.기본배송비] || '',
                 배송메세지:                 row[COLUMNS.배송메세지] || '',
                 수취인이름:                 row[COLUMNS.수취인이름] || '',
-                운송장번호:                 row[COLUMNS.운송장번호] || '',
+                운송장번호:                 row[COLUMNS.운송장번호] || row['송장번호'] || '',
                 판매처:                     '스마트스토어',
             };
         }
@@ -96,6 +96,78 @@ export function groupByOrderNumber(rows) {
         ordersMap[orderNumber].총주문금액 += orderData.상품별총주문금액;
         ordersMap[orderNumber].총결제금액 += orderData.상품결제금액;
     });
+
+    return ordersMap;
+}
+
+// ─── 합배송 통합 (송장번호 기준) ─────────────────────────────────────────────
+/**
+ * 같은 송장번호를 가진 주문번호들을 대표 주문번호 1개로 병합.
+ * 다른 주문번호의 ProductOrders / 총수량 / 총주문금액 / 총결제금액 / 기본배송비를
+ * 대표 쪽으로 옮기고 다른 주문번호 키는 ordersMap에서 삭제.
+ *
+ * 합배송정보 필드 추가 (송장번호, 묶인주문번호들, 배송비환불금액, 안내문구).
+ * 환불 룰: K = 배송비 발생 주문 수, S = 묶음 총주문금액 합.
+ *   환불 = (K ≥ 1 AND S ≥ 30,000) ? K × 3,000 : 0
+ *
+ * @param {Object} ordersMap  groupByOrderNumber 결과 (in-place 수정)
+ * @returns {Object} 같은 ordersMap
+ */
+export function mergeCombinedShipments(ordersMap) {
+    // 송장번호별 주문번호 수집
+    const byInvoice = {};
+    for (const orderNumber in ordersMap) {
+        const inv = (ordersMap[orderNumber].운송장번호 || '').trim();
+        if (!inv) continue;
+        if (!byInvoice[inv]) byInvoice[inv] = [];
+        byInvoice[inv].push(orderNumber);
+    }
+
+    for (const inv in byInvoice) {
+        const orderNumbers = byInvoice[inv];
+        if (orderNumbers.length < 2) continue;   // 합배송 아님
+
+        orderNumbers.sort();                     // 대표 = 사전순 첫 번째
+        const repId = orderNumbers[0];
+        const rep   = ordersMap[repId];
+
+        // 환불 계산용 K(배송비 발생 건수), S(상품 정가합 = 엑셀 G열 합)
+        // 시스템 내부 '총주문금액' 필드는 사실 결제금액 합이라 사용 불가 → ProductOrders의 상품주문금액(=G) 직접 합산
+        let K = 0;
+        let S = 0;
+        orderNumbers.forEach(no => {
+            const o = ordersMap[no];
+            if ((parseFloat(o.기본배송비) || 0) > 0) K++;
+            Object.values(o.ProductOrders).forEach(p => {
+                S += parseFloat(p.상품주문금액) || 0;
+            });
+        });
+
+        // 다른 주문번호의 데이터를 대표로 병합
+        for (let i = 1; i < orderNumbers.length; i++) {
+            const other = ordersMap[orderNumbers[i]];
+            for (const pon in other.ProductOrders) {
+                rep.ProductOrders[pon] = other.ProductOrders[pon];
+            }
+            rep.총수량     += other.총수량;
+            rep.총주문금액 += other.총주문금액;
+            rep.총결제금액 += other.총결제금액;
+            rep.기본배송비  = (parseFloat(rep.기본배송비) || 0) + (parseFloat(other.기본배송비) || 0);
+            delete ordersMap[orderNumbers[i]];
+        }
+
+        const refund  = (K >= 1 && S >= 30000) ? K * 3000 : 0;
+        const message = refund > 0
+            ? `합배송 ${orderNumbers.length}건 묶음 (송장 ${inv}) — 배송비 ${refund.toLocaleString()}원 환불 필요`
+            : `합배송 ${orderNumbers.length}건 묶음 (송장 ${inv}) — 배송비 환불 불필요`;
+
+        rep.합배송정보 = {
+            송장번호:       inv,
+            묶인주문번호들: orderNumbers,
+            배송비환불금액: refund,
+            안내문구:       message,
+        };
+    }
 
     return ordersMap;
 }
@@ -230,14 +302,18 @@ async function processOrderDetails(orderDetails, batch) {
     );
     orderDetails.총수량 = itemcount;
 
-    const firstOrder  = orderDetails.ProductOrders[Object.keys(orderDetails.ProductOrders)[0]];
-    const orderDocRef = firebase.firestore().collection('Orders').doc(firstOrder.주문번호);
+    // doc id: 합배송이면 대표 주문번호, 단일이면 첫 ProductOrder의 주문번호
+    const docId = orderDetails.합배송정보
+        ? orderDetails.합배송정보.묶인주문번호들[0]
+        : orderDetails.ProductOrders[Object.keys(orderDetails.ProductOrders)[0]].주문번호;
+    const orderDocRef = firebase.firestore().collection('Orders').doc(docId);
     batch.set(orderDocRef, orderDetails, { merge: true });
 }
 
 // ─── Firebase 연동: 전체 주문 처리 ──────────────────────────────────────────
 async function processOrders(orders, messageDiv, orderDropdown) {
     const ordersMap = groupByOrderNumber(orders);
+    mergeCombinedShipments(ordersMap);   // 같은 송장번호 = 합배송 → 대표 주문번호로 통합
     const db        = firebase.firestore();
     const batch     = db.batch();
 

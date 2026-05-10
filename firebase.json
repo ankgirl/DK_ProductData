@@ -24,7 +24,10 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "**/manage_categories.html",
+      "**/view_by_category.html",
+      "**/category_audit.html"
     ],
     "rewrites": [
       {

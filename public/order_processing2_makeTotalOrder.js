@@ -24,7 +24,8 @@ export function buildTotalOrderData(orders) {
         서비스제품금액: 0,
     };
 
-    orders.forEach(order => {
+    orders.forEach((order, key) => {
+        if (key === TOTAL_ORDER_NUMBER) return;   // 통합주문 자기 자신 제외 (수량 2배 방지)
         Object.values(order.ProductOrders).forEach(productOrder => {
             const barcode = productOrder.바코드;
             if (!barcode) return;

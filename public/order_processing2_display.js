@@ -73,6 +73,19 @@ export function renderOrderSummary(orderData, orderNumber, container, totalCost,
     fillField(clone, '총결제금액',           orderData.총결제금액);
     fillField(clone, '주문원가합산금액',     totalCost);
 
+    // 합배송 안내 (있을 때만 표시) — 주문번호 h3 바로 아래 삽입
+    if (orderData.합배송정보) {
+        const info   = orderData.합배송정보;
+        const notice = document.createElement('div');
+        notice.className = 'combined-shipment-notice';
+        notice.style.cssText = 'background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:10px 14px; margin:6px 0 10px; font-size:14px; color:#856404;';
+        notice.innerHTML = `<strong>📦 ${info.안내문구}</strong><br>묶인 주문번호: ${(info.묶인주문번호들 || []).join(', ')}`;
+        const h3 = clone.querySelector('h3');
+        if (h3 && h3.parentNode) {
+            h3.parentNode.insertBefore(notice, h3.nextSibling);
+        }
+    }
+
     container.innerHTML = '';
     container.appendChild(clone);
 }
