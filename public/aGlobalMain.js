@@ -232,36 +232,93 @@ export function updateOrderProductService (orderNumber, productService) {
     console.log(order.productService)
 }
 
+// --- 바코드 중복-셀러코드 이메일 알림 ---
+const NOTIFY_DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
+let _notifyCfgCache;
+
+async function getNotifyConfig() {
+    if (_notifyCfgCache !== undefined) return _notifyCfgCache;
+    try {
+        const mod = await import('./notifyConfig.js');
+        const cfg = mod.NOTIFY_CONFIG;
+        _notifyCfgCache = (cfg && cfg.EMAILJS_SERVICE_ID && cfg.EMAILJS_TEMPLATE_ID && cfg.EMAILJS_PUBLIC_KEY) ? cfg : null;
+    } catch {
+        _notifyCfgCache = null;
+    }
+    return _notifyCfgCache;
+}
+
+async function notifyDuplicateBarcode(barcode, matches) {
+    const cfg = await getNotifyConfig();
+    if (!cfg) return;
+    try {
+        const key = `notify_dup_${barcode}`;
+        const last = localStorage.getItem(key);
+        if (last && Date.now() - Number(last) < NOTIFY_DEDUP_TTL_MS) return;
+        localStorage.setItem(key, String(Date.now()));
+    } catch {}
+    const sellerList = matches.map(m => `${m.sellerCode}${m.option ? `[${m.option}]` : '(본품)'}`).join(' / ');
+    try {
+        await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                service_id: cfg.EMAILJS_SERVICE_ID,
+                template_id: cfg.EMAILJS_TEMPLATE_ID,
+                user_id: cfg.EMAILJS_PUBLIC_KEY,
+                template_params: {
+                    to_email: cfg.RECIPIENT_EMAIL,
+                    barcode,
+                    match_count: matches.length,
+                    seller_codes: sellerList,
+                    page_url: location.href,
+                    timestamp: new Date().toLocaleString('ko-KR'),
+                },
+            }),
+        });
+    } catch (e) {
+        console.warn('[notifyDuplicateBarcode] 발송 실패:', e);
+    }
+}
+
 /**
  * 바코드를 기준으로 제품 데이터를 검색하는 함수
  * @param {string} barcode - 검색할 바코드 값
  * @returns {Object|null} - 해당 바코드를 가진 제품 데이터 (옵션 포함)
  */
 export async function getProductByBarcode(barcode) {
-    
+
     if (!productMap) {
         productMap = await reInitializeProductMap()
     }
 
-    // Map을 순회하며 바코드 확인
+    const matches = [];
     for (let [id, data] of productMap.entries()) {
-        // 제품의 바코드 확인
         if (data.Barcode === barcode) {
-            return { id, ...data, matchedOption: null };
+            matches.push({ id, sellerCode: data.SellerCode || id, data, option: null });
+            continue;
         }
-
-        // 각 옵션의 바코드 확인
         if (data.OptionDatas) {
             for (let option in data.OptionDatas) {
                 if (data.OptionDatas[option].바코드 === barcode) {
-                    console.warn(`바코드 ${barcode}`);
-                    return { id, ...data, matchedOption: option, GroupOptions: data.GroupOptions };
+                    matches.push({ id, sellerCode: data.SellerCode || id, data, option });
                 }
             }
         }
     }
 
-    console.warn(`바코드 ${barcode}에 해당하는 제품을 찾을 수 없습니다.`);
-    return null;
+    if (matches.length === 0) {
+        console.warn(`바코드 ${barcode}에 해당하는 제품을 찾을 수 없습니다.`);
+        return null;
+    }
+
+    const uniqueSellerCodes = new Set(matches.map(m => m.sellerCode));
+    if (uniqueSellerCodes.size >= 2) {
+        console.warn(`바코드 ${barcode} 다중 셀러코드 감지:`, [...uniqueSellerCodes]);
+        notifyDuplicateBarcode(barcode, matches);
+    }
+
+    const first = matches[0];
+    return { id: first.id, ...first.data, matchedOption: first.option, GroupOptions: first.data.GroupOptions };
 }
 
