@@ -65,6 +65,10 @@ node_modules/
 # dotenv environment variables file
 .env
 public/firebaseConfig.js
+public/notifyConfig.js
 
 # Claude Code local settings
 .claude/
+
+# 진단/임시 스크립트, 분석 결과 (메인 코드와 분리, 절대 커밋 X)
+_scratch/
