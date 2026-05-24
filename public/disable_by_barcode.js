@@ -5,19 +5,29 @@ const API_BASE = 'https://fastapi-inventory-689177215560.asia-northeast3.run.app
 let currentSellerCode = null;
 
 document.addEventListener("DOMContentLoaded", function () {
-    const searchForm = document.getElementById("searchForm");
+    const barcodeForm = document.getElementById("searchByBarcodeForm");
+    const sellerCodeForm = document.getElementById("searchBySellerCodeForm");
     const barcodeInput = document.getElementById("barcode");
+    const sellerCodeInput = document.getElementById("sellerCode");
     const disableArea = document.getElementById("disableArea");
     const disableBtn = document.getElementById("disableBtn");
 
     barcodeInput.focus();
 
-    searchForm.addEventListener("submit", async function (event) {
+    barcodeForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         let barcode = barcodeInput.value;
         barcode = refineInputValue(barcode);
         await searchProductByBarcode(barcode);
         barcodeInput.value = '';
+        barcodeInput.focus();
+    });
+
+    sellerCodeForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        let sellerCode = sellerCodeInput.value.trim();
+        await searchAndDisplayBySellerCode(sellerCode);
+        sellerCodeInput.value = '';
         barcodeInput.focus();
     });
 
@@ -94,8 +104,68 @@ async function searchProductByBarcode(barcode) {
     }
 }
 
+async function searchAndDisplayBySellerCode(sellerCode) {
+    const resultDiv = document.getElementById("result");
+    const disableArea = document.getElementById("disableArea");
+    const messageDiv = document.getElementById("message");
+    messageDiv.innerHTML = "";
+
+    if (sellerCode.includes("SET_")) {
+        sellerCode = sellerCode.replace("SET_", "");
+    }
+
+    try {
+        const docRef = window.db.collection("Products").doc(sellerCode);
+        const setDocRef = window.db.collection("Products").doc("SET_" + sellerCode);
+        const [docSnap, setDocSnap] = await Promise.all([docRef.get(), setDocRef.get()]);
+
+        const productData = docSnap.exists ? docSnap.data() : null;
+        const setProductData = setDocSnap.exists ? setDocSnap.data() : null;
+
+        if (productData) {
+            currentSellerCode = sellerCode;
+            displayProductData(productData, setProductData);
+            disableArea.style.display = "block";
+        } else {
+            resultDiv.innerHTML = "<p>No such product found!</p>";
+            disableArea.style.display = "none";
+            currentSellerCode = null;
+        }
+    } catch (error) {
+        console.error("Error searching product:", error);
+        resultDiv.innerHTML = "<p>Error getting document</p>";
+        disableArea.style.display = "none";
+        currentSellerCode = null;
+    }
+}
+
+async function setAllCountsToZero(sellerCode) {
+    const db = window.db;
+
+    const productDoc = await db.collection('Products').doc(sellerCode).get();
+    if (productDoc.exists) {
+        const optionDatas = productDoc.data().OptionDatas;
+        for (const optionName in optionDatas) {
+            optionDatas[optionName].Counts = 0;
+        }
+        await db.collection('Products').doc(sellerCode).update({ OptionDatas: optionDatas });
+        console.log(`Firestore 재고 0 처리 완료: ${sellerCode}`);
+    }
+
+    const setSellerCode = "SET_" + sellerCode;
+    const setDoc = await db.collection('Products').doc(setSellerCode).get();
+    if (setDoc.exists && setDoc.data().OptionDatas) {
+        const setOptionDatas = setDoc.data().OptionDatas;
+        for (const optionName in setOptionDatas) {
+            setOptionDatas[optionName].Counts = 0;
+        }
+        await db.collection('Products').doc(setSellerCode).update({ OptionDatas: setOptionDatas });
+        console.log(`Firestore 재고 0 처리 완료: ${setSellerCode}`);
+    }
+}
+
 async function disableAllOptions(sellerCode) {
-    const url = `${API_BASE}/disable-all-options`;
+    const url = `${API_BASE}/api/inventory/disable-all-options`;
 
     const response = await fetch(url, {
         method: "POST",
@@ -107,6 +177,7 @@ async function disableAllOptions(sellerCode) {
 
     if (response.ok) {
         console.log("판매중지 성공:", result);
+        await setAllCountsToZero(sellerCode);
         alert(`성공: ${result.message} (${result.seller_code})`);
         return result;
     } else {
