@@ -1,6 +1,6 @@
 
 
-async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
+async function sendInventoryUpdate(sellerCode, optionsData, setStock, statusType) {
     // 1. FastAPI 서버의 엔드포인트 URL 설정 (서버가 로컬에서 실행 중이라고 가정)
     //const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
     //const API_URL = 'http://39.122.46.169:8000/api/inventory/batch-update-inventory';
@@ -20,7 +20,10 @@ async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
         options: transformedOptions,
         set_stock_quantity: counts // <-- 새 필드 추가
     };
-    
+    if (statusType) {
+        requestPayload.status_type = statusType;
+    }
+
     payloadList.push(requestPayload);
 
     if (setStock && setStock["옵션1"] && setStock["옵션1"].Counts) {
@@ -39,6 +42,9 @@ async function sendInventoryUpdate(sellerCode, optionsData, setStock) {
         options: [], // 빈 값으로 전송
         set_stock_quantity: counts // <-- 새 필드 추가
     };
+    if (statusType) {
+        requestSetPayload.status_type = statusType;
+    }
     payloadList.push(requestSetPayload);
 
     console.log("전송할 데이터:");

@@ -147,7 +147,20 @@ function generateProductDetailsHTML(data, setData) {
                 }
                 </tbody>
             </table>
-            <div style="height: 40px;"></div>
+            <div style="height: 20px;"></div>
+            <div style="margin-bottom: 15px; font-size: 1.1em; border: 1px solid #ccc; padding: 10px; display: inline-block; border-radius: 5px;">
+                <strong>판매 상태:</strong>
+                <label style="margin-left: 15px;">
+                    <input type="radio" name="statusType" value="SALE"> 판매중
+                </label>
+                <label style="margin-left: 15px;">
+                    <input type="radio" name="statusType" value="SUSPENSION"> 판매중지
+                </label>
+                <label style="margin-left: 15px; color: #888;">
+                    <input type="radio" name="statusType" value="" checked> 변경 안 함
+                </label>
+            </div>
+            <div style="height: 10px;"></div>
             <button type="submit" style="width: 200px; height: 40px; font-size: 1.1em;">적용</button>
             <div style="height: 40px;"></div>
         </form>
@@ -516,8 +529,12 @@ function displayProductData(data, setData,  container = document.getElementById(
         ensureNonNegativeCounts(updatedOptionDatas, updatedSetOptionDatas); // <--- 리팩토링된 함수 호출
 
 
+        // 판매 상태 값 읽기
+        const statusTypeRadio = formEl.querySelector('input[name="statusType"]:checked');
+        const statusType = statusTypeRadio ? statusTypeRadio.value : '';
+
         // 1. 재고 업데이트를 먼저 수행 (변경사항이 있는 경우)
-        await sendInventoryUpdate(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas);
+        await sendInventoryUpdate(data.SellerCode, updatedOptionDatas, updatedSetOptionDatas, statusType);
 
         // 2. 바코드 중복 확인이 필요한 경우 처리
         if (barcodeCheckNeeded) {
