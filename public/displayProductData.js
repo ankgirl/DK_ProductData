@@ -408,7 +408,11 @@ function displayProductData(data, setData,  container = document.getElementById(
 
         for (let [key, value] of formData.entries()) {
             if (key === 'statusType') continue;
-            const [optionName, field] = key.split('_');
+            const suffixes = ['_newCount', '_newSET_Counts', '_newBarcode'];
+            const suffix = suffixes.find(s => key.endsWith(s));
+            if (!suffix) continue;
+            const optionName = key.slice(0, -suffix.length);
+            const field = suffix === '_newSET_Counts' ? 'newSET' : suffix.slice(1);
 
             if (newSetCountChanged) {
                 document.getElementById(`${optionName}_SET_Counts`).textContent = newSetCount;
@@ -497,7 +501,11 @@ function displayProductData(data, setData,  container = document.getElementById(
             const optionTotals = {};
 
             for (let [key, value] of formData.entries()) {
-                const [optionName, field] = key.split('_');
+                const suffixes2 = ['_newCount', '_newSET_Counts', '_newBarcode'];
+                const suffix2 = suffixes2.find(s => key.endsWith(s));
+                if (!suffix2) continue;
+                const optionName = key.slice(0, -suffix2.length);
+                const field = suffix2 === '_newSET_Counts' ? 'newSET' : suffix2.slice(1);
                 if (!optionTotals[optionName]) {
                     optionTotals[optionName] = { newCount: 0, newSetCount: 0 };
                 }
@@ -529,9 +537,8 @@ function displayProductData(data, setData,  container = document.getElementById(
         ensureNonNegativeCounts(updatedOptionDatas, updatedSetOptionDatas); // <--- 리팩토링된 함수 호출
 
 
-        // 판매 상태 값 읽기
-        const statusTypeRadio = formEl.querySelector('input[name="statusType"]:checked');
-        const statusType = statusTypeRadio ? statusTypeRadio.value : '';
+        // 판매 상태 값 읽기 (formData는 disabled 전에 수집되었으므로 안전)
+        const statusType = formData.get('statusType') || '';
 
         // 판매상태만 변경하고 수량 변경이 없는 경우, 현재 재고 데이터를 채워서 전송
         if (statusType && Object.keys(updatedOptionDatas).length === 0) {
@@ -584,7 +591,11 @@ function displayProductData(data, setData,  container = document.getElementById(
 
     document.querySelectorAll('#updateForm input').forEach(input => {
         input.addEventListener('input', function () {
-            const [optionName, field] = this.name.split('_');
+            const suffixes3 = ['_newCount', '_newSET_Counts', '_newBarcode', '_increaseCount', '_decreaseCount'];
+            const suffix3 = suffixes3.find(s => this.name.endsWith(s));
+            if (!suffix3) return;
+            const optionName = this.name.slice(0, -suffix3.length);
+            const field = suffix3 === '_newSET_Counts' ? 'newSET' : suffix3.slice(1);
             if (['increaseCount', 'decreaseCount'].includes(field)) {
                 const newCountInput = document.querySelector(`input[name="${optionName}_newCount"]`);
                 if (newCountInput) {

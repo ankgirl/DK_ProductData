@@ -18,7 +18,7 @@ async function sendInventoryUpdate(sellerCode, optionsData, setStock, statusType
     const requestPayload = {
         seller_code: sellerCode,
         options: transformedOptions,
-        set_stock_quantity: counts // <-- 새 필드 추가
+        set_stock_quantity: counts // <-- -9999 sentinel (서버 약속값)
     };
     if (statusType) {
         requestPayload.status_type = statusType;
@@ -29,7 +29,7 @@ async function sendInventoryUpdate(sellerCode, optionsData, setStock, statusType
     if (setStock && setStock["옵션1"] && setStock["옵션1"].Counts) {
         counts = setStock["옵션1"].Counts;
     }
-    else{        
+    else{
         counts = 0;
     }
 
