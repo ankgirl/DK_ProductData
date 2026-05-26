@@ -1,0 +1,289 @@
+<!-- category_audit.html  (정적 목업) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>카테고리 미부여 검수</title>
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    /* ====== 좌측 네비바 고정 — 우측만 독립 스크롤 ====== */
+    html, body { height: 100vh; overflow: hidden; }
+    #navbar { height: 100vh; overflow-y: auto; flex-shrink: 0; box-sizing: border-box; }
+    .main-content { height: 100vh; overflow-y: auto; }
+
+    .audit-wrap { padding: 16px; }
+    .audit-toolbar {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 14px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .audit-toolbar .stat {
+      font-size: 14px;
+      color: #444;
+    }
+    .audit-toolbar .stat strong { color: #c0392b; font-size: 18px; }
+    .audit-toolbar select {
+      width: auto;
+      padding: 6px 8px;
+      font-size: 13px;
+      margin-bottom: 0;
+    }
+    .audit-toolbar label {
+      font-size: 13px;
+      width: auto;
+      margin-bottom: 0;
+    }
+    .audit-toolbar button {
+      width: auto;
+      margin-bottom: 0;
+      padding: 8px 14px;
+      font-size: 14px;
+      background: #009879;
+      color: #fff;
+      border: 1px solid #009879;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .audit-toolbar button:disabled {
+      background: #ccc;
+      border-color: #ccc;
+      cursor: not-allowed;
+    }
+    .audit-toolbar .spacer { flex: 1; }
+
+    .audit-table {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .audit-table table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .audit-table th {
+      background: #f4f4f4;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid #ddd;
+      font-size: 13px;
+      color: #555;
+    }
+    .audit-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
+    .audit-table tr:hover { background: #fafafa; }
+    .audit-table .col-check { width: 30px; text-align: center; }
+    .audit-table .col-img { width: 70px; text-align: center; }
+    .audit-table .col-img img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
+    .audit-table .col-code { width: 130px; font-family: 'Consolas', monospace; font-size: 13px; }
+    .audit-table .col-code a { color: #009879; text-decoration: none; }
+    .audit-table .col-name { color: #333; }
+    .audit-table .col-class { font-size: 12px; color: #666; max-width: 250px; }
+    .audit-table .col-class.noisy { color: #c0392b; font-style: italic; }
+    .audit-table .col-reason {
+      width: 150px;
+      font-size: 12px;
+      color: #888;
+    }
+    .audit-table .col-reason .reason-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      background: #fde8e8;
+      color: #c0392b;
+    }
+    .audit-table .col-reason .reason-tag.empty { background: #fff4e0; color: #b88600; }
+    .audit-table .col-reason .reason-tag.ambiguous { background: #e8f0ff; color: #4458a0; }
+    .audit-table .col-action {
+      width: 280px;
+    }
+    .audit-table .col-action select {
+      width: 70%;
+      font-size: 13px;
+      padding: 5px;
+      margin-bottom: 0;
+    }
+    .audit-table .col-action button {
+      width: auto;
+      margin-bottom: 0;
+      padding: 5px 10px;
+      font-size: 12px;
+      background: #009879;
+      color: #fff;
+      border: 1px solid #009879;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .filter-bar .chip {
+      padding: 5px 12px;
+      border-radius: 14px;
+      background: #f0f0f0;
+      cursor: pointer;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+    .filter-bar .chip.active {
+      background: #009879;
+      color: #fff;
+      border-color: #009879;
+    }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="main-content">
+    <div class="audit-wrap">
+      <h2>⚠️ 카테고리 미부여 검수</h2>
+      <p style="color:#666;font-size:14px;margin:4px 0 16px 0;">
+        자동 매핑이 실패했거나 분류 정보가 부족한 상품입니다. 각 상품에 직접 카테고리를 지정해주세요.
+      </p>
+
+      <div class="audit-toolbar">
+        <span class="stat">미부여: <strong>931</strong>개 / 전체 3,049개</span>
+        <span class="spacer"></span>
+        <select id="bulkCat">
+          <option value="">-- 일괄 부여 카테고리 --</option>
+          <option value="kind_masking">📄 마스킹테이프</option>
+          <option value="kind_sticker">📄 스티커</option>
+          <option value="kind_sticker_book">📄 스티커북</option>
+          <option value="kind_memo">📄 메모지</option>
+          <option value="kind_bg">📄 배경지, 소재지</option>
+          <option value="kind_pixel">📄 픽셀스티커, 픽셀컬러링</option>
+          <option value="supplies">📄 다꾸용품</option>
+          <option value="etc_misc">📄 기타</option>
+        </select>
+        <button id="bulkApplyBtn" disabled>선택한 항목에 일괄 부여</button>
+      </div>
+
+      <div class="filter-bar">
+        <span class="chip active" data-filter="all">전체 (931)</span>
+        <span class="chip" data-filter="empty">분류 비어있음 (812)</span>
+        <span class="chip" data-filter="noisy">노이즈 (콤마 나열) (87)</span>
+        <span class="chip" data-filter="ambiguous">다이어리 모호 (32)</span>
+      </div>
+
+      <div class="audit-table">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="checkAll"></th>
+              <th class="col-img">이미지</th>
+              <th class="col-code">셀러코드</th>
+              <th class="col-name">상품명</th>
+              <th class="col-class">현재 분류값</th>
+              <th class="col-reason">실패 사유</th>
+              <th class="col-action">카테고리 부여</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="./loadNavbar.js"></script>
+  <script>
+    const MOCK = [
+      { code: "20231211_0004", name: "빈티지 꽃 식물 PET 투명스티커", classv: "감성스티커,꽃스티커,다꾸스티커,다이어리꾸미기스티커,다꾸하루", reason: "noisy" },
+      { code: "20240412_0101", name: "흑백 플라워 레터링 레이어드 꽃과 식물 홀로그램 조개광", classv: "", reason: "empty" },
+      { code: "20240624_0101", name: "로드 중...", classv: "1. 마스킹테이프", reason: "empty" },
+      { code: "cat_0102",      name: "M5 투명 컬러 루즈리프 핸드북 5홀 캔디", classv: "10. 다이어리", reason: "ambiguous" },
+      { code: "room_0301",     name: "방꾸미기 씬스티커 리빙룸", classv: "", reason: "empty" },
+      { code: "64_0301",       name: "마카롱 다이어리 A6", classv: "10. 다이어리", reason: "ambiguous" },
+      { code: "20231001_0004", name: "(상품명 없음)", classv: "", reason: "empty" },
+      { code: "65_0102",       name: "감성 종이스티커 빈티지", classv: "감성스티커,종이스티커,다꾸하루", reason: "noisy" },
+    ];
+
+    const REASON_LABEL = {
+      empty:     { text: "분류 비어있음", cls: "empty" },
+      noisy:     { text: "콤마 나열 노이즈", cls: "" },
+      ambiguous: { text: "다이어리 모호", cls: "ambiguous" }
+    };
+
+    const CATS = [
+      ["kind_masking", "마스킹테이프"],
+      ["kind_sticker", "스티커"],
+      ["kind_sticker_book", "스티커북"],
+      ["kind_memo", "메모지"],
+      ["kind_bg", "배경지, 소재지"],
+      ["kind_pixel", "픽셀스티커, 픽셀컬러링"],
+      ["kind_3d_scene_book", "3D 방꾸미기 > 스티커북"],
+      ["kind_3d_scene_set", "3D 방꾸미기 > 세트상품"],
+      ["kind_3d_scene_single", "3D 방꾸미기 > 개별상품"],
+      ["diary_m5_paper", "M5 다이어리 속지"],
+      ["diary_m5_cover", "M5 다이어리 커버"],
+      ["diary_a6", "A6 다이어리"],
+      ["supplies", "다꾸용품"],
+      ["etc_misc", "기타"]
+    ];
+
+    function renderRows() {
+      const tbody = document.getElementById("rows");
+      tbody.innerHTML = MOCK.map(p => {
+        const r = REASON_LABEL[p.reason];
+        const hue = (p.code.charCodeAt(0) * 7 + p.code.length * 13) % 360;
+        return `
+          <tr>
+            <td class="col-check"><input type="checkbox" class="row-chk"></td>
+            <td class="col-img"><img src="https://placehold.co/60x60/hsl/${hue},60%25,75%25/fff?text=${encodeURIComponent(p.code.slice(0,6))}" alt=""></td>
+            <td class="col-code"><a href="search_by_seller_code.html?sellerCode=${encodeURIComponent(p.code)}" target="_blank">${p.code}</a></td>
+            <td class="col-name">${p.name || "<i style='color:#aaa'>(상품명 없음)</i>"}</td>
+            <td class="col-class ${p.reason === 'noisy' ? 'noisy' : ''}">${p.classv || "<i style='color:#bbb'>(없음)</i>"}</td>
+            <td class="col-reason"><span class="reason-tag ${r.cls}">${r.text}</span></td>
+            <td class="col-action">
+              <select class="row-cat">
+                <option value="">-- 카테고리 선택 --</option>
+                ${CATS.map(([id, label]) => `<option value="${id}">${label}</option>`).join("")}
+              </select>
+              <button>부여</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("checkAll").addEventListener("change", (e) => {
+      document.querySelectorAll(".row-chk").forEach(c => c.checked = e.target.checked);
+      updateBulkBtn();
+    });
+
+    function updateBulkBtn() {
+      const anyChecked = !!document.querySelector(".row-chk:checked");
+      const catSelected = !!document.getElementById("bulkCat").value;
+      document.getElementById("bulkApplyBtn").disabled = !(anyChecked && catSelected);
+    }
+    document.getElementById("bulkCat").addEventListener("change", updateBulkBtn);
+
+    document.querySelectorAll(".filter-bar .chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".filter-bar .chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+      });
+    });
+
+    renderRows();
+    document.querySelectorAll(".row-chk").forEach(c => c.addEventListener("change", updateBulkBtn));
+  </script>
+</body>
+</html>

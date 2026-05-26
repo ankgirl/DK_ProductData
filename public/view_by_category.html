@@ -1,0 +1,570 @@
+<!-- view_by_category.html  (정적 목업 — Firestore 연동 전 룩 확인용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>카테고리별 상품 보기</title>
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    /* ====== 좌측 네비바 고정 — 우측만 독립 스크롤 ====== */
+    html, body { height: 100vh; overflow: hidden; }
+    #navbar { height: 100vh; overflow-y: auto; flex-shrink: 0; box-sizing: border-box; }
+    .main-content { height: 100vh; overflow-y: auto; }
+
+    /* ====== 카테고리 페이지 전용 스타일 ====== */
+    .cat-layout {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 16px;
+    }
+    .cat-tree {
+      flex: 0 0 320px;
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 12px;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      position: sticky;
+      top: 16px;
+    }
+    .cat-tree h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #333;
+      border-bottom: 2px solid #009879;
+      padding-bottom: 6px;
+    }
+    .cat-tree ul {
+      list-style: none;
+      padding-left: 12px;
+      margin: 2px 0;
+    }
+    .cat-tree > ul {
+      padding-left: 0;
+    }
+    .cat-tree li {
+      list-style: none;
+    }
+    .cat-tree .row {
+      padding: 5px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      word-break: keep-all;
+    }
+    .cat-tree .row:hover {
+      background: #eef7f4;
+    }
+    .cat-tree .row .name {
+      flex: 1;
+      min-width: 0;
+    }
+    .cat-tree li.is-group > .row {
+      font-weight: 600;
+      color: #444;
+    }
+    .cat-tree li.is-leaf > .row {
+      color: #555;
+    }
+    .cat-tree .row.active {
+      background: #009879;
+      color: #fff;
+    }
+    .cat-tree .row.active .count-badge {
+      background: rgba(255,255,255,0.25);
+      color: #fff;
+    }
+    .count-badge {
+      background: #ddd;
+      color: #555;
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+    .count-badge.warn {
+      background: #f4d160;
+      color: #5a4a00;
+    }
+    .count-badge.over {
+      background: #ff6b6b;
+      color: #fff;
+    }
+    .cat-tree li.unmapped > .row {
+      color: #c0392b;
+      font-style: italic;
+    }
+
+    .cat-main {
+      flex: 1;
+      min-width: 0;
+    }
+    .cat-toolbar {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .cat-breadcrumb {
+      font-size: 18px;
+      font-weight: 600;
+      color: #222;
+    }
+    .cat-breadcrumb .sep {
+      color: #999;
+      margin: 0 6px;
+      font-weight: 400;
+    }
+    .cat-count {
+      color: #666;
+      font-size: 14px;
+    }
+    .cat-count.warn { color: #b88600; font-weight: 600; }
+    .cat-count.over { color: #c0392b; font-weight: 600; }
+    .cat-toolbar .spacer { flex: 1; }
+    .cat-toolbar button {
+      padding: 8px 14px;
+      font-size: 14px;
+      border: 1px solid #009879;
+      background: #009879;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      width: auto;
+      margin-bottom: 0;
+    }
+    .cat-toolbar button:hover { background: #007a63; }
+    .cat-toolbar button.secondary {
+      background: #fff;
+      color: #009879;
+    }
+    .cat-toolbar button.secondary:hover { background: #eef7f4; }
+    .cat-toolbar label {
+      font-size: 14px;
+      width: auto;
+      margin-bottom: 0;
+    }
+
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .product-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .product-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+    .product-card .img-wrap {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #f4f4f4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .product-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .product-card .img-placeholder {
+      color: #bbb;
+      font-size: 12px;
+    }
+    .product-card .seller-code {
+      padding: 8px 10px;
+      font-family: 'Consolas', 'Menlo', monospace;
+      font-size: 13px;
+      text-align: center;
+      background: #fafafa;
+      border-top: 1px solid #eee;
+    }
+    .product-card .seller-code a {
+      color: #009879;
+      text-decoration: none;
+    }
+    .product-card .seller-code a:hover { text-decoration: underline; }
+    .product-card .menu-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.85);
+      border: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      color: #555;
+    }
+    .product-card .menu-btn:hover { background: #fff; }
+
+    .copy-feedback {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #009879;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    .copy-feedback.show { opacity: 1; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="main-content">
+    <div class="cat-layout">
+      <!-- 좌측 카테고리 트리 -->
+      <aside class="cat-tree">
+        <h3>📁 카테고리</h3>
+        <ul id="treeRoot">
+          <!-- 트리는 JS가 렌더 -->
+        </ul>
+      </aside>
+
+      <!-- 우측 메인 -->
+      <main class="cat-main">
+        <div class="cat-toolbar">
+          <span class="cat-breadcrumb" id="breadcrumb">카테고리를 선택하세요</span>
+          <span class="cat-count" id="countText"></span>
+          <span class="spacer"></span>
+          <label>
+            <input type="checkbox" id="unmappedToggle" style="width:auto;margin-right:4px;">
+            미부여만 보기
+          </label>
+          <button class="secondary" id="copyBtn" disabled>📋 셀러코드 콤마 복사</button>
+        </div>
+
+        <div class="cat-grid" id="grid">
+          <div class="empty-state">왼쪽 카테고리를 클릭하세요</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="copy-feedback" id="copyFeedback">복사되었습니다</div>
+
+  <!-- Firebase는 추후 연결 — 목업은 mock 데이터로 동작 -->
+  <script src="./loadNavbar.js"></script>
+  <script>
+    // ================== MOCK DATA (실제로는 Firestore 에서 가져옴) ==================
+    const MOCK_TREE = {
+      rootOrder: ["kind","diary","supplies","etc"],
+      nodes: {
+        "kind": { name: "제품종류별", kind: "group" },
+        "kind_3d_scene":  { parent: "kind", name: "3D 방꾸미기 씬스티커", kind: "group" },
+        "kind_3d_scene_book":     { parent: "kind_3d_scene", name: "스티커북",       kind: "leaf" },
+        "kind_3d_scene_set":      { parent: "kind_3d_scene", name: "세트상품",       kind: "leaf" },
+        "kind_3d_scene_single":   { parent: "kind_3d_scene", name: "개별상품",       kind: "leaf" },
+        "kind_3d_scene_supplies": { parent: "kind_3d_scene", name: "방꾸미기 용품",  kind: "leaf" },
+        "kind_3d_dome":  { parent: "kind", name: "3D 올록볼록 입체", kind: "group" },
+        "kind_3d_dome_single": { parent: "kind_3d_dome", name: "개별상품", kind: "leaf" },
+        "kind_3d_dome_set":    { parent: "kind_3d_dome", name: "세트상품", kind: "leaf" },
+        "kind_pixel":        { parent: "kind", name: "픽셀스티커, 픽셀컬러링", kind: "leaf" },
+        "kind_sticker_book": { parent: "kind", name: "스티커북",       kind: "leaf" },
+        "kind_bg":           { parent: "kind", name: "배경지, 소재지", kind: "leaf" },
+        "kind_memo":         { parent: "kind", name: "메모지",         kind: "leaf" },
+        "kind_note":         { parent: "kind", name: "수첩, 노트",     kind: "leaf" },
+        "kind_set":          { parent: "kind", name: "세트상품",       kind: "leaf" },
+        "kind_masking":      { parent: "kind", name: "마스킹테이프",   kind: "leaf" },
+        "kind_sticker":      { parent: "kind", name: "스티커",         kind: "leaf" },
+        "diary":          { name: "다이어리", kind: "group" },
+        "diary_m5":       { parent: "diary", name: "M5·5공다이어리", kind: "group" },
+        "diary_m5_cover": { parent: "diary_m5", name: "다이어리 커버", kind: "leaf" },
+        "diary_m5_paper": { parent: "diary_m5", name: "다이어리 속지", kind: "leaf" },
+        "diary_a6":       { parent: "diary", name: "A6 다이어리",      kind: "leaf" },
+        "supplies": { name: "다꾸용품", kind: "leaf" },
+        "etc":           { name: "기타문구, 소품", kind: "group" },
+        "etc_keyring":   { parent: "etc", name: "키링·고리",      kind: "leaf" },
+        "etc_stamp":     { parent: "etc", name: "스탬프",         kind: "leaf" },
+        "etc_bookclip":  { parent: "etc", name: "북클립",         kind: "leaf" },
+        "etc_cutting":   { parent: "etc", name: "커팅보드",       kind: "leaf" },
+        "etc_phonecase": { parent: "etc", name: "아이폰케이스",   kind: "leaf" },
+        "etc_acrylic":   { parent: "etc", name: "아크릴판",       kind: "leaf" },
+        "etc_misc":      { parent: "etc", name: "기타",           kind: "leaf" }
+      }
+    };
+
+    // mock 상품 — 카테고리별로 적당히 분포
+    const MOCK_PRODUCTS = [
+      // 마스킹테이프 (250개 시뮬레이션 — 200캡 초과 보여주기)
+      ...range(1, 250).map(i => mock(`mask_${pad(i)}`, ["kind_masking"])),
+      // 스티커
+      ...range(1, 180).map(i => mock(`stk_${pad(i)}`, ["kind_sticker"])),
+      // 스티커북
+      ...range(1, 90).map(i => mock(`sbk_${pad(i)}`, ["kind_sticker_book"])),
+      // 메모지
+      ...range(1, 60).map(i => mock(`memo_${pad(i)}`, ["kind_memo"])),
+      // 3D 씬 스티커북
+      ...range(1, 25).map(i => mock(`scene_book_${pad(i)}`, ["kind_3d_scene_book"])),
+      // 3D 씬 세트
+      ...range(1, 18).map(i => mock(`scene_set_${pad(i)}`, ["kind_3d_scene_set"])),
+      // 3D 올록볼록 개별
+      ...range(1, 12).map(i => mock(`dome_${pad(i)}`, ["kind_3d_dome_single"])),
+      // 다이어리 M5 속지
+      ...range(1, 30).map(i => mock(`m5p_${pad(i)}`, ["diary_m5_paper"])),
+      // 다이어리 A6
+      ...range(1, 8).map(i => mock(`a6_${pad(i)}`, ["diary_a6"])),
+      // 다꾸용품
+      ...range(1, 45).map(i => mock(`sup_${pad(i)}`, ["supplies"])),
+      // 미부여
+      ...range(1, 22).map(i => mock(`unmap_${pad(i)}`, []))
+    ];
+
+    function pad(n) { return String(n).padStart(4, '0'); }
+    function range(a, b) { const r = []; for (let i=a;i<=b;i++) r.push(i); return r; }
+    function mock(code, cats) {
+      // mock 이미지 — 색깔만 다른 placeholder
+      const hue = (code.charCodeAt(0) * 7 + code.length * 13) % 360;
+      return {
+        SellerCode: code,
+        CategoryIds: cats,
+        대표이미지: `https://placehold.co/200x200/hsl/${hue},60%25,75%25/fff?text=${encodeURIComponent(code)}`
+      };
+    }
+
+    // ================== 트리 렌더 ==================
+    let activeNode = null;
+
+    function buildTreeMap() {
+      const childrenOf = {};
+      Object.entries(MOCK_TREE.nodes).forEach(([id, n]) => {
+        const p = n.parent || "__ROOT__";
+        if (!childrenOf[p]) childrenOf[p] = [];
+        childrenOf[p].push(id);
+      });
+      return childrenOf;
+    }
+
+    function countOf(nodeId) {
+      // 해당 노드(group이면 자식 합집합) 상품 수
+      const leafIds = collectLeafIds(nodeId);
+      const set = new Set();
+      MOCK_PRODUCTS.forEach(p => {
+        if (p.CategoryIds.some(c => leafIds.has(c))) set.add(p.SellerCode);
+      });
+      return set.size;
+    }
+
+    function collectLeafIds(nodeId) {
+      const result = new Set();
+      const walk = (id) => {
+        const n = MOCK_TREE.nodes[id];
+        if (!n) return;
+        if (n.kind === "leaf") result.add(id);
+        else (childrenMap[id] || []).forEach(walk);
+      };
+      walk(nodeId);
+      return result;
+    }
+
+    let childrenMap;
+
+    function renderTree() {
+      childrenMap = buildTreeMap();
+      const root = document.getElementById("treeRoot");
+      root.innerHTML = "";
+
+      MOCK_TREE.rootOrder.forEach(rootId => {
+        root.appendChild(renderNode(rootId));
+      });
+
+      // 미부여 가상 노드
+      const unmappedCount = MOCK_PRODUCTS.filter(p => !p.CategoryIds || p.CategoryIds.length === 0).length;
+      const li = document.createElement("li");
+      li.className = "unmapped";
+      li.dataset.id = "__UNMAPPED__";
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `<span class="name">⚠️ 미부여</span><span class="count-badge">${unmappedCount}</span>`;
+      row.addEventListener("click", (e) => { e.stopPropagation(); selectNode("__UNMAPPED__"); });
+      li.appendChild(row);
+      root.appendChild(li);
+    }
+
+    function renderNode(id) {
+      const n = MOCK_TREE.nodes[id];
+      const li = document.createElement("li");
+      li.className = n.kind === "group" ? "is-group" : "is-leaf";
+      li.dataset.id = id;
+      const cnt = countOf(id);
+      const badgeClass = cnt > 200 ? "over" : cnt > 180 ? "warn" : "";
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `<span class="name">${n.kind === "group" ? "📂" : "📄"} ${n.name}</span>
+                       <span class="count-badge ${badgeClass}">${cnt}</span>`;
+      row.addEventListener("click", (e) => { e.stopPropagation(); selectNode(id); });
+      li.appendChild(row);
+
+      const children = childrenMap[id];
+      if (children && children.length) {
+        const ul = document.createElement("ul");
+        children.forEach(cid => ul.appendChild(renderNode(cid)));
+        li.appendChild(ul);
+      }
+      return li;
+    }
+
+    function selectNode(id) {
+      activeNode = id;
+      document.querySelectorAll("#treeRoot .row").forEach(el => el.classList.remove("active"));
+      document.querySelector(`#treeRoot li[data-id="${id}"] > .row`)?.classList.add("active");
+      renderGrid();
+    }
+
+    function pathOf(id) {
+      if (id === "__UNMAPPED__") return ["미부여"];
+      const arr = [];
+      let cur = id;
+      while (cur) {
+        const n = MOCK_TREE.nodes[cur];
+        if (!n) break;
+        arr.unshift(n.name);
+        cur = n.parent;
+      }
+      return arr;
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById("grid");
+      const breadcrumb = document.getElementById("breadcrumb");
+      const countText = document.getElementById("countText");
+      const copyBtn = document.getElementById("copyBtn");
+      const unmappedToggle = document.getElementById("unmappedToggle");
+
+      let products;
+      if (activeNode === "__UNMAPPED__" || unmappedToggle.checked) {
+        products = MOCK_PRODUCTS.filter(p => !p.CategoryIds || p.CategoryIds.length === 0);
+        breadcrumb.innerHTML = `⚠️ 미부여 상품`;
+      } else if (activeNode) {
+        const leafIds = collectLeafIds(activeNode);
+        const seen = new Set();
+        products = MOCK_PRODUCTS.filter(p => {
+          if (seen.has(p.SellerCode)) return false;
+          if (p.CategoryIds.some(c => leafIds.has(c))) { seen.add(p.SellerCode); return true; }
+          return false;
+        });
+        breadcrumb.innerHTML = pathOf(activeNode).map((p,i,a) =>
+          i === a.length-1 ? `<span>${p}</span>` : `<span>${p}</span><span class="sep">›</span>`
+        ).join("");
+      } else {
+        grid.innerHTML = `<div class="empty-state">왼쪽 카테고리를 클릭하세요</div>`;
+        breadcrumb.textContent = "카테고리를 선택하세요";
+        countText.textContent = "";
+        copyBtn.disabled = true;
+        return;
+      }
+
+      const cnt = products.length;
+      let cls = "";
+      if (cnt > 200) cls = "over";
+      else if (cnt > 180) cls = "warn";
+      countText.className = "cat-count " + cls;
+      countText.textContent = `${cnt}개${cnt > 200 ? " ⚠️ 200개 초과 (스토어 카테고리 한도)" : cnt > 180 ? " (200개 임박)" : ""}`;
+
+      copyBtn.disabled = cnt === 0;
+
+      if (cnt === 0) {
+        grid.innerHTML = `<div class="empty-state">상품이 없습니다</div>`;
+        return;
+      }
+
+      grid.innerHTML = products.map(p => `
+        <div class="product-card">
+          <div class="menu-btn" title="카테고리 변경">✏️</div>
+          <div class="img-wrap">
+            ${p.대표이미지
+              ? `<img src="${p.대표이미지}" alt="${p.SellerCode}" loading="lazy">`
+              : `<div class="img-placeholder">이미지 없음</div>`}
+          </div>
+          <div class="seller-code">
+            <a href="search_by_seller_code.html?sellerCode=${encodeURIComponent(p.SellerCode)}" target="_blank">${p.SellerCode}</a>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("copyBtn").addEventListener("click", async () => {
+      const products = collectVisibleProducts();
+      const text = products.map(p => p.SellerCode).join(",");
+      try {
+        await navigator.clipboard.writeText(text);
+        showFeedback(`${products.length}개 셀러코드 복사 완료`);
+      } catch (e) {
+        // fallback
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showFeedback(`${products.length}개 셀러코드 복사 완료`);
+      }
+    });
+
+    function collectVisibleProducts() {
+      const unmappedToggle = document.getElementById("unmappedToggle");
+      if (activeNode === "__UNMAPPED__" || unmappedToggle.checked) {
+        return MOCK_PRODUCTS.filter(p => !p.CategoryIds || p.CategoryIds.length === 0);
+      }
+      const leafIds = collectLeafIds(activeNode);
+      const seen = new Set();
+      return MOCK_PRODUCTS.filter(p => {
+        if (seen.has(p.SellerCode)) return false;
+        if (p.CategoryIds.some(c => leafIds.has(c))) { seen.add(p.SellerCode); return true; }
+        return false;
+      });
+    }
+
+    function showFeedback(msg) {
+      const fb = document.getElementById("copyFeedback");
+      fb.textContent = msg;
+      fb.classList.add("show");
+      setTimeout(() => fb.classList.remove("show"), 1800);
+    }
+
+    document.getElementById("unmappedToggle").addEventListener("change", renderGrid);
+
+    // ================== 시작 ==================
+    renderTree();
+  </script>
+</body>
+</html>

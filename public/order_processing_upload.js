@@ -56,19 +56,29 @@ document.addEventListener("DOMContentLoaded", function () {
         const ordersMap = {};
         const db = firebase.firestore();
         const batch = db.batch(); // Firestore 배치 초기화
+        const now = new Date();
+        const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+        let reIdx = 0;
 
         orders.forEach(order => {
-            const orderNumber = order["주문번호"];
+            let orderNumber = order["주문번호"];
             const sellerCode = sellerType === "스마트스토어" ? order["판매자 상품코드"] : order["자체상품코드"];
             const option = (order["옵션정보"] || order["옵션"] || "").replace("선택: ", "");
-            const productOrderNumber = sellerType === "스마트스토어" ? order["상품주문번호"] : order["주문상품번호"];
+            let productOrderNumber = sellerType === "스마트스토어" ? order["상품주문번호"] : order["주문상품번호"];
             const 상품주문금액 = parseFloat(order[sellerType === "스마트스토어" ? "상품별 총 주문금액" : "상품구매금액"]) || 0;
             const 상품결제금액 = parseFloat(order[sellerType === "스마트스토어" ? "상품결제금액" : "구매가"]) || 0;
-            
+
+            if (!orderNumber) {
+                reIdx++;
+                orderNumber = `RE_${ts}_${reIdx}`;
+            }
+            if (!productOrderNumber) {
+                productOrderNumber = `${orderNumber}_1`;
+            }
 
             const orderData = {
-                상품주문번호: productOrderNumber || '',
-                주문번호: orderNumber || '',
+                상품주문번호: productOrderNumber,
+                주문번호: orderNumber,
                 SellerCode: sellerCode || '',
                 상품명: order["상품명"] || '',
                 상품수량: parseInt(order[sellerType === "스마트스토어" ? "상품 수량(출력용)" : "수량"], 10) || 0,
@@ -78,7 +88,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 서비스를위한총결제금액: 0,
                 서비스를위한총원가금액: 0,
                 총원가금액: 0,
-                할인율: (1.0 - (상품결제금액/상품주문금액)) * 100,
+                할인율: 상품주문금액 > 0 ? (1.0 - (상품결제금액/상품주문금액)) * 100 : 0,
                 옵션정보: option || '',
             };
 
@@ -250,8 +260,8 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("총원가금액: "+orderDetails.총원가금액);
         }
 
-        // orderDetails.서비스제품금액 = 50%할인적용되지 않은 (구매금액 - 원가금액)* 0.8 / 10) * 10;
-        orderDetails.서비스제품금액 = Math.floor((orderDetails.서비스를위한총결제금액 - orderDetails.서비스를위한총원가금액) * 0.8 / 10) * 10;
+        const isReshipment = Object.values(orderDetails.ProductOrders).some(p => (p.주문번호 || '').startsWith('RE_'));
+        orderDetails.서비스제품금액 = isReshipment ? 0 : Math.floor((orderDetails.서비스를위한총결제금액 - orderDetails.서비스를위한총원가금액) * 0.8 / 10) * 10;
         console.warn("==========================");
         console.warn("서비스제품금액: "+orderDetails.서비스제품금액);
         console.warn("==========================");

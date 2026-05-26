@@ -1,0 +1,422 @@
+<!-- manage_categories.html  (정적 목업) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>카테고리 관리</title>
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    /* ====== 좌측 네비바 고정 — 우측만 독립 스크롤 ====== */
+    html, body { height: 100vh; overflow: hidden; }
+    #navbar { height: 100vh; overflow-y: auto; flex-shrink: 0; box-sizing: border-box; }
+    .main-content { height: 100vh; overflow-y: auto; }
+
+    .mgr-layout {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      align-items: flex-start;
+    }
+    .mgr-tree-panel {
+      flex: 0 0 360px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 14px;
+    }
+    .mgr-detail-panel {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 18px;
+      min-width: 0;
+    }
+    .mgr-tree-panel h3,
+    .mgr-detail-panel h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #333;
+      border-bottom: 2px solid #009879;
+      padding-bottom: 6px;
+    }
+
+    .tree-actions {
+      margin-bottom: 10px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tree-actions button {
+      width: auto;
+      margin-bottom: 0;
+      font-size: 13px;
+      padding: 6px 10px;
+      border: 1px solid #009879;
+      background: #fff;
+      color: #009879;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .tree-actions button:hover { background: #eef7f4; }
+    .tree-actions button.primary {
+      background: #009879;
+      color: #fff;
+    }
+    .tree-actions button.primary:hover { background: #007a63; }
+    .tree-actions button.danger {
+      border-color: #c0392b;
+      color: #c0392b;
+    }
+    .tree-actions button.danger:hover { background: #fbeae7; }
+
+    .tree-ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    .tree-ul ul {
+      list-style: none;
+      padding-left: 16px;
+      border-left: 1px dotted #ddd;
+      margin: 2px 0;
+    }
+    .tree-node {
+      padding: 5px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: grab;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .tree-node:hover { background: #f4f4f4; }
+    .tree-node.active { background: #009879; color: #fff; }
+    .tree-node.is-group { font-weight: 600; }
+    .tree-node .drag-handle {
+      color: #999;
+      cursor: grab;
+      font-size: 12px;
+      user-select: none;
+    }
+    .tree-node .icon { font-size: 13px; }
+    .tree-node .name { flex: 1; }
+    .tree-node .count {
+      font-size: 11px;
+      background: #ddd;
+      color: #555;
+      padding: 1px 6px;
+      border-radius: 8px;
+    }
+    .tree-node.active .count { background: rgba(255,255,255,0.3); color: #fff; }
+
+    .form-row {
+      margin-bottom: 14px;
+    }
+    .form-row label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 4px;
+      width: auto;
+    }
+    .form-row input,
+    .form-row select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 0;
+    }
+    .form-row .static-val {
+      padding: 6px 0;
+      color: #333;
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+    }
+    .detail-actions {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 8px;
+    }
+    .detail-actions button {
+      width: auto;
+      margin-bottom: 0;
+      font-size: 14px;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .detail-actions .save {
+      background: #009879;
+      color: #fff;
+      border: 1px solid #009879;
+    }
+    .detail-actions .save:hover { background: #007a63; }
+    .detail-actions .delete {
+      background: #fff;
+      color: #c0392b;
+      border: 1px solid #c0392b;
+    }
+    .detail-actions .delete:hover { background: #fbeae7; }
+
+    .migrate-section {
+      background: #fffaf0;
+      border: 1px solid #e8d28a;
+      border-radius: 6px;
+      padding: 14px;
+      margin: 16px;
+    }
+    .migrate-section h3 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+      color: #8a6500;
+    }
+    .migrate-section .desc {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .migrate-section button {
+      background: #f4a942;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      width: auto;
+      margin-bottom: 0;
+      margin-right: 8px;
+    }
+    .migrate-section button:hover { background: #d8902c; }
+    .migrate-section label {
+      font-size: 13px;
+      width: auto;
+      margin-left: 8px;
+    }
+    .migrate-result {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #444;
+    }
+
+    .empty-detail {
+      text-align: center;
+      color: #999;
+      padding: 40px 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="main-content">
+    <div class="migrate-section">
+      <h3>🔄 마이그레이션 — 자동 카테고리 부여</h3>
+      <div class="desc">
+        모든 상품의 <code>분류(스티커,레이스,등)</code> 와 <code>상품명</code>을 보고 <code>CategoryIds</code> 필드를 자동으로 채웁니다.<br>
+        기본은 <strong>이미 부여된 상품은 건너뜁니다</strong> (멱등). 강제 재매핑을 체크하면 운영자 수정도 덮어씁니다.
+      </div>
+      <button id="runMigrate">마이그레이션 실행</button>
+      <label>
+        <input type="checkbox" id="forceRemap"> 강제 재매핑 (기존 CategoryIds 덮어씀)
+      </label>
+      <div class="migrate-result" id="migrateResult"></div>
+    </div>
+
+    <div class="mgr-layout">
+      <!-- 좌: 트리 편집 -->
+      <aside class="mgr-tree-panel">
+        <h3>🗂️ 카테고리 트리</h3>
+        <div class="tree-actions">
+          <button class="primary" id="addRootBtn">+ 루트 카테고리</button>
+          <button id="addChildBtn">+ 자식 추가</button>
+        </div>
+        <ul class="tree-ul" id="treeRoot"></ul>
+      </aside>
+
+      <!-- 우: 노드 상세 편집 -->
+      <main class="mgr-detail-panel">
+        <h3>✏️ 카테고리 상세</h3>
+        <div id="detail">
+          <div class="empty-detail">왼쪽에서 카테고리를 선택하세요</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="./loadNavbar.js"></script>
+  <script>
+    // ================== MOCK DATA ==================
+    const TREE = {
+      rootOrder: ["kind","diary","supplies","etc"],
+      nodes: {
+        "kind": { name: "제품종류별", kind: "group", order: 0 },
+        "kind_3d_scene":  { parent: "kind", name: "3D 방꾸미기 씬스티커", kind: "group", order: 0 },
+        "kind_3d_scene_book":     { parent: "kind_3d_scene", name: "스티커북",      kind: "leaf", order: 0 },
+        "kind_3d_scene_set":      { parent: "kind_3d_scene", name: "세트상품",      kind: "leaf", order: 1 },
+        "kind_3d_scene_single":   { parent: "kind_3d_scene", name: "개별상품",      kind: "leaf", order: 2 },
+        "kind_3d_scene_supplies": { parent: "kind_3d_scene", name: "방꾸미기 용품", kind: "leaf", order: 3 },
+        "kind_3d_dome":  { parent: "kind", name: "3D 올록볼록 입체", kind: "group", order: 1 },
+        "kind_3d_dome_single": { parent: "kind_3d_dome", name: "개별상품", kind: "leaf", order: 0 },
+        "kind_3d_dome_set":    { parent: "kind_3d_dome", name: "세트상품", kind: "leaf", order: 1 },
+        "kind_pixel":        { parent: "kind", name: "픽셀스티커, 픽셀컬러링", kind: "leaf", order: 2 },
+        "kind_sticker_book": { parent: "kind", name: "스티커북",       kind: "leaf", order: 3 },
+        "kind_bg":           { parent: "kind", name: "배경지, 소재지", kind: "leaf", order: 4 },
+        "kind_memo":         { parent: "kind", name: "메모지",         kind: "leaf", order: 5 },
+        "kind_note":         { parent: "kind", name: "수첩, 노트",     kind: "leaf", order: 6 },
+        "kind_set":          { parent: "kind", name: "세트상품",       kind: "leaf", order: 7 },
+        "kind_masking":      { parent: "kind", name: "마스킹테이프",   kind: "leaf", order: 8 },
+        "kind_sticker":      { parent: "kind", name: "스티커",         kind: "leaf", order: 9 },
+        "diary":          { name: "다이어리", kind: "group", order: 1 },
+        "diary_m5":       { parent: "diary", name: "M5·5공다이어리", kind: "group", order: 0 },
+        "diary_m5_cover": { parent: "diary_m5", name: "다이어리 커버", kind: "leaf", order: 0 },
+        "diary_m5_paper": { parent: "diary_m5", name: "다이어리 속지", kind: "leaf", order: 1 },
+        "diary_a6":       { parent: "diary", name: "A6 다이어리",      kind: "leaf", order: 1 },
+        "supplies": { name: "다꾸용품", kind: "leaf", order: 2 },
+        "etc":           { name: "기타문구, 소품", kind: "group", order: 3 },
+        "etc_keyring":   { parent: "etc", name: "키링·고리",      kind: "leaf", order: 0 },
+        "etc_stamp":     { parent: "etc", name: "스탬프",         kind: "leaf", order: 1 },
+        "etc_bookclip":  { parent: "etc", name: "북클립",         kind: "leaf", order: 2 },
+        "etc_cutting":   { parent: "etc", name: "커팅보드",       kind: "leaf", order: 3 },
+        "etc_phonecase": { parent: "etc", name: "아이폰케이스",   kind: "leaf", order: 4 },
+        "etc_acrylic":   { parent: "etc", name: "아크릴판",       kind: "leaf", order: 5 },
+        "etc_misc":      { parent: "etc", name: "기타",           kind: "leaf", order: 6 }
+      }
+    };
+
+    // mock 부여 상품 수
+    const MOCK_COUNTS = {
+      "kind_masking": 250, "kind_sticker": 180, "kind_sticker_book": 90,
+      "kind_memo": 60, "kind_3d_scene_book": 25, "kind_3d_scene_set": 18,
+      "kind_3d_dome_single": 12, "diary_m5_paper": 30, "diary_a6": 8, "supplies": 45
+    };
+
+    let activeId = null;
+
+    function buildChildrenMap() {
+      const m = {};
+      Object.entries(TREE.nodes).forEach(([id, n]) => {
+        const p = n.parent || "__ROOT__";
+        if (!m[p]) m[p] = [];
+        m[p].push(id);
+      });
+      // sort by order
+      Object.values(m).forEach(arr => arr.sort((a,b) => (TREE.nodes[a].order || 0) - (TREE.nodes[b].order || 0)));
+      return m;
+    }
+
+    function countOf(id) {
+      const n = TREE.nodes[id];
+      if (!n) return 0;
+      if (n.kind === "leaf") return MOCK_COUNTS[id] || 0;
+      const cm = buildChildrenMap();
+      return (cm[id] || []).reduce((s, c) => s + countOf(c), 0);
+    }
+
+    function renderTree() {
+      const cm = buildChildrenMap();
+      const root = document.getElementById("treeRoot");
+      root.innerHTML = "";
+      TREE.rootOrder.forEach(id => root.appendChild(renderNode(id, cm)));
+    }
+
+    function renderNode(id, cm) {
+      const n = TREE.nodes[id];
+      const li = document.createElement("li");
+      const cnt = countOf(id);
+
+      const node = document.createElement("div");
+      node.className = "tree-node " + (n.kind === "group" ? "is-group" : "is-leaf");
+      if (id === activeId) node.classList.add("active");
+      node.dataset.id = id;
+      node.innerHTML = `
+        <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
+        <span class="icon">${n.kind === "group" ? "📂" : "📄"}</span>
+        <span class="name">${n.name}</span>
+        <span class="count">${cnt}</span>
+      `;
+      node.addEventListener("click", (e) => { e.stopPropagation(); selectNode(id); });
+      li.appendChild(node);
+
+      const children = cm[id];
+      if (children && children.length) {
+        const ul = document.createElement("ul");
+        children.forEach(cid => ul.appendChild(renderNode(cid, cm)));
+        li.appendChild(ul);
+      }
+      return li;
+    }
+
+    function selectNode(id) {
+      activeId = id;
+      renderTree();
+      renderDetail();
+    }
+
+    function renderDetail() {
+      const det = document.getElementById("detail");
+      if (!activeId) {
+        det.innerHTML = `<div class="empty-detail">왼쪽에서 카테고리를 선택하세요</div>`;
+        return;
+      }
+      const n = TREE.nodes[activeId];
+      const cnt = countOf(activeId);
+      det.innerHTML = `
+        <div class="form-row">
+          <label>ID (자동 생성, 수정 불가)</label>
+          <div class="static-val">${activeId}</div>
+        </div>
+        <div class="form-row">
+          <label>이름</label>
+          <input type="text" id="fName" value="${n.name}">
+        </div>
+        <div class="form-row">
+          <label>종류</label>
+          <select id="fKind">
+            <option value="group" ${n.kind === "group" ? "selected" : ""}>📂 그룹 (자식만 보유)</option>
+            <option value="leaf"  ${n.kind === "leaf"  ? "selected" : ""}>📄 끝 카테고리 (상품 부여 가능)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>부모 카테고리</label>
+          <select id="fParent">
+            <option value="">(루트)</option>
+            ${Object.entries(TREE.nodes)
+              .filter(([id, x]) => x.kind === "group" && id !== activeId)
+              .map(([id, x]) => `<option value="${id}" ${n.parent === id ? "selected" : ""}>${x.name}</option>`)
+              .join("")}
+          </select>
+        </div>
+        <div class="form-row">
+          <label>순서 (숫자가 작을수록 위)</label>
+          <input type="number" id="fOrder" value="${n.order || 0}">
+        </div>
+        <div class="form-row">
+          <label>이 카테고리에 부여된 상품 수</label>
+          <div class="static-val">${cnt}개</div>
+        </div>
+        <div class="detail-actions">
+          <button class="save">💾 저장</button>
+          <button class="delete">🗑️ 삭제 ${cnt > 0 ? `(상품 ${cnt}개에서 제거됨)` : ""}</button>
+        </div>
+      `;
+    }
+
+    document.getElementById("runMigrate").addEventListener("click", () => {
+      const force = document.getElementById("forceRemap").checked;
+      const res = document.getElementById("migrateResult");
+      res.textContent = `(목업) 실행됨${force ? " — 강제 재매핑 ON" : ""}. 처리: 3,049건 / 매핑 성공: 2,118건 / 미부여: 931건`;
+    });
+
+    renderTree();
+  </script>
+</body>
+</html>
