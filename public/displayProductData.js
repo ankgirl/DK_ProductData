@@ -1,4 +1,15 @@
 
+window.tryAlternativeExtension = function(img) {
+    const exts = ['png', 'jpg', 'webp', 'jpeg'];
+    const idx = parseInt(img.dataset.extTry || '0');
+    if (idx < exts.length) {
+        img.dataset.extTry = idx + 1;
+        img.src = img.src.replace(/\.[^.]+$/, '.' + exts[idx]);
+    } else {
+        img.onerror = null;
+    }
+};
+
 function generateProductDetailsHTML(data, setData) {
     // setData가 null이거나 undefined일 경우를 안전하게 처리
     const safeSetData = setData && setData.OptionDatas ? setData : { OptionDatas: {} };
@@ -140,9 +151,9 @@ function generateProductDetailsHTML(data, setData) {
 
                             return `
                                 <tr>
-                                    <td class="image-container"><img src="${optionValues.옵션이미지URL}" alt="옵션이미지"></td>
-                                    <td>${optionValues.보여주기용옵션명}</td>                                    
-                                    <td class="image-container"><img src="${optionValues.실제이미지URL}" alt="실제이미지"></td>
+                                    <td class="image-container"><img src="${optionValues.옵션이미지URL}" alt="옵션이미지" onerror="tryAlternativeExtension(this)"></td>
+                                    <td>${optionValues.보여주기용옵션명}</td>
+                                    <td class="image-container"><img src="${optionValues.실제이미지URL}" alt="실제이미지" onerror="tryAlternativeExtension(this)"></td>
                                     <td>${optionValues.Price || ''}</td>
                                     <td id="${optionName}_Counts">${optionValues.Counts || ''}</td>
                                     <td><input type="number" name="${optionName}_newCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newCount" class="input-field"></td>
@@ -806,7 +817,7 @@ async function updateProductCountsAndBarcode(sellerCode, updatedOptionDatas, upd
 }
 
 
-function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
+function generateImageURLs(sellerCode, option, 입고차수, groupOptions, imageExtension = 'jpg') {
     if (!입고차수) {
         console.error("입고차수가 정의되지 않았습니다.");
         return { 옵션이미지URL: '', 실제이미지URL: '' };
@@ -826,9 +837,9 @@ function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
     if (!isNaN(optionNumber)) {
         optionNumber = optionNumber.padStart(3, '0');
         if (입고차수정보 <= 23) {
-            이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
+            이미지명 = `${sellerCode}%20sku${optionNumber}.${imageExtension}`;
         } else {
-            이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
+            이미지명 = `${sellerCode}%20sku_${optionNumber}.${imageExtension}`;
         }
         보여주기용옵션명 = `${option}`;
     } else {
@@ -840,8 +851,8 @@ function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
         }
 
         const optionIndex = (index + 1).toString().padStart(3, '0'); // 인덱스는 1부터 시작
-        이미지명 = `${sellerCode}%20sku_${optionIndex}_[_${optionNumber}_].jpg`;
-        보여주기용옵션명 = `${optionIndex}_[_${optionNumber}_].jpg`;
+        이미지명 = `${sellerCode}%20sku_${optionIndex}_[_${optionNumber}_].${imageExtension}`;
+        보여주기용옵션명 = `${optionIndex}_[_${optionNumber}_]`;
     }
     console.log(이미지명);
 

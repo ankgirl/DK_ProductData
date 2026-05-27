@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", function() {
             complete: async function(results) {
                 const data = results.data;
                 const messageDiv = document.getElementById("message");
+                const imageExtension = document.getElementById("imageExtension")?.value || 'jpg';
                 
                 for (let product of data) {
                     const sellerCode = product.SellerCode;
@@ -30,7 +31,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             const existingData = docSnap.data();
                             // OptionDatas 생성 및 기존 데이터 유지
                             const optionDatas = existingData.OptionDatas || {};
-                            const newOptionDatas = generateOptionDatas(product, optionDatas);
+                            const newOptionDatas = generateOptionDatas(product, optionDatas, imageExtension);
                             product.OptionDatas = newOptionDatas;
                             // 기존 데이터에 새로운 데이터 병합
                             const updatedData = { ...existingData, ...product };
@@ -39,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             messageDiv.innerHTML += `<p>${sellerCode} 업데이트 성공!</p>`;
                         } else {
                             // OptionDatas 생성
-                            const optionDatas = generateOptionDatas(product, {});
+                            const optionDatas = generateOptionDatas(product, {}, imageExtension);
                             product.OptionDatas = optionDatas;
                             // 새 문서 추가
                             await docRef.set(product);
@@ -60,7 +61,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // 옵션 데이터를 생성하는 함수
-function generateOptionDatas(product, existingOptionDatas) {
+function generateOptionDatas(product, existingOptionDatas, imageExtension = 'jpg') {
     const optionNames = product.GroupOptions ? product.GroupOptions.split(",").map(opt => opt.trim()) : [];
     const optionCounts = product.OptionCounts ? product.OptionCounts.split(",").map(count => parseInt(count.trim())) : [];
     const optionPrices = product.OptionPrices ? product.OptionPrices.split(",").map(price => parseInt(price.trim())) : [];
@@ -79,7 +80,7 @@ function generateOptionDatas(product, existingOptionDatas) {
         // (최초 업로드 시 URL을 고정 → 이후 sellerCode/소분류명 변경 시에도 원래 이미지 위치 유지)
         if (!optionDatas[optionName].옵션이미지URL) {
             const { 보여주기용옵션명, 옵션이미지URL, 실제이미지URL } = generateImageURLs(
-                product.SellerCode, optionName, product.소분류명, product.GroupOptions
+                product.SellerCode, optionName, product.소분류명, product.GroupOptions, imageExtension
             );
             optionDatas[optionName].옵션이미지URL = 옵션이미지URL;
             optionDatas[optionName].실제이미지URL = 실제이미지URL;

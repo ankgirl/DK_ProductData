@@ -15,6 +15,13 @@
         <form id="uploadForm">
             <label for="csvFile">CSV 파일 업로드:</label>
             <input type="file" id="csvFile" name="csvFile" accept=".csv" required>
+            <label for="imageExtension">이미지 확장자:</label>
+            <select id="imageExtension" name="imageExtension">
+                <option value="jpg" selected>jpg</option>
+                <option value="png">png</option>
+                <option value="webp">webp</option>
+                <option value="jpeg">jpeg</option>
+            </select>
             <button type="submit">업로드</button>
         </form>
         <div id="message"></div>

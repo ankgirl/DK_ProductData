@@ -1,4 +1,4 @@
-export function generateImageURLs(sellerCode, option, 입고차수, groupOptions) {
+export function generateImageURLs(sellerCode, option, 입고차수, groupOptions, imageExtension = 'jpg') {
     if (!입고차수) {
         console.error("입고차수가 정의되지 않았습니다.");
         return { 옵션이미지URL: '', 실제이미지URL: '' };
@@ -18,9 +18,9 @@ export function generateImageURLs(sellerCode, option, 입고차수, groupOptions
     if (!isNaN(optionNumber)) {
         optionNumber = optionNumber.padStart(3, '0');
         if (입고차수정보 <= 23) {
-            이미지명 = `${sellerCode}%20sku${optionNumber}.jpg`;
+            이미지명 = `${sellerCode}%20sku${optionNumber}.${imageExtension}`;
         } else {
-            이미지명 = `${sellerCode}%20sku_${optionNumber}.jpg`;
+            이미지명 = `${sellerCode}%20sku_${optionNumber}.${imageExtension}`;
         }
         보여주기용옵션명 = `${option}`;
     } else {
@@ -32,8 +32,8 @@ export function generateImageURLs(sellerCode, option, 입고차수, groupOptions
         }
 
         const optionIndex = (index + 1).toString().padStart(3, '0'); // 인덱스는 1부터 시작
-        이미지명 = `${sellerCode}%20sku_${optionIndex}_[_${optionNumber}_].jpg`;
-        보여주기용옵션명 = `${optionIndex}_[_${optionNumber}_].jpg`;
+        이미지명 = `${sellerCode}%20sku_${optionIndex}_[_${optionNumber}_].${imageExtension}`;
+        보여주기용옵션명 = `${optionIndex}_[_${optionNumber}_]`;
     }
     const baseUrl = `https://dakkuharu.openhost.cafe24.com/1688/${cleaned입고차수}/${sellerCode}`;
     
