@@ -45,7 +45,9 @@ function fillField(node, fieldName, value) {
 
 function fillImg(node, imgName, src) {
     const el = node.querySelector(`[data-img="${imgName}"]`);
-    if (el) el.src = src || '';
+    if (!el) return;
+    el.src = src || '';
+    el.onerror = function() { window.tryAlternativeExtension(this); };
 }
 
 // ─── 렌더링 함수 ─────────────────────────────────────────────────────────────
