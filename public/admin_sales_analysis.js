@@ -56,8 +56,10 @@
                 const qty = num(it.상품수량), amt = num(it.상품결제금액);
                 const cls = classifyRoom(baseOf(sc));
                 cat[cls].qty += qty; cat[cls].amt += amt;
-                const b = best.get(sc) || { name: it.상품명 || sc, qty: 0, amt: 0 };
-                b.qty += qty; b.amt += amt; best.set(sc, b);
+                const b = best.get(sc) || { name: it.상품명 || sc, qty: 0, amt: 0, img: '' };
+                b.qty += qty; b.amt += amt;
+                if (!b.img) b.img = it.옵션이미지URL || it.실제이미지URL || '';
+                best.set(sc, b);
                 const btKey = it.입고차수 || '(미상)';
                 const bt = batch.get(btKey) || { qty: 0, amt: 0 };
                 bt.qty += qty; bt.amt += amt; batch.set(btKey, bt);
@@ -140,9 +142,14 @@
     function renderBest() {
         if (!lastBest) return;
         const rows = topRows(lastBest, 20, v => bestSortKey === 'amt' ? v.amt : v.qty);
+        const href = sc => `search_by_seller_code.html?sellerCode=${encodeURIComponent(sc)}`;
+        const link = sc => `<a href="${href(sc)}" target="_blank" rel="noopener">${sc}</a>`;
+        const imgCell = (sc, v) => v.img
+            ? `<a href="${href(sc)}" target="_blank" rel="noopener"><img src="${v.img}" alt="${sc}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;" loading="lazy" onerror="tryAlternativeExtension(this)"></a>`
+            : '<span class="muted">-</span>';
         $('bestSeller').innerHTML = tableHTML(
-            ['SellerCode', '상품명', '수량', '금액'],
-            rows.map(([sc, v]) => [sc, (v.name || '').slice(0, 40), cnt(v.qty), won(v.amt)])
+            ['SellerCode', '이미지', '상품명', '수량', '금액'],
+            rows.map(([sc, v]) => [link(sc), imgCell(sc, v), (v.name || '').slice(0, 36), cnt(v.qty), won(v.amt)])
         );
         $('bsQty').classList.toggle('active', bestSortKey === 'qty');
         $('bsAmt').classList.toggle('active', bestSortKey === 'amt');

@@ -144,7 +144,7 @@
             const urg = r.months < 0.5 ? 'urgent' : (r.months < 1 ? 'warn' : '');
             return `<tr>
                 <td><a href="search_by_seller_code.html?sellerCode=${encodeURIComponent(r.base)}" target="_blank" rel="noopener">${r.base}</a></td>
-                <td><a href="search_by_seller_code.html?sellerCode=${encodeURIComponent(r.base)}" target="_blank" rel="noopener" title="${(r.name || '').replace(/"/g, '&quot;')}">${r.img ? `<img src="${r.img}" alt="${r.base}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;" loading="lazy" onerror="this.style.display='none';this.parentNode.textContent='이미지없음';">` : '<span class="muted">없음</span>'}</a></td>
+                <td><a href="search_by_seller_code.html?sellerCode=${encodeURIComponent(r.base)}" target="_blank" rel="noopener" title="${(r.name || '').replace(/"/g, '&quot;')}">${r.img ? `<img src="${r.img}" alt="${r.base}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;" loading="lazy" onerror="tryAlternativeExtension(this)">` : '<span class="muted">없음</span>'}</a></td>
                 <td>${r.cls}</td>
                 <td>${cnt(r.sold)}</td>
                 <td>${fix(r.monthly)}</td>
