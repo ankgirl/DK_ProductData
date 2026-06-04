@@ -1,0 +1,58 @@
+<!-- admin_set_option_gap.html — 세트 재고는 있는데 본품 개별 옵션이 품절(0이하)인 제품 (관리자 전용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>세트有·개별품절 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1200px; margin: 0 auto; padding: 16px; }
+        .gap-controls { background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 6px; padding: 12px 14px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+        .gap-controls label { display: flex; flex-direction: column; font-size: 0.85em; color: #555; gap: 3px; }
+        .gap-controls input { padding: 5px 8px; width: 90px; }
+        .gap-controls button { padding: 7px 16px; }
+        .gap-table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        .gap-table th, .gap-table td { border: 1px solid #ccc; padding: 6px 9px; text-align: right; }
+        .gap-table th:first-child, .gap-table td:first-child,
+        .gap-table th:last-child, .gap-table td:last-child { text-align: left; }
+        .gap-table thead th { background: #3a2b4d; color: #fff; cursor: pointer; user-select: none; }
+        .gap-table tbody tr:nth-child(even) { background: #f6f4f9; }
+        .neg { color: #c0392b; font-weight: bold; }
+        .ok0 { color: #e67e22; }
+        .muted { color: #888; font-size: 0.85em; }
+        #summary { margin: 10px 0; font-size: 1.05em; }
+        #status { color: #555; }
+        .copybtn { padding: 6px 12px; margin-left: 8px; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>세트 재고 있음 · 개별 옵션 품절 <span class="muted">· 관리자 전용</span></h1>
+        <div id="status">불러오는 중...</div>
+        <p class="muted">세트로는 재고가 있지만 본품 낱개 옵션이 0 이하인 제품입니다. 세트를 분해해 개별 재고를 채우거나 재입고를 검토하세요.</p>
+
+        <div class="gap-controls">
+            <label>세트재고 ≥<input type="number" id="minSet" value="1" min="1"></label>
+            <label>품절옵션 ≥<input type="number" id="minZero" value="1" min="1"></label>
+            <label style="flex-direction:row; align-items:center; gap:5px;">
+                <input type="checkbox" id="negOnly"> 음수(과판매) 옵션만
+            </label>
+            <label style="flex-direction:row; align-items:center; gap:5px;">
+                <input type="checkbox" id="inclRoom"> 방꾸미기(room_) 포함
+            </label>
+            <button id="applyBtn">적용</button>
+        </div>
+
+        <div id="summary"></div>
+        <div id="result"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadManageNavbar.js"></script>
+    <script src="./admin_set_option_gap.js?v=2"></script>
+</body>
+</html>

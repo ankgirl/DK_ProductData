@@ -1,0 +1,85 @@
+<!-- admin_sales_analysis.html — 판매 분석 (관리자 전용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>판매 분석 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1100px; margin: 0 auto; padding: 16px; }
+        .sa-controls { margin: 12px 0; }
+        .sa-controls select, .sa-controls button { padding: 6px 10px; font-size: 1em; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 12px 0; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; background: #fafafa; }
+        .card .k { color: #777; font-size: 0.85em; }
+        .card .v { font-size: 1.35em; font-weight: bold; margin-top: 4px; }
+        .card .sub { color: #999; font-size: 0.8em; margin-top: 2px; }
+        h2 { margin-top: 26px; border-bottom: 2px solid #3a2b4d; padding-bottom: 4px; }
+        .sa-table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+        .sa-table th, .sa-table td { border: 1px solid #ccc; padding: 6px 9px; text-align: right; }
+        .sa-table th:first-child, .sa-table td:first-child { text-align: left; }
+        .sa-table thead th { background: #3a2b4d; color: #fff; }
+        .sa-table tbody tr:nth-child(even) { background: #f6f4f9; }
+        .muted { color: #888; font-size: 0.85em; }
+        .bar { display: inline-block; height: 14px; background: #8884d8; border-radius: 2px; vertical-align: middle; }
+        .pos { color: #2e7d32; } .neg { color: #c0392b; }
+        #status { color: #555; margin: 8px 0; }
+        .bs-btn { padding: 3px 12px; margin-left: 6px; font-size: 0.7em; border: 1px solid #aaa; background: #fff; cursor: pointer; border-radius: 4px; vertical-align: middle; }
+        .bs-btn.active { background: #3a2b4d; color: #fff; border-color: #3a2b4d; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>판매 분석 <span class="muted">· 관리자 전용</span></h1>
+        <div class="sa-controls">
+            <select id="yearSel"></select>
+            <select id="monthSel"></select>
+            <button id="loadBtn">조회</button>
+            <span id="status"></span>
+        </div>
+
+        <h2>월별 추이 <span class="muted">(최근 12개월 · 범례 클릭으로 항목 토글)</span></h2>
+        <div id="trendStatus" class="muted">추이 불러오는 중...</div>
+        <canvas id="monthlyTrend" height="100"></canvas>
+
+        <div id="report" style="display:none;">
+            <h2>① 매출 · 수익 · 마진</h2>
+            <div id="salesCards" class="card-grid"></div>
+
+            <h2>② 서비스(사은품) 분석</h2>
+            <div id="serviceCards" class="card-grid"></div>
+            <div id="serviceRank"></div>
+
+            <h2>③ 상품 분석</h2>
+            <div class="two-col">
+                <div><h3>방꾸미기 vs 다꾸</h3><div id="catSplit"></div></div>
+                <div><h3>입고차수별 판매</h3><div id="batchRank"></div></div>
+            </div>
+            <h3>베스트셀러 Top 20
+                <button id="bsQty" class="bs-btn active">수량순</button>
+                <button id="bsAmt" class="bs-btn">금액순</button>
+            </h3>
+            <div id="bestSeller"></div>
+
+            <h2>④ 채널(판매처)별</h2>
+            <div id="channelTable"></div>
+
+            <h2>⑤ 재고 연계 (회전율 · 소진 · 데드스톡)</h2>
+            <p class="muted">전체 상품 재고를 함께 불러와 계산합니다(수 초 소요).</p>
+            <button id="invBtn">재고 연계 분석 실행</button>
+            <div id="invResult" style="margin-top:10px;"></div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadManageNavbar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="./admin_sales_analysis.js?v=2"></script>
+</body>
+</html>

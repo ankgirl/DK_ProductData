@@ -1,0 +1,63 @@
+<!-- admin_inventory_value.html — 전체 재고 가치 (관리자 전용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전체 재고 가치 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1100px; margin: 0 auto; padding: 16px; }
+        .inv-table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+        .inv-table th, .inv-table td { border: 1px solid #ccc; padding: 8px 10px; text-align: right; }
+        .inv-table th:first-child, .inv-table td:first-child { text-align: left; }
+        .inv-table thead th { background: #3a2b4d; color: #fff; }
+        .inv-table tbody tr:nth-child(even) { background: #f6f4f9; }
+        .inv-table .total-row { font-weight: bold; background: #efe9f5 !important; }
+        .big-num { font-size: 1.15em; }
+        .muted { color: #888; font-size: 0.85em; }
+        .validation { background: #fff8e6; border: 1px solid #f0d68a; padding: 10px 14px; border-radius: 6px; margin: 12px 0; font-size: 0.9em; }
+        .validation.ok { background: #eefaef; border-color: #b6e0bb; }
+        .unit-btn { padding: 6px 14px; margin-right: 6px; border: 1px solid #aaa; background: #fff; cursor: pointer; border-radius: 4px; }
+        .unit-btn.active { background: #3a2b4d; color: #fff; border-color: #3a2b4d; }
+        #status { color: #555; margin: 8px 0; }
+        details summary { cursor: pointer; color: #555; }
+        .ex-chip { display: inline-block; background: #eee; border: 1px solid #ccc; border-radius: 12px; padding: 2px 10px; margin: 2px; font-size: 0.85em; }
+        .ex-chip a { color: #c0392b; text-decoration: none; margin-left: 4px; font-weight: bold; }
+        #excludeManager { background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+        #excludeManager input { padding: 5px 8px; width: 260px; }
+        #excludeManager button { padding: 5px 12px; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>전체 재고 가치 <span class="muted">· 관리자 전용</span></h1>
+        <div id="status">불러오는 중...</div>
+
+        <div id="summary"></div>
+        <div id="excludeManager"></div>
+        <div id="validation"></div>
+
+        <hr>
+        <h2>재고 가치 추이</h2>
+        <div id="chartControls">
+            <button data-unit="day" class="unit-btn active">일별</button>
+            <button data-unit="week" class="unit-btn">주별</button>
+            <button data-unit="month" class="unit-btn">월별</button>
+            <span class="muted" style="margin-left:10px;">매일 이 페이지를 열면 그날 스냅샷이 자동 적립됩니다.</span>
+        </div>
+        <canvas id="trendChart" height="110"></canvas>
+        <div id="snapshotStatus" class="muted" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- Firebase (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadManageNavbar.js"></script>
+    <!-- 그래프 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="./admin_inventory_value.js?v=3"></script>
+</body>
+</html>
