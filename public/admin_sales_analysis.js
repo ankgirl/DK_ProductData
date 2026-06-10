@@ -14,17 +14,8 @@
     const $ = id => document.getElementById(id);
     let lastAgg = null;
     let lastBest = null;       // Map<SellerCode, {name, qty, amt}>
+    let lastMonthsCount = 1;   // 현재 조회 기간의 개월 수 (재고 회전율/소진 환산용)
     let bestSortKey = 'qty';   // 'qty' | 'amt'
-
-    // ---- 드롭다운 초기화 ----
-    function initDropdowns() {
-        const now = new Date();
-        const ySel = $('yearSel'), mSel = $('monthSel');
-        for (let y = now.getFullYear(); y >= 2023; y--) ySel.add(new Option(y + '년', y));
-        for (let m = 1; m <= 12; m++) mSel.add(new Option(m + '월', m));
-        ySel.value = now.getFullYear();
-        mSel.value = now.getMonth() + 1;
-    }
 
     // ---- 집계 ----
     function aggregate(orders) {
@@ -82,7 +73,7 @@
     }
 
     // ---- 렌더 ----
-    function render(agg, y, m) {
+    function render(agg) {
         const { A, cat, best, batch, channel, service } = agg;
         const 할인액 = A.정가매출 - A.실매출;
         const 매출총이익 = A.실매출 - A.주문원가합산; // 상품+서비스 원가 차감
@@ -111,16 +102,21 @@
         // ③ 상품
         const catTotalQty = cat.방꾸미기.qty + cat.다꾸.qty;
         const catTotalAmt = cat.방꾸미기.amt + cat.다꾸.amt;
-        const barRow = (label, v, total) => {
-            const p = total ? v / total * 100 : 0;
-            return `<tr><td>${label}</td><td>${cnt(v)}</td><td>${p.toFixed(1)}%</td><td style="text-align:left"><span class="bar" style="width:${p * 1.5}px"></span></td></tr>`;
+        // 막대는 금액 비중 기준(사용자 요청). 수량 비중·금액 비중을 한 줄에 같이 표시.
+        const catRow = (label, c) => {
+            const pq = catTotalQty ? c.qty / catTotalQty * 100 : 0;
+            const pa = catTotalAmt ? c.amt / catTotalAmt * 100 : 0;
+            return `<tr><td>${label}</td>`
+                + `<td>${cnt(c.qty)}</td><td>${pq.toFixed(1)}%</td>`
+                + `<td>${won(c.amt)}</td><td><b>${pa.toFixed(1)}%</b></td>`
+                + `<td style="text-align:left"><span class="bar" style="width:${pa * 1.5}px"></span></td></tr>`;
         };
         $('catSplit').innerHTML = `
-            <table class="sa-table"><thead><tr><th>구분</th><th>수량</th><th>비중</th><th>금액 ${won(catTotalAmt)}</th></tr></thead><tbody>
-            ${barRow('방꾸미기(room_)', cat.방꾸미기.qty, catTotalQty)}
-            ${barRow('다꾸', cat.다꾸.qty, catTotalQty)}
+            <table class="sa-table"><thead><tr><th>구분</th><th>수량</th><th>수량 비중</th><th>금액</th><th>금액 비중</th><th>금액 막대</th></tr></thead><tbody>
+            ${catRow('방꾸미기(room_)', cat.방꾸미기)}
+            ${catRow('다꾸', cat.다꾸)}
             </tbody></table>
-            <p class="muted">금액: 방꾸미기 ${won(cat.방꾸미기.amt)} / 다꾸 ${won(cat.다꾸.amt)}</p>`;
+            <p class="muted">총 수량 ${cnt(catTotalQty)} · 총 금액 ${won(catTotalAmt)}</p>`;
 
         const batchRows = topRows(batch, 15, v => v.qty);
         $('batchRank').innerHTML = tableHTML(['입고차수', '수량', '금액'], batchRows.map(([k, v]) => [k, cnt(v.qty), won(v.amt)]));
@@ -180,11 +176,13 @@
                 stockByBase.set(base, (stockByBase.get(base) || 0) + q);
             });
 
-            const monthQty = lastAgg.A.수량;
-            const turnover = totalStockQty ? monthQty / totalStockQty : 0;
-            const monthsLeft = monthQty ? totalStockQty / monthQty : Infinity;
+            const months = Math.max(1, lastMonthsCount);
+            const periodQty = lastAgg.A.수량;          // 기간 전체 판매수량
+            const monthlyQty = periodQty / months;     // 월 평균 판매수량
+            const turnover = totalStockQty ? monthlyQty / totalStockQty : 0;
+            const monthsLeft = monthlyQty ? totalStockQty / monthlyQty : Infinity;
 
-            // 데드스톡: 재고 있는 본품코드 중 이번 달 판매 0
+            // 데드스톡: 재고 있는 본품코드 중 기간 내 판매 0
             const soldBases = new Set([...lastAgg.best.keys()].map(baseOf));
             let dead = 0, deadList = [];
             for (const [base, q] of stockByBase) {
@@ -194,59 +192,44 @@
             el.innerHTML =
                 `<div class="card-grid">
                     ${card('현재 총 재고수량', cnt(totalStockQty))}
-                    ${card('이번 달 판매수량', cnt(monthQty))}
-                    ${card('재고 회전율 (월)', (turnover * 100).toFixed(1) + '%', '월판매 ÷ 현재고')}
-                    ${card('소진 예상', isFinite(monthsLeft) ? monthsLeft.toFixed(1) + '개월' : '-', '현재고 ÷ 월판매')}
-                    ${card('데드스톡(이번달 미판매)', cnt(dead) + '품목')}
+                    ${card('기간 판매수량', cnt(periodQty), `${months}개월 · 월평균 ${cnt(monthlyQty)}`)}
+                    ${card('재고 회전율 (월)', (turnover * 100).toFixed(1) + '%', '월평균판매 ÷ 현재고')}
+                    ${card('소진 예상', isFinite(monthsLeft) ? monthsLeft.toFixed(1) + '개월' : '-', '현재고 ÷ 월평균판매')}
+                    ${card('데드스톡(기간 내 미판매)', cnt(dead) + '품목')}
                 </div>
                 <details><summary class="muted">데드스톡 예시(최대 30)</summary><p class="muted">${deadList.join(', ') || '없음'}</p></details>
-                <p class="muted">※ 회전율/소진은 전체 합산 기준 개략치입니다. 재고수량은 본품+세트 옵션 Counts 합.</p>`;
+                <p class="muted">※ 회전율/소진은 기간 월평균 기준 개략치입니다. 재고수량은 본품+세트 옵션 Counts 합.</p>`;
         } catch (e) {
             el.textContent = '오류: ' + e.message;
             console.error(e);
         }
     }
 
-    // ---- 진입 ----
-    async function run() {
-        const y = +$('yearSel').value, m = +$('monthSel').value;
-        const st = $('status');
+    // ---- 진입: 기간 하나로 추이 그래프 + 전체 리포트(①~⑤) 동시 갱신 ----
+    // CompletedOrders를 기간당 1회만 읽어 차트 버킷과 리포트 집계에 함께 사용한다(중복 fetch 방지).
+    let trendChart = null;
+    async function loadPeriod(range) {
+        const ts = $('trendStatus'), st = $('status');
+        ts.textContent = '불러오는 중...';
         st.textContent = '조회 중...';
         $('report').style.display = 'none';
         try {
-            const start = new Date(y, m - 1, 1), end = new Date(y, m, 0, 23, 59, 59);
-            const snap = await db.collection('CompletedOrders')
-                .where('주문처리날짜', '>=', start).where('주문처리날짜', '<=', end).get();
+            range = range || { start: '', end: '' };
+            // '전체'(start 없음)는 프로젝트 최소연도(2023)부터로 한정
+            const months = DateRangeControl.monthsBetween(range.start, range.end, '2023-01-01');
+            if (!months.length) { ts.textContent = '기간이 올바르지 않습니다.'; st.textContent = ''; return; }
+            lastMonthsCount = months.length;
+            const start = new Date(months[0] + '-01');
+            let q = db.collection('CompletedOrders').where('주문처리날짜', '>=', start);
+            if (range.end) q = q.where('주문처리날짜', '<=', new Date(range.end + 'T23:59:59'));
+            const snap = await q.get();
+
             const orders = [];
-            snap.forEach(d => orders.push(d.data()));
-            if (!orders.length) { st.textContent = `${y}년 ${m}월 완료 주문이 없습니다.`; return; }
-            lastAgg = aggregate(orders);
-            render(lastAgg, y, m);
-            st.textContent = `${y}년 ${m}월 · 주문 ${orders.length}건`;
-        } catch (e) {
-            st.textContent = '오류: ' + e.message;
-            console.error(e);
-        }
-    }
-
-    // ---- 월별 추이 그래프 (최근 12개월) ----
-    let trendChart = null;
-    async function loadMonthlyTrend() {
-        const ts = $('trendStatus');
-        try {
-            const now = new Date();
-            const months = [];
-            for (let i = 11; i >= 0; i--) {
-                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-            }
-            const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-            const snap = await db.collection('CompletedOrders').where('주문처리날짜', '>=', start).get();
-
             const buckets = {};
             months.forEach(m => buckets[m] = { 실매출: 0, 이익: 0, 방: 0, 다: 0, 수량: 0 });
             snap.forEach(doc => {
                 const o = doc.data();
+                orders.push(o);
                 const dt = o.주문처리날짜;
                 if (!dt) return;
                 const d = dt.toDate ? dt.toDate() : new Date(dt);
@@ -263,10 +246,23 @@
                     if (classifyRoom(baseOf(it.SellerCode || '')) === '방꾸미기') b.방 += amt; else b.다 += amt;
                 }
             });
+
+            // 차트는 주문이 없어도 빈 추이를 그려 기간을 보여준다.
             drawMonthly(months, buckets);
             ts.textContent = '';
+
+            const label = months.length === 1 ? months[0] : `${months[0]} ~ ${months[months.length - 1]}`;
+            if (!orders.length) {
+                st.textContent = `${label} · 완료 주문 없음`;
+                $('report').style.display = 'none';
+                return;
+            }
+            lastAgg = aggregate(orders);
+            render(lastAgg);
+            st.textContent = `${label} · 주문 ${orders.length}건`;
         } catch (e) {
-            ts.textContent = '추이 로드 오류: ' + e.message;
+            ts.textContent = '로드 오류: ' + e.message;
+            st.textContent = '오류: ' + e.message;
             console.error(e);
         }
     }
@@ -295,12 +291,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        initDropdowns();
-        $('loadBtn').addEventListener('click', run);
         $('invBtn').addEventListener('click', runInventoryLink);
         $('bsQty').addEventListener('click', () => { bestSortKey = 'qty'; renderBest(); });
         $('bsAmt').addEventListener('click', () => { bestSortKey = 'amt'; renderBest(); });
-        loadMonthlyTrend();
-        run();
+        // 기간 선택 하나로 추이 그래프 + 전체 리포트를 함께 갱신 (기본 1년)
+        const rangeCtl = DateRangeControl.create($('trendRange'), {
+            defaultPreset: '1y',
+            onApply: r => loadPeriod(r),
+        });
+        loadPeriod(rangeCtl.get());
     });
 })();
