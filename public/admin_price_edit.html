@@ -1,0 +1,109 @@
+<!-- admin_price_edit.html — 셀러코드 입력 후 스마트스토어 가격(정가/할인가, 옵션별 할인가) 변경 (관리자 전용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가격 변경 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1000px; margin: 0 auto; padding: 16px; }
+        .muted { color: #888; font-size: 0.85em; }
+        .search-bar { display: flex; gap: 10px; align-items: center; margin: 14px 0; flex-wrap: wrap; }
+        .search-bar input[type="text"] { padding: 7px 10px; width: 240px; font-size: 1em; }
+        .search-bar button { padding: 7px 18px; }
+        #status { color: #555; margin: 8px 0; min-height: 1.2em; }
+
+        .card { background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
+        .card h2 { margin: 0 0 10px; font-size: 1.1em; color: #3a2b4d; }
+        .card h2 .code { color: #7a5fa0; font-family: monospace; }
+        .price-head { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; margin-bottom: 6px; }
+        .price-head label { display: flex; flex-direction: column; font-size: 0.85em; color: #555; gap: 4px; }
+        .price-head input[type="number"] { padding: 6px 9px; width: 130px; font-size: 1em; text-align: right; }
+
+        .opt-table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+        .opt-table th, .opt-table td { border: 1px solid #ccc; padding: 6px 9px; vertical-align: middle; }
+        .opt-table thead th { background: #3a2b4d; color: #fff; }
+        .opt-table tbody tr:nth-child(even) { background: #f6f4f9; }
+        .opt-table td.num { text-align: right; }
+        .opt-table img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; background:#eee; }
+        .opt-table input[type="number"] { padding: 5px 8px; width: 110px; text-align: right; font-size: 1em; }
+        .opt-name { font-weight: bold; }
+
+        .submit-bar { margin: 16px 0; }
+        .submit-bar button { padding: 10px 26px; font-size: 1.05em; background:#3a2b4d; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+        .submit-bar button:disabled { background:#9b8db0; cursor: not-allowed; }
+        #result { margin: 12px 0; font-size: 0.95em; white-space: pre-wrap; }
+        .err { color: #c0392b; font-weight: bold; }
+        .ok { color: #1e7e34; font-weight: bold; }
+        .hidden { display: none; }
+        .hint { color:#7a5fa0; font-size:0.8em; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>스마트스토어 가격 변경 <span class="muted">· 관리자 전용</span></h1>
+        <p class="muted">셀러코드를 입력해 상품을 불러온 뒤, 정가·할인가와 옵션별 할인가를 수정해 스마트스토어에 반영합니다.
+            모든 금액은 <strong>원화 최종 절대금액(고객가)</strong>으로 입력하세요. (할인가 ≤ 정가)</p>
+
+        <div class="search-bar">
+            <input type="text" id="sellerCode" placeholder="셀러코드 (예: cat_0102)" autocomplete="off">
+            <button id="loadBtn">불러오기</button>
+        </div>
+        <div id="status"></div>
+
+        <!-- 본품 -->
+        <div id="mainSection" class="card hidden">
+            <h2>본품 가격 · <span class="code" id="mainCodeLabel"></span></h2>
+            <div class="price-head">
+                <label>정가 (sale_price)
+                    <input type="number" id="salePrice" min="0" step="10">
+                </label>
+                <label>기본 할인가 (discount_price)
+                    <input type="number" id="baseDiscount" min="0" step="10">
+                </label>
+                <span class="hint">할인 없으면 정가와 동일하게</span>
+            </div>
+            <table class="opt-table" id="optTable">
+                <thead>
+                    <tr>
+                        <th>이미지</th>
+                        <th>옵션명</th>
+                        <th>현재가</th>
+                        <th>옵션 할인가</th>
+                    </tr>
+                </thead>
+                <tbody id="optBody"></tbody>
+            </table>
+            <p class="hint">※ 전송되는 옵션명(option_code)은 네이버 등록 옵션명과 정확히 일치해야 합니다.</p>
+        </div>
+
+        <!-- 세트 -->
+        <div id="setSection" class="card hidden">
+            <h2>세트 가격 · <span class="code" id="setCodeLabel"></span></h2>
+            <p class="muted" style="margin-top:0;">세트는 단일상품으로 등록되어 옵션 없이 정가·할인가만 변경합니다.</p>
+            <div class="price-head">
+                <label>세트 정가 (sale_price)
+                    <input type="number" id="setSalePrice" min="0" step="10">
+                </label>
+                <label>세트 할인가 (discount_price)
+                    <input type="number" id="setDiscount" min="0" step="10">
+                </label>
+            </div>
+        </div>
+
+        <div class="submit-bar hidden" id="submitBar">
+            <button id="submitBtn">가격 변경 전송</button>
+            <span class="muted" style="margin-left:10px;">서버가 네이버와 수 초 왕복할 수 있습니다.</span>
+        </div>
+        <div id="result"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadManageNavbar.js"></script>
+    <script src="./admin_price_edit.js?v=1"></script>
+</body>
+</html>
