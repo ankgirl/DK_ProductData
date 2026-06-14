@@ -107,8 +107,10 @@ export function groupByOrderNumber(rows) {
  * 대표 쪽으로 옮기고 다른 주문번호 키는 ordersMap에서 삭제.
  *
  * 합배송정보 필드 추가 (송장번호, 묶인주문번호들, 배송비환불금액, 안내문구).
- * 환불 룰: K = 배송비 발생 주문 수, S = 묶음 총주문금액 합.
- *   환불 = (K ≥ 1 AND S ≥ 30,000) ? K × 3,000 : 0
+ * 환불 룰: K = 배송비 발생 주문 수, S = 묶음 상품 정가 합.
+ *   S ≥ 30,000 → K × 3,000   (무료배송 조건 충족 → 부과 배송비 전액 환불)
+ *   S < 30,000 → (K−1) × 3,000 (배송비 1건만 받고 나머지 환불)
+ *   K = 0      → 0
  *
  * @param {Object} ordersMap  groupByOrderNumber 결과 (in-place 수정)
  * @returns {Object} 같은 ordersMap
@@ -156,7 +158,12 @@ export function mergeCombinedShipments(ordersMap) {
             delete ordersMap[orderNumbers[i]];
         }
 
-        const refund  = (K >= 1 && S >= 30000) ? K * 3000 : 0;
+        // 환불 룰 (기준선 분기):
+        //   S ≥ 30,000  → 무료배송 조건 충족 → 부과된 배송비 전액 환불 (K × 3,000)
+        //   S < 30,000  → 배송비 1건만 받고 나머지 환불        ((K-1) × 3,000)
+        const refund  = K === 0
+            ? 0
+            : (S >= 30000 ? K * 3000 : (K - 1) * 3000);
         const message = refund > 0
             ? `합배송 ${orderNumbers.length}건 묶음 (송장 ${inv}) — 배송비 ${refund.toLocaleString()}원 환불 필요`
             : `합배송 ${orderNumbers.length}건 묶음 (송장 ${inv}) — 배송비 환불 불필요`;
