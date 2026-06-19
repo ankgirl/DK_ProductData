@@ -158,7 +158,7 @@
                 <thead><tr>${thead}</tr></thead>
                 <tbody>${body}</tbody>
             </table>
-            <p class="muted">※ 머리글 클릭으로 정렬(다시 클릭 시 방향 전환). 소진(개월) = 현재고 ÷ 월평균판매. <span class="urgent">빨강</span>=0.5개월 미만, <span class="warn">주황</span>=1개월 미만. 세트 판매는 본품 수요로 합산.</p>`;
+            <p class="muted">※ 머리글 클릭으로 정렬(다시 클릭 시 방향 전환). 소진(개월) = 현재고 ÷ 월평균판매. <span class="urgent">빨강</span>=0.5개월 미만, <span class="warn">주황</span>=1개월 미만. 세트 판매는 본품 수요로 합산. <strong>사은품(서비스) 출고는 제외하고 실제 판매(ProductOrders)만 집계합니다.</strong></p>`;
 
         document.querySelectorAll('.rc-table th[data-key]').forEach(th => {
             th.onclick = () => {

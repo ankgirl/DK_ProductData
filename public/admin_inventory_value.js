@@ -16,85 +16,11 @@
     let allSnapshots = [];
     let chart = null;
     let currentUnit = 'day';
+    let currentRange = { start: '', end: '' }; // 기간 필터 (DateRangeControl)
 
-    // ---- 분류 헬퍼 ----
-    const classifyRoom = baseId => baseId.startsWith('room_') ? '방꾸미기' : '다꾸';
-    function sumOptionCounts(data) {
-        let c = 0;
-        const od = data.OptionDatas || {};
-        for (const k in od) c += Number(od[k].Counts) || 0;
-        return c;
-    }
-
-    // ---- 누적기 ----
-    function newAcc() {
-        const z = () => ({ 전체: 0, 본품: 0, 세트: 0, 방꾸미기: 0, 다꾸: 0 });
-        return { 원가: z(), 실판매가: z(), 정가: z() };
-    }
-    function addAcc(acc, bonset, cls, cost, sale, list) {
-        for (const [metric, val] of [['원가', cost], ['실판매가', sale], ['정가', list]]) {
-            acc[metric].전체 += val;
-            acc[metric][bonset] += val;
-            acc[metric][cls] += val;
-        }
-    }
-
-    // ---- 재고 가치 계산 ----
-    function computeInventory(docs, exclude) {
-        const acc = newAcc();
-        const flags = { 환산세트: [], 고아세트: [], 원가미입력: [], 제외: 0 };
-
-        for (const [id, data] of docs) {
-            const baseId = id.startsWith('SET_') ? id.slice(4) : id;
-            if (exclude.has(baseId)) { flags.제외++; continue; } // 본품/세트 모두 본품코드 기준 제외
-
-            if (!id.startsWith('SET_')) {
-                // ===== 본품 =====
-                const cls = classifyRoom(id);
-                const totalCounts = sumOptionCounts(data);
-                if (totalCounts === 0) continue;
-                const unitCost = Number(data.원가) || 0;
-                if (!unitCost) flags.원가미입력.push(id);
-
-                let salePrice = 0; // 옵션별 실판매가(Price) × Counts
-                const od = data.OptionDatas || {};
-                for (const k in od) salePrice += (Number(od[k].Price) || 0) * (Number(od[k].Counts) || 0);
-
-                // 정가 = 실판매가 ÷ 0.9 (단품 10% 할인 역산). SellingPrice 필드는 신뢰도 낮아 미사용.
-                addAcc(acc, '본품', cls, unitCost * totalCounts, salePrice, salePrice / 0.9);
-            } else {
-                // ===== 세트 =====
-                const cls = classifyRoom(baseId);
-                const od = data.OptionDatas || {};
-                const opt1 = od['옵션1'] || {};
-                const setCounts = Number(opt1.Counts) || 0;
-                if (setCounts === 0) continue;
-
-                let setCost = Number(data.원가) || 0;
-                let setSale = Number(opt1.Price) || Number(data.DiscountedPrice) || 0;
-
-                // 저장값 우선, 0/누락이면 본품에서 환산 (검증결과: 저장값 신뢰, 7%만 누락)
-                if (!setCost || !setSale) {
-                    const base = docs.get(baseId);
-                    if (base) {
-                        const nOpt = (base.GroupOptions || '').split(',').map(s => s.trim()).filter(Boolean).length
-                            || Object.keys(base.OptionDatas || {}).length;
-                        const baseCost = Number(base.원가) || 0;
-                        const baseSell = Number(base.SellingPrice) || 0;
-                        if (!setCost) setCost = baseCost * nOpt;
-                        if (!setSale) setSale = Math.floor(baseSell * nOpt * 0.75); // 세트 25% 할인
-                        flags.환산세트.push(id);
-                    } else {
-                        flags.고아세트.push(id); // 본품 없고 저장값도 없음 → 0으로 계산됨
-                    }
-                }
-                // 정가 = 실판매가 ÷ 0.75 (세트 25% 할인 역산)
-                const setSaleTotal = setSale * setCounts;
-                addAcc(acc, '세트', cls, setCost * setCounts, setSaleTotal, setSaleTotal / 0.75);
-            }
-        }
-        return { acc, flags };
-    }
+    // ---- 재고 가치 계산 (공유 순수 로직: inventory_compute.js) ----
+    // Cloud Function(자정 자동 기록)도 같은 모듈을 사용 → 화면 값과 기록 값이 어긋나지 않음.
+    const { computeInventory } = window.InventoryCompute;
 
     // ---- 화면: 요약표 ----
     function renderSummary(result) {
@@ -189,6 +115,8 @@
         const p = n => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
     }
+    // 수동 저장 전용 (자동 적립은 Cloud Function이 매일 자정 KST에 수행).
+    // 제외목록을 방금 바꿔 오늘 스냅샷을 즉시 갱신하고 싶을 때만 사용.
     async function saveTodaySnapshot(result) {
         const id = todayStr();
         const doc = {
@@ -201,7 +129,7 @@
         const el = $('snapshotStatus');
         try {
             await db.collection('InventorySnapshots').doc(id).set(doc);
-            el.textContent = `오늘(${id}) 스냅샷 저장 완료.`;
+            el.textContent = `오늘(${id}) 스냅샷 수동 저장 완료.`;
         } catch (e) {
             el.textContent = `⚠️ 스냅샷 저장 실패: ${e.message}`;
             console.error('[snapshot] 저장 실패', e);
@@ -225,28 +153,32 @@
         }
         return [...m.entries()].map(([label, s]) => ({ label, s }));
     }
+    function inRange(dateStr) {
+        if (currentRange.start && dateStr < currentRange.start) return false;
+        if (currentRange.end && dateStr > currentRange.end) return false;
+        return true;
+    }
     function drawTrend(unit) {
-        const rows = aggregate(allSnapshots, unit);
+        const rows = aggregate(allSnapshots.filter(s => inRange(s.날짜)), unit);
         const labels = rows.map(r => r.label);
         const pick = metric => rows.map(r => (r.s[metric] && r.s[metric].전체) || 0);
-        const ds = (label, metric, color) => ({
-            label, data: pick(metric), borderColor: color, backgroundColor: color, tension: 0.2, pointRadius: 3,
-        });
-        const data = {
-            labels,
-            datasets: [
-                ds('원가', '원가', '#c0392b'),
-                ds('실판매가', '실판매가', '#2e7d32'),
-                ds('정가', '정가', '#8884d8'),
-            ],
-        };
+        const META = [['원가', '#c0392b'], ['실판매가', '#2e7d32'], ['정가', '#8884d8']];
+        // 항목별 가격대 차이가 커서 공용 축이면 변동이 거의 안 보임 →
+        // 각 항목을 자기 자신의 스케일(숨김 축)로 그려 일별 변동을 살린다. 실제 값은 툴팁에 표시.
+        const datasets = META.map(([label, color], i) => ({
+            label, data: pick(label), borderColor: color, backgroundColor: color,
+            tension: 0.2, pointRadius: 3, yAxisID: 'y' + i,
+        }));
+        const scales = {};
+        META.forEach((_, i) => { scales['y' + i] = { display: false, grace: '8%' }; });
         const opts = {
             responsive: true,
+            interaction: { mode: 'index', intersect: false },
             plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${won(c.parsed.y)}` } } },
-            scales: { y: { ticks: { callback: v => (v / 10000).toLocaleString() + '만' } } },
+            scales,
         };
         if (chart) chart.destroy();
-        chart = new Chart($('trendChart'), { type: 'line', data, options: opts });
+        chart = new Chart($('trendChart'), { type: 'line', data: { labels, datasets }, options: opts });
     }
     async function loadAndDrawTrend() {
         const snap = await db.collection('InventorySnapshots').orderBy('날짜').get();
@@ -265,14 +197,14 @@
         });
     }
 
-    // ---- 재계산 (제외목록 변경 시에도 호출) ----
+    // ---- 재계산 (화면 표시 전용, DB 쓰기 없음) ----
+    // 스냅샷 적립은 더 이상 접속 시마다 하지 않음 → Cloud Function이 매일 자정(KST) 자동 기록.
     async function recompute() {
         const result = computeInventory(DOCS, EXCLUDE);
         renderSummary(result);
         renderExcludeManager(result);
         renderValidation(result);
-        await saveTodaySnapshot(result);
-        await loadAndDrawTrend(); // 오늘 점(제외 반영) 그래프에 반영
+        await loadAndDrawTrend();
     }
 
     // ---- 진입점 ----
@@ -287,7 +219,24 @@
 
             EXCLUDE = await loadExclude();
             bindUnitButtons();
+
+            // 기간 선택 (기본 '전체') — 변경 시 차트만 다시 그림
+            const rangeCtl = DateRangeControl.create($('rangeControl'), {
+                defaultPreset: 'all',
+                onApply: r => { currentRange = r; drawTrend(currentUnit); },
+            });
+            currentRange = rangeCtl.get();
+
             await recompute();
+
+            // 수동 기록 버튼 (자동 적립은 매일 자정 Cloud Function)
+            const saveBtn = $('saveSnapshotBtn');
+            if (saveBtn) saveBtn.onclick = async () => {
+                saveBtn.disabled = true;
+                await saveTodaySnapshot(computeInventory(DOCS, EXCLUDE));
+                await loadAndDrawTrend();
+                saveBtn.disabled = false;
+            };
 
             statusEl.textContent = '';
         } catch (e) {

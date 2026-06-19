@@ -2,6 +2,9 @@ import { searchByBarcode } from './barcode_search.js';
 //import { displayProductData } from './displayProductData.js';
 import { refineInputValue, getProductByBarcode, getProductBySellerCode } from './aGlobalMain.js';
 
+// 판매상태 줄에 "판매중지(전옵션 재고0+판매중지)" 인라인 버튼 노출 (displayProductData.js가 읽음)
+window.ENABLE_INLINE_DISABLE = true;
+
 let currentSellercode = null;
 let currentProduct = null;
 let currentSellerCodeSet = null;

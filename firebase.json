@@ -12,10 +12,12 @@
         ".git",
         "firebase-debug.log",
         "firebase-debug.*.log",
-        "*.local"
+        "*.local",
+        "copy-shared.js"
       ],
       "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run lint"
+        "node functions/copy-shared.js",
+        "npm --prefix functions run lint"
       ]
     }
   ],

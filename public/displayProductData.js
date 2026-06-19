@@ -10,6 +10,91 @@ window.tryAlternativeExtension = function(img) {
     }
 };
 
+// 검색 화면(셀러코드/바코드)의 판매상태 줄에 붙는 "판매중지" 버튼 핸들러.
+// 누르면 경고 후 disableProduct(공용 로직: 전옵션 재고0 + SmartStore 판매중지)를 실행.
+window.handleInlineDisable = async function (sellerCode, btn) {
+    if (!sellerCode) { alert("셀러코드를 찾을 수 없습니다."); return; }
+    const ok = confirm(
+        `⚠️ 경고\n\n[${sellerCode}] 상품의 모든 옵션 재고를 0으로 만들고\n스마트스토어에서 판매중지 처리합니다.\n(SET_ 상품이 있으면 함께 처리됩니다)\n\n되돌릴 수 없습니다. 계속하시겠습니까?`
+    );
+    if (!ok) return;
+    if (!window.disableProduct) { alert("disableProduct.js 가 로드되지 않았습니다."); return; }
+    const label = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "처리 중..."; }
+    try {
+        await window.disableProduct.disableAllOptions(sellerCode); // 내부에서 성공/실패 alert 처리
+    } catch (e) {
+        console.error("판매중지 처리 실패:", e);
+        alert("판매중지 처리 실패: " + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
+};
+
+// ShopURL "변경" 버튼: 팝업으로 새 URL을 입력받아 Products/{sellerCode}.ShopURL 저장 후 화면 갱신.
+window.changeShopURL = async function (sellerCode, btn) {
+    if (!sellerCode) { alert("셀러코드를 찾을 수 없습니다."); return; }
+    const link = document.getElementById("shopUrlLink");
+    const current = link ? (link.textContent || "").trim() : "";
+    const input = prompt(`[${sellerCode}] 새 ShopURL을 입력하세요:`, current);
+    if (input === null) return; // 취소
+    const url = input.trim();
+    if (btn) { btn.disabled = true; btn.textContent = "저장 중..."; }
+    try {
+        await window.db.collection("Products").doc(sellerCode).update({ ShopURL: url });
+        if (link) { link.textContent = url; link.href = url || "#"; }
+        alert("ShopURL 저장 완료.");
+    } catch (e) {
+        console.error("ShopURL 저장 실패:", e);
+        alert("ShopURL 저장 실패: " + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "변경"; }
+    }
+};
+
+// ===== 재고 수량 입력 검증 (공용) =====
+// 바코드(보통 8~13자리 큰 수)를 수량칸에 잘못 입력하는 인간적 실수를 막기 위한 상한.
+// "한 재고를 1만개 이상 보유하는 일은 사실상 없음" → 그 이상은 바코드 오입력으로 간주해 차단.
+const MAX_REASONABLE_COUNT = 10000;
+
+/**
+ * 수량 입력값(새로운 Counts / 새로운 SET_Counts / 새 옵션 Counts 공용) 검증.
+ * 빈 칸은 '변경 없음'으로 통과시키되 value=null 로 알린다.
+ * @returns {{ok: boolean, value: (number|null), reason: string}}
+ */
+function validateCountInput(raw) {
+    const s = String(raw ?? '').trim();
+    if (s === '') return { ok: true, value: null, reason: '' };           // 빈 칸 = 변경 안 함
+    if (!/^-?\d+$/.test(s)) return { ok: false, value: NaN, reason: '숫자가 아닌 값' };
+    const n = parseInt(s, 10);
+    if (n < 0) return { ok: false, value: n, reason: '음수는 입력할 수 없습니다' };
+    if (n > MAX_REASONABLE_COUNT)
+        return { ok: false, value: n, reason: `${MAX_REASONABLE_COUNT.toLocaleString()}개 초과 — 바코드를 수량칸에 입력했을 가능성이 높습니다` };
+    return { ok: true, value: n, reason: '' };
+}
+
+/**
+ * 폼의 모든 수량칸(_newCount / _newSET_Counts)을 저장 전에 검증.
+ * 비정상 값이 있으면 사람이 읽을 경고(어느 옵션/칸/값/사유)를 반환, 정상이면 null.
+ * 검증 실패 시 호출부는 저장을 즉시 중단 → 기존 재고 값은 그대로 유지(0/다른 값으로 덮어쓰지 않음).
+ */
+function findInvalidCountInput(formData) {
+    const COUNT_SUFFIXES = ['_newCount', '_newSET_Counts'];
+    for (const [key, raw] of formData.entries()) {
+        const suffix = COUNT_SUFFIXES.find(s => key.endsWith(s));
+        if (!suffix) continue;
+        const v = validateCountInput(raw);
+        if (!v.ok) {
+            const optionName = key.slice(0, -suffix.length);
+            const colLabel = suffix === '_newSET_Counts' ? '새로운 SET_Counts' : '새로운 Counts';
+            return `⚠️ 수량 입력 오류 — 저장을 취소했습니다 (기존 재고는 그대로 유지됨)\n\n`
+                 + `옵션: ${optionName}\n칸: ${colLabel}\n입력값: ${raw}\n사유: ${v.reason}\n\n`
+                 + `바코드는 '새로운 바코드' 칸에 입력하세요. 수량을 다시 확인 후 저장해주세요.`;
+        }
+    }
+    return null;
+}
+
 function generateProductDetailsHTML(data, setData) {
     // setData가 null이거나 undefined일 경우를 안전하게 처리
     const safeSetData = setData && setData.OptionDatas ? setData : { OptionDatas: {} };
@@ -24,10 +109,14 @@ function generateProductDetailsHTML(data, setData) {
         <p><strong>대표이미지:</strong> <img src="${data.Cafe24URL || ''}" alt="대표이미지" width="100"></p>
         <p><strong>스토어링크:</strong> <a href="${data.스토어링크 || '#'}" target="_blank">${data.스토어링크 || ''}</a></p>
         <p><strong>SmartStoreURL:</strong> <a href="${data.SmartStoreURL || '#'}" target="_blank">${data.SmartStoreURL || ''}</a></p>
-        <p><strong>ShopURL:</strong> <a href="${data.ShopURL || '#'}" target="_blank" style="word-break: break-all; overflow-wrap: break-word;">${data.ShopURL || ''}</a></p>
+        ${(setData && setData.SmartStoreURL) ? `<p><strong>SET SmartStoreURL:</strong> <a href="${setData.SmartStoreURL}" target="_blank">${setData.SmartStoreURL}</a></p>` : ''}
+        <p><strong>ShopURL:</strong>
+            <a id="shopUrlLink" href="${data.ShopURL || '#'}" target="_blank" style="word-break: break-all; overflow-wrap: break-word;">${data.ShopURL || ''}</a>
+            <button type="button" onclick="changeShopURL('${data.SellerCode}', this)" style="margin-left:10px; padding:4px 12px; border:1px solid #3a2b4d; background:#3a2b4d; color:#fff; border-radius:4px; cursor:pointer; vertical-align:middle;">변경</button>
+        </p>
         <p><strong>SellingPrice:</strong> ${data.DiscountedPrice || ''}</p>
         <p><strong>Option Datas:</strong></p>
-        <form id="updateForm">
+        <form id="updateForm" novalidate>
             <div style="margin-bottom: 15px; font-size: 1.1em; border: 1px solid #ccc; padding: 10px; display: inline-block; border-radius: 5px;">
                 <strong>판매 상태:</strong>
                 <label style="margin-left: 15px; color: #888;">
@@ -39,6 +128,11 @@ function generateProductDetailsHTML(data, setData) {
                 <label style="margin-left: 15px;">
                     <input type="radio" name="statusType" value="SUSPENSION"> 판매중지
                 </label>
+                ${window.ENABLE_INLINE_DISABLE ? `
+                <button type="button" id="inlineDisableBtn"
+                    onclick="handleInlineDisable('${data.SellerCode}', this)"
+                    style="margin-left: 25px; background:#c0392b; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;"
+                    title="모든 옵션 재고를 0으로 만들고 판매중지 처리합니다">판매중지 (전옵션 재고0 + 판매중지)</button>` : ''}
             </div>
             <style>
                 #updateForm table {
@@ -77,6 +171,11 @@ function generateProductDetailsHTML(data, setData) {
                 #updateForm button.clear-barcode {
                     width: 100%;
                     padding: 4px 0;
+                }
+                /* 수량칸에 바코드/음수/상한초과 등 비정상 값이 들어오면 즉시 빨갛게 경고 */
+                #updateForm input.count-input.count-invalid {
+                    background-color: #ffd5d5;
+                    border: 2px solid #c0392b;
                 }
             </style>
             <!-- 주석
@@ -156,9 +255,9 @@ function generateProductDetailsHTML(data, setData) {
                                     <td class="image-container"><img src="${optionValues.실제이미지URL}" alt="실제이미지" onerror="tryAlternativeExtension(this)"></td>
                                     <td>${optionValues.Price || ''}</td>
                                     <td id="${optionName}_Counts">${optionValues.Counts || ''}</td>
-                                    <td><input type="number" name="${optionName}_newCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newCount" class="input-field"></td>
+                                    <td><input type="number" name="${optionName}_newCount" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newCount" class="input-field count-input" min="0" max="${MAX_REASONABLE_COUNT}" step="1" inputmode="numeric"></td>
                                     <td id="${optionName}_SET_Counts">${setCounts}</td>
-                                    <td><input type="number" name="${optionName}_newSET_Counts" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newSET_Counts" class="input-field"></td>
+                                    <td><input type="number" name="${optionName}_newSET_Counts" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newSET_Counts" class="input-field count-input" min="0" max="${MAX_REASONABLE_COUNT}" step="1" inputmode="numeric"></td>
                                     <td id="${optionName}_TotalCounts">${totalCounts || ''}</td>
                                     <td id="${optionName}_바코드">${optionValues.바코드 || ''}</td>
                                     <td><input type="text" name="${optionName}_newBarcode" data-next="${array[index + 1] ? array[index + 1][0] : array[0][0]}_newBarcode" class="input-field"></td>
@@ -178,7 +277,7 @@ function generateProductDetailsHTML(data, setData) {
         <form id="addOptionForm">
             <label>옵션 이름: <input type="text" id="newOptionName" required></label>
             <label>Price: <input type="number" id="newOptionPrice"></label>
-            <label>Counts: <input type="number" id="newOptionCounts"></label>
+            <label>Counts: <input type="number" id="newOptionCounts" min="0" max="${MAX_REASONABLE_COUNT}" step="1" inputmode="numeric"></label>
             <label>바코드: <input type="text" id="newOptionBarcode"></label>
             <button id="buttonAddOption">옵션 추가</button>
         </form>
@@ -395,6 +494,14 @@ function displayProductData(data, setData,  container = document.getElementById(
 
         try {
 
+        // 0. 수량칸 검증 — 바코드 오입력/음수/숫자아님이면 저장 자체를 중단.
+        //    저장 전에 막으므로 DB·화면의 기존 재고 값은 전혀 바뀌지 않는다(0/다른 값으로 덮어쓰지 않음).
+        const invalidMsg = findInvalidCountInput(formData);
+        if (invalidMsg) {
+            alert(invalidMsg);
+            return; // finally에서 폼 재활성화, DB 미변경 → 기존 재고 유지
+        }
+
         const updatedOptionDatas = {};
         const updatedSetOptionDatas = {};
         let barcodeCheckNeeded = false;
@@ -607,6 +714,12 @@ function displayProductData(data, setData,  container = document.getElementById(
             if (!suffix3) return;
             const optionName = this.name.slice(0, -suffix3.length);
             const field = suffix3 === '_newSET_Counts' ? 'newSET' : suffix3.slice(1);
+            // 수량칸 실시간 검증: 바코드(상한초과)/음수/비정상 값이면 즉시 빨갛게 표시해 인지시킴
+            if (field === 'newCount' || field === 'newSET') {
+                const v = validateCountInput(this.value);
+                this.classList.toggle('count-invalid', !v.ok);
+                this.title = v.ok ? '' : `입력 오류: ${v.reason}`;
+            }
             if (['increaseCount', 'decreaseCount'].includes(field)) {
                 const newCountInput = document.querySelector(`input[name="${optionName}_newCount"]`);
                 if (newCountInput) {
@@ -658,9 +771,17 @@ function displayProductData(data, setData,  container = document.getElementById(
         event.preventDefault();
         const newOptionName = document.getElementById('newOptionName').value;
         const newOptionPrice = parseInt(document.getElementById('newOptionPrice').value, 10) || 0;
-        const newOptionCounts = parseInt(document.getElementById('newOptionCounts').value, 10) || 0;
         const newOptionBarcode = document.getElementById('newOptionBarcode').value || "";
-    
+
+        // 새 옵션 Counts도 공용 검증 — 바코드/음수/상한초과면 추가 중단
+        const rawNewCount = document.getElementById('newOptionCounts').value;
+        const countCheck = validateCountInput(rawNewCount);
+        if (!countCheck.ok) {
+            alert(`⚠️ 새 옵션 수량 입력 오류 — 옵션을 추가하지 않았습니다\n\n입력값: ${rawNewCount}\n사유: ${countCheck.reason}\n\n바코드는 'Counts'가 아니라 '바코드' 칸에 입력하세요.`);
+            return;
+        }
+        const newOptionCounts = countCheck.value || 0;
+
         if (data.OptionDatas[newOptionName]) {
             alert('이미 존재하는 옵션 이름입니다.');
             return;

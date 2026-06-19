@@ -1,2 +1,5 @@
 node_modules/
 *.local
+
+# 배포 시 predeploy 가 public/inventory_compute.js 에서 복사하는 생성물 (단일 소스는 public/)
+inventory_compute.js

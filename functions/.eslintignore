@@ -1,0 +1,4 @@
+# predeploy 단계에서 public/ 에서 복사되는 생성 파일 (lint 대상 아님)
+inventory_compute.js
+# 배포용 복사 스크립트 (런타임 코드 아님)
+copy-shared.js

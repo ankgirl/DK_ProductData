@@ -30,8 +30,12 @@
             const opts = Object.entries(od).map(([k, v]) => ({ k, c: num(v.Counts) }));
             const bad = opts.filter(o => negOnly ? o.c < 0 : o.c <= 0);
             if (bad.length < minZero) continue;
+            // 대표 이미지: 본품 옵션1(없으면 첫 옵션)의 옵션이미지URL. Cafe24URL은 비어있어 미사용.
+            const firstOpt = od['옵션1'] || od[Object.keys(od)[0]] || {};
+            const img = firstOpt.옵션이미지URL || firstOpt.실제이미지URL || base.Cafe24URL || '';
             rows.push({
                 base: id.slice(4),
+                img,
                 name: base.상품명 || '',
                 setCounts,
                 zeroCount: bad.length,
@@ -77,11 +81,17 @@
             { key: 'name', label: '상품명' },
         ];
         const arrow = k => sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-        const thead = COLS.map(c => `<th data-key="${c.key}">${c.label}${arrow(c.key)}</th>`).join('') + '<th>본품 옵션별 재고</th>';
+        const headCells = COLS.map(c => `<th data-key="${c.key}">${c.label}${arrow(c.key)}</th>`);
+        headCells.splice(1, 0, '<th>이미지</th>'); // 셀러코드 다음에 이미지(정렬 안 함)
+        const thead = headCells.join('') + '<th>본품 옵션별 재고</th>';
 
+        const link = sc => `search_by_seller_code.html?sellerCode=${encodeURIComponent(sc)}`;
         const sorted = sortRows(lastRows);
         const body = sorted.map(r => `<tr>
-            <td><a href="search_by_seller_code.html?sellerCode=${encodeURIComponent(r.base)}" target="_blank" rel="noopener">${r.base}</a></td>
+            <td><a href="${link(r.base)}" target="_blank" rel="noopener">${r.base}</a></td>
+            <td style="text-align:center;">${r.img
+                ? `<a href="${link(r.base)}" target="_blank" rel="noopener"><img src="${r.img}" alt="${r.base}" style="width:46px;height:46px;object-fit:cover;border-radius:4px;" loading="lazy" onerror="tryAlternativeExtension(this)"></a>`
+                : '<span class="muted">없음</span>'}</td>
             <td>${cnt(r.setCounts)}</td>
             <td>${r.zeroCount}${r.hasNeg ? ' <span class="neg">⚠</span>' : ''}</td>
             <td>${r.totalCount}</td>

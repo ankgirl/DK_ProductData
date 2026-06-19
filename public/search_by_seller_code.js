@@ -1,6 +1,8 @@
 
 //search_by_seller_code.js
 
+// 판매상태 줄에 "판매중지(전옵션 재고0+판매중지)" 인라인 버튼 노출 (displayProductData.js가 읽음)
+window.ENABLE_INLINE_DISABLE = true;
 
 let currentSellercode = null;
 let currentProduct = null;
