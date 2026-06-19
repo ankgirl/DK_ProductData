@@ -1,6 +1,6 @@
 // search_by_seller_code_changeinfo.js
 
-import { getProductBySellerCode } from './aGlobalMain.js';
+import { getProductBySellerCode, changeSellerCodeAtomic } from './aGlobalMain.js';
 import { getCurrentSellerCode, getCurrentProduct, searchProductBySellerCode } from './search_by_seller_code.js';
 import { generateImageURLs } from './generateImageURLs.js';
 
@@ -39,10 +39,8 @@ document.addEventListener("DOMContentLoaded", function () {
         event.preventDefault();
 
         try {
-            let currentSellerCode = await getCurrentSellerCode();
-            let currentProduct = await getCurrentProduct();
-
-            let newSellerCode = afterSellerCodeInput.value.trim();
+            const currentSellerCode = await getCurrentSellerCode();
+            const newSellerCode = afterSellerCodeInput.value.trim();
             const withCategory = document.getElementById("changeSellerCodeWithCategory").checked;
 
             if (!newSellerCode) {
@@ -50,57 +48,26 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            // 입고차수 계산 (체크박스 체크 시)
-            let newCategory = null;
+            // 확인창용 새 입고차수 미리보기 (실제 적용은 원자적 함수 내부에서 동일 규칙으로)
+            let newCategoryPreview = null;
             if (withCategory) {
                 const prefix = newSellerCode.split("_")[0];
-                newCategory = /^\d+$/.test(prefix) ? `${prefix}차입고` : prefix;
+                newCategoryPreview = /^\d+$/.test(prefix) ? `${prefix}차입고` : prefix;
             }
-
             const confirmMsg = withCategory
-                ? `현재 판매자 코드: ${currentSellerCode}\n새 판매자 코드: ${newSellerCode}\n현재 입고차수: ${currentProduct.소분류명}\n새 입고차수: ${newCategory}\n판매자 코드와 입고차수를 변경하시겠습니까?`
+                ? `현재 판매자 코드: ${currentSellerCode}\n새 판매자 코드: ${newSellerCode}\n새 입고차수: ${newCategoryPreview}\n판매자 코드와 입고차수를 변경하시겠습니까?`
                 : `현재 판매자 코드: ${currentSellerCode}\n새 판매자 코드: ${newSellerCode}\n판매자 코드를 변경하시겠습니까?`;
-
             if (!confirm(confirmMsg)) return;
 
-            const db = firebase.firestore();
+            if (messageDiv) messageDiv.textContent = "변경 중... (스마트스토어 반영 포함, 수 초 소요)";
 
-            // 일반 문서 변경
-            const productWithLockedImages = lockImageURLs(currentProduct);
-            const updatedProductData = {
-                ...productWithLockedImages,
-                SellerCode: newSellerCode,
-                ...(withCategory && { 소분류명: newCategory }),
-            };
-            // SET_ 문서 먼저 확인 (일반 문서 변경 전)
-            const setDocSnap = await db.collection("Products").doc(`SET_${currentSellerCode}`).get();
-            const hasSetDoc = setDocSnap.exists;
+            // 원자적 변경(새 코드 충돌 검사 + batch set/delete + 캐시 무효화) + 스마트스토어 코드 변경 — 공용 로직
+            const { newCategory, oldCategory, storeNote } =
+                await changeSellerCodeAtomic(currentSellerCode, newSellerCode, withCategory, lockImageURLs);
 
-            await db.collection("Products").doc(newSellerCode).set(updatedProductData);
-            await db.collection("Products").doc(currentSellerCode).delete();
-
-            // SET_ 문서 변경 (존재하는 경우)
-            if (hasSetDoc) {
-                try {
-                    const setProduct = setDocSnap.data();
-                    const updatedSetData = {
-                        ...setProduct,
-                        SellerCode: `SET_${newSellerCode}`,
-                        ...(withCategory && { 소분류명: newCategory }),
-                    };
-                    await db.collection("Products").doc(`SET_${newSellerCode}`).set(updatedSetData);
-                    await db.collection("Products").doc(`SET_${currentSellerCode}`).delete();
-                    console.log(`SET_ 변경 완료: SET_${currentSellerCode} → SET_${newSellerCode}`);
-                } catch (setErr) {
-                    console.error("SET_ 변경 실패:", setErr);
-                    alert(`경고: SET_${currentSellerCode} → SET_${newSellerCode} 변경 실패. 수동 확인 필요.\n${setErr.message}`);
-                }
-            }
-
-            const msg = withCategory
-                ? `판매자 코드: ${currentSellerCode} → ${newSellerCode}, 입고차수: ${currentProduct.소분류명} → ${newCategory} 변경 완료`
-                : `판매자 코드: ${currentSellerCode} → ${newSellerCode} 변경 완료`;
-
+            const msg = (withCategory
+                ? `판매자 코드: ${currentSellerCode} → ${newSellerCode}, 입고차수: ${oldCategory} → ${newCategory} 변경 완료`
+                : `판매자 코드: ${currentSellerCode} → ${newSellerCode} 변경 완료`) + (storeNote || '');
             alert(msg);
             messageDiv.textContent = msg;
 
@@ -109,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         } catch (error) {
             console.error("에러 발생:", error);
-            alert("판매자 코드 변경 중 오류가 발생했습니다. 다시 시도해주세요.");
+            alert("판매자 코드 변경 실패: " + error.message);
         }
     });
 

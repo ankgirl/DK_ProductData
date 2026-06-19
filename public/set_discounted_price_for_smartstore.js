@@ -242,14 +242,19 @@ function getCheckedProducts(products) {
 
 async function saveDiscountedProductsToFirestore(products) {
     const db = firebase.firestore();
-    const batch = db.batch();
-
-    products.forEach(product => {
-        const productDocRef = db.collection('Products').doc(product.SellerCode);
-        batch.set(productDocRef, product);
-    });
-
-    await batch.commit();
+    // 존재하는 상품만 반영(부활 차단). merge 없는 set은 없는 문서를 새로 만들어
+    // 삭제/이름변경된 옛 코드를 되살릴 수 있으므로 get()으로 확인 후에만 기록한다.
+    const skipped = [];
+    for (const product of products) {
+        const ref = db.collection('Products').doc(product.SellerCode);
+        const snap = await ref.get();
+        if (!snap.exists) { skipped.push(product.SellerCode); continue; }
+        await ref.set(product, { merge: true });
+    }
+    if (skipped.length) {
+        console.warn('[할인가 반영] 건너뛴(존재하지 않는) 코드:', skipped);
+        alert(`⚠️ 존재하지 않아 건너뛴 셀러코드 ${skipped.length}건 (삭제/이름변경된 옛 코드일 수 있음):\n${skipped.join(', ')}`);
+    }
     console.log('Discounted products saved to Firestore');
 }
 

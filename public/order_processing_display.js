@@ -225,20 +225,25 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
     async function batchUpdateProductCounts(productUpdates, db) {
-        const batch = db.batch();  // Firestore 배치 생성
+        // 존재하는 문서만 재고 반영(부활 차단). set(merge)는 문서가 없으면 새로 만들어
+        // 삭제/이름변경된 옛 코드를 되살렸으므로, get()으로 존재 확인 후에만 기록한다.
         console.log("productUpdates", productUpdates);
-
-
-
-        productUpdates.forEach(update => {
-            const { id, data } = update;            
-            console.log(`id: ${id}`);
+        const skipped = [];
+        for (const { id, data } of productUpdates) {
             const docRef = db.collection('Products').doc(id);
-            console.log(`docRef path: ${docRef.path}`);
-            batch.set(docRef, data, { merge: true });
-        });
-    
-        await batch.commit();  // 배치 업데이트 실행
+            try {
+                const snap = await docRef.get();
+                if (!snap.exists) { skipped.push(id); continue; }
+                await docRef.set(data, { merge: true });
+            } catch (e) {
+                skipped.push(id);
+                console.error(`[재고반영] '${id}' 갱신 실패 — 되살리지 않고 건너뜀:`, e.message);
+            }
+        }
+        if (skipped.length) {
+            console.warn('[재고반영] 건너뛴(존재하지 않는) 코드:', skipped);
+            alert(`⚠️ 재고가 반영되지 않은 상품 ${skipped.length}건 (삭제/이름변경된 옛 코드라 되살리지 않음):\n${skipped.join(', ')}`);
+        }
     }
     
     saveCurrentStateButton.addEventListener('click', async function () {

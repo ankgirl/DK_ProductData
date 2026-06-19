@@ -81,7 +81,12 @@ export async function updateProductCounts(barcode, quantity, db) {
             console.log("Updated product counts:", updatedCounts);
         }
 
-        await db.collection('Products').doc(product.id).set(product, { merge: true });
+        // set(merge) 대신 변경된 필드만 update → 없는 문서를 되살리지 않음(부활 차단)
+        if (product.OptionDatas) {
+            await db.collection('Products').doc(product.id).update({ OptionDatas: product.OptionDatas });
+        } else {
+            await db.collection('Products').doc(product.id).update({ Counts: product.Counts });
+        }
         console.log("Updated product in DB:", product);
 
         return updatedCounts;
@@ -113,7 +118,8 @@ export async function updateSetProductCounts(sellerCode, quantity, db) {
         console.log("updatedCounts", updatedCounts);
         product.OptionDatas["옵션1"].Counts = updatedCounts;
         console.log("Products", product);
-        await db.collection('Products').doc(sellerCode).set(product, { merge: true });
+        // 이미 위에서 존재 확인(get)했고, set(merge) 대신 OptionDatas만 update → 되살림 없음
+        await db.collection('Products').doc(sellerCode).update({ OptionDatas: product.OptionDatas });
         console.log("Updated product in DB:", product);
         return updatedCounts;
     } catch (error) {

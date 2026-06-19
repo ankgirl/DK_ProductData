@@ -70,14 +70,32 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
 
-        const entries = [...bySeller.entries()];
-        const total = entries.length;
-        if (!total) {
+        let entries = [...bySeller.entries()];
+        if (!entries.length) {
             messageDiv.innerHTML = `<p>반영할 유효한 행이 없습니다.</p>` + renderSkipped(skipped);
             return;
         }
 
-        // 2) 배치 merge 쓰기 (기존 필드 보존)
+        // 1.5) 존재하는 셀러코드만 대상으로 필터 → 삭제/이름변경된 옛 코드를 되살리지 않음(부활 차단).
+        //     스마트스토어에 옛 코드로 남아있는 행은 무시하고 리포트(=스토어에서 판매자상품코드 갱신 필요).
+        messageDiv.innerHTML = "<p>기존 상품 목록 확인 중...</p>";
+        const existingIds = new Set();
+        (await db.collection("Products").get()).forEach(d => existingIds.add(d.id));
+        const notFound = [];
+        entries = entries.filter(([sellerCode]) => {
+            if (existingIds.has(sellerCode)) return true;
+            notFound.push({ sellerCode, reason: "DB에 없는 셀러코드(옛 코드일 수 있음) — 되살리지 않고 무시. 스토어에서 판매자상품코드 확인 필요" });
+            return false;
+        });
+        skipped.push(...notFound);
+
+        const total = entries.length;
+        if (!total) {
+            messageDiv.innerHTML = `<p>반영할(=DB에 존재하는) 행이 없습니다.</p>` + renderSkipped(skipped);
+            return;
+        }
+
+        // 2) 배치 merge 쓰기 (위에서 존재 확인했으므로 merge가 새 문서를 만들지 않음, 기존 필드 보존)
         let done = 0, ok = 0;
         const failed = [];
         for (let i = 0; i < total; i += BATCH_SIZE) {

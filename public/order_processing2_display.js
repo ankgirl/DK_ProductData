@@ -314,12 +314,28 @@ async function batchUpdateOrder(orderUpdates, db) {
 }
 
 async function batchUpdateProductCounts(productUpdates, db) {
-    const batch = db.batch();
-    productUpdates.forEach(({ id, data }) => {
-        const docRef = db.collection('Products').doc(id);
-        batch.set(docRef, data, { merge: true });
-    });
-    await batch.commit();
+    // 존재하는 문서만 재고를 반영한다(부활 차단).
+    //  - set(merge:true)는 문서가 없으면 새로 만들어 삭제/이름변경된 옛 코드를 되살렸음 → 그게 근본 원인.
+    //  - 그래서 먼저 get()으로 존재를 확인하고, 있을 때만 기존 merge 의미 그대로 기록한다.
+    //    (merge라 SET의 부분 OptionDatas 갱신 등 기존 동작은 그대로 보존)
+    const skipped = [];
+    for (const { id, data } of productUpdates) {
+        const ref = db.collection('Products').doc(id);
+        try {
+            const snap = await ref.get();
+            if (!snap.exists) { skipped.push(id); continue; }
+            await ref.set(data, { merge: true });
+        } catch (e) {
+            skipped.push(id);
+            console.error(`[재고반영] '${id}' 갱신 실패 — 되살리지 않고 건너뜀:`, e.message);
+        }
+    }
+    if (skipped.length) {
+        console.warn('[재고반영] 건너뛴(존재하지 않는) 코드:', skipped);
+        alert(`⚠️ 재고가 반영되지 않은 상품 ${skipped.length}건이 있습니다.\n`
+            + `이미 삭제/이름변경된 셀러코드라 되살리지 않고 건너뛰었습니다:\n${skipped.join(', ')}\n\n`
+            + `해당 주문 상품의 바코드/셀러코드를 확인하세요.`);
+    }
 }
 
 // ─── Phase 1: 수량 집계 (순수 데이터 수집) ──────────────────────────────────
