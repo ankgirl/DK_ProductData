@@ -55,7 +55,7 @@ async function initializeMap(db, collectionName, snapshotVariableName) {
             snapshots.forEach(snapshot => {
                 snapshot.forEach(doc => {
                     if (!map.has(doc.id)) {
-                        map.set(doc.id, { id: doc.id, ...doc.data() });
+                        map.set(doc.id, { ...doc.data(), id: doc.id });
                         allDocs.push(doc);
                     }
                 });
@@ -67,7 +67,7 @@ async function initializeMap(db, collectionName, snapshotVariableName) {
              */
             const snapshot = await db.collection(collectionName).get();
             snapshot.forEach(doc => {
-                map.set(doc.id, { id: doc.id, ...doc.data() });
+                map.set(doc.id, { ...doc.data(), id: doc.id });
                 allDocs.push(doc);
             });
         }
@@ -443,6 +443,8 @@ export async function getProductByBarcode(barcode) {
     // 중복 시 "고스트(doc id ≠ 내부 SellerCode)"는 피하고, id와 SellerCode가 일치하는 정상 문서를 우선 선택.
     // (옛 코드 doc을 계속 골라 재고를 옛 코드에 쓰며 중복을 영속화하던 문제 차단)
     const first = matches.find(m => m.id === (m.data.SellerCode || m.id)) || matches[0];
-    return { id: first.id, ...first.data, matchedOption: first.option, GroupOptions: first.data.GroupOptions };
+    // 주의: ...first.data 를 먼저 펼친 뒤 id를 덮어쓴다.
+    // (이름변경된 문서는 data 안에 옛 id 필드가 남아있어, id를 앞에 두면 옛값으로 덮어써짐)
+    return { ...first.data, id: first.id, matchedOption: first.option, GroupOptions: first.data.GroupOptions };
 }
 
