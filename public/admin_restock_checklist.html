@@ -1,0 +1,64 @@
+<!-- admin_restock_checklist.html — 재입고 체크리스트 (관리자 전용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>재입고 체크리스트 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1150px; margin: 0 auto; padding: 16px; }
+        .rcl-input { background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 6px; padding: 12px 14px; margin: 12px 0; }
+        .rcl-input textarea { width: 100%; box-sizing: border-box; min-height: 70px; padding: 8px; font-family: inherit; font-size: 0.95em; resize: vertical; }
+        .rcl-input button { padding: 8px 18px; margin-top: 8px; }
+        .rcl-table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        .rcl-table th, .rcl-table td { border: 1px solid #ccc; padding: 8px 10px; vertical-align: middle; }
+        .rcl-table thead th { background: #3a2b4d; color: #fff; position: sticky; top: 0; }
+        .rcl-table tbody tr:nth-child(even) { background: #f6f4f9; }
+        .rcl-table img { width: 70px; height: 70px; object-fit: cover; border-radius: 5px; display: block; }
+        .rcl-table .col-img { width: 80px; text-align: center; }
+        .rcl-table .col-code { white-space: nowrap; font-weight: bold; }
+        .rcl-table .col-check { width: 60px; text-align: center; }
+        .rcl-table .col-check input { width: 22px; height: 22px; cursor: pointer; }
+        .rcl-table .shopurl { word-break: break-all; overflow-wrap: break-word; font-size: 0.88em; }
+        .rcl-table .opts { font-size: 0.86em; color: #333; line-height: 1.5; }
+        .rcl-table .missing { color: #c0392b; }
+        .rcl-foot { position: sticky; bottom: 0; background: #efe9f5; border: 1px solid #d8cfe6; border-radius: 6px; padding: 12px 14px; margin: 14px 0; }
+        .rcl-foot textarea { width: 100%; box-sizing: border-box; min-height: 54px; padding: 8px; font-family: inherit; resize: vertical; }
+        .rcl-foot button { padding: 8px 18px; margin-top: 8px; }
+        .muted { color: #888; font-size: 0.85em; }
+        #status { color: #555; margin: 6px 0; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>재입고 체크리스트 <span class="muted">· 관리자 전용</span></h1>
+        <p class="muted">재입고 후보 셀러코드를 콤마(,)로 이어서 붙여넣고 조회하세요. 체크한 것만 하단에서 콤마로 모아 복사할 수 있습니다.</p>
+
+        <div class="rcl-input">
+            <textarea id="codesInput" placeholder="예: cat_0102, cat_0103, room_0201, 64_0301"></textarea>
+            <div>
+                <button id="loadBtn">조회</button>
+                <span id="status"></span>
+            </div>
+        </div>
+
+        <div id="result"></div>
+
+        <div class="rcl-foot" id="footBox" style="display:none;">
+            <strong>체크된 셀러코드</strong> <span class="muted">(체크 시 자동 갱신)</span>
+            <textarea id="checkedOutput" readonly></textarea>
+            <button id="copyBtn">복사하기</button>
+            <span id="copyStatus" class="muted"></span>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadManageNavbar.js"></script>
+    <script src="./imageFallback.js"></script>
+    <script src="./admin_restock_checklist.js?v=1"></script>
+</body>
+</html>
