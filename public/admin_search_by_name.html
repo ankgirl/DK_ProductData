@@ -1,0 +1,48 @@
+<!-- admin_search_by_name.html — 상품명으로 검색 (관리자 전용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이름으로 검색 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1000px; margin: 0 auto; padding: 16px; }
+        .nm-input { background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 6px; padding: 12px 14px; margin: 12px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .nm-input input { flex: 1; min-width: 220px; padding: 8px; font-size: 1em; }
+        .nm-input button { padding: 8px 18px; }
+        .nm-table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        .nm-table th, .nm-table td { border: 1px solid #ccc; padding: 8px 10px; vertical-align: middle; }
+        .nm-table thead th { background: #3a2b4d; color: #fff; position: sticky; top: 0; }
+        .nm-table tbody tr:nth-child(even) { background: #f6f4f9; }
+        .nm-table img { width: 70px; height: 70px; object-fit: cover; border-radius: 5px; display: block; }
+        .nm-table .col-img { width: 80px; text-align: center; }
+        .nm-table .col-code { white-space: nowrap; font-weight: bold; }
+        .muted { color: #888; font-size: 0.85em; }
+        #status { color: #555; margin: 6px 0; }
+        mark { background: #ffe27a; padding: 0 1px; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>이름으로 검색 <span class="muted">· 관리자 전용</span></h1>
+        <p class="muted">상품명 일부만 입력해도 검색됩니다(대소문자·부분일치).</p>
+
+        <div class="nm-input">
+            <input type="text" id="nameInput" placeholder="예: 고양이 스티커">
+            <button id="searchBtn">검색</button>
+            <span id="status"></span>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadManageNavbar.js"></script>
+    <script src="./imageFallback.js"></script>
+    <script src="./admin_search_by_name.js?v=1"></script>
+</body>
+</html>
