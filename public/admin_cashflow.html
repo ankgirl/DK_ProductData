@@ -1,0 +1,153 @@
+<!-- admin_cashflow.html — 사업 현금흐름 (관리자 전용) -->
+<!-- 카카오뱅크 거래내역 + 삼성카드 사용내역 업로드 → 월별 현금흐름 그래프/표 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사업 현금흐름 (관리자)</title>
+<link rel="stylesheet" href="./style.css">
+<style>
+  /* style.css 의 #navbar(좌측 사이드바)/.main-content 레이아웃을 그대로 사용.
+     이 페이지 전용 스타일은 여기에만 둬서 공용 CSS 오염 0. */
+  .cf-content { max-width: 1140px; margin: 0 auto; padding: 18px; }
+  .cf-content h1 { font-size: 1.5em; }
+  .cf-content h2 { margin-top: 30px; border-bottom: 2px solid #3a2b4d; padding-bottom: 5px; font-size: 1.15em; }
+  .muted { color: #888; font-size: 0.85em; font-weight: normal; }
+  .build { color:#aaa; font-size:0.72em; }
+
+  .upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px){ .upload-row{ grid-template-columns:1fr; } .two-col{ grid-template-columns:1fr!important; } }
+  .drop { border: 2px dashed #b3a4c9; border-radius: 10px; background: #fff; padding: 20px; text-align: center; cursor: pointer; transition: .15s; }
+  .drop.hover { background: #efe7f7; border-color: #7a5fa6; }
+  .drop .ic { font-size: 1.8em; }
+  .drop .t { font-weight: bold; margin: 6px 0 2px; }
+  .drop .s { color: #999; font-size: 0.8em; }
+  .drop input[type=file]{ display:none; }
+  .upload-result { margin-top: 10px; border-radius: 8px; padding: 10px 12px; font-size: 0.9em; display:none; }
+  .upload-result.ok { background: #eef7ee; border: 1px solid #bfe0bf; }
+  .upload-result.warn { background: #fdf4e7; border: 1px solid #f0d6a8; }
+  .upload-result.err { background: #fdeef0; border: 1px solid #f0bcc4; }
+  .upload-result b.add { color: #2e7d32; } .upload-result b.dup { color: #999; } .upload-result b.bad { color: #c0392b; }
+
+  .period { display: flex; align-items: center; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .period select, .period button { padding: 6px 10px; font-size: 0.95em; border: 1px solid #bbb; border-radius: 6px; background: #fff; cursor: pointer; }
+  .period button.active { background: #3a2b4d; color: #fff; border-color: #3a2b4d; }
+
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 10px; margin: 12px 0; }
+  .card { border: 1px solid #e0dae8; border-radius: 10px; padding: 13px 15px; background: #fff; }
+  .card .k { color: #888; font-size: 0.82em; }
+  .card .v { font-size: 1.35em; font-weight: bold; margin-top: 4px; }
+  .card .sub { font-size: 0.78em; margin-top: 3px; color: #aaa; }
+  .pos { color: #2e7d32; } .neg { color: #c0392b; }
+
+  /* 순현금흐름 +/- 배너 */
+  .netbanner { border-radius:12px; padding:14px 20px; margin:10px 0 6px; display:flex; gap:26px; align-items:center; flex-wrap:wrap; }
+  .netbanner.pos { background:#e7f6ec; border:1px solid #8fd0a8; }
+  .netbanner.neg { background:#fdecee; border:1px solid #f0a8b2; }
+  .netbanner .nb-label { font-size:0.85em; color:#555; }
+  .netbanner .amt { font-size:2em; font-weight:bold; line-height:1.15; }
+  .netbanner.pos .amt { color:#1d7a3f; } .netbanner.neg .amt { color:#b5283c; }
+  .netbanner .nb-side { font-size:0.92em; color:#444; line-height:1.7; }
+  .netbanner .b { display:inline-block; padding:1px 8px; border-radius:9px; font-size:0.8em; margin-left:5px; }
+  .netbanner .b.up { background:#d8efe0; color:#1d7a3f; } .netbanner .b.down { background:#f7d9de; color:#b5283c; }
+  .netbanner .nb-inv { margin-top:3px; color:#3a2b4d; font-weight:600; }
+  .netbanner .nb-inv.muted2 { color:#999; font-weight:400; font-size:0.86em; }
+
+  .panel { background:#fff; border:1px solid #e0dae8; border-radius:10px; padding:14px; }
+  .two-col { display:grid; grid-template-columns: 1.3fr 1fr; gap:16px; }
+  .chart-wrap { background:#fff; border:1px solid #e0dae8; border-radius:10px; padding:12px; }
+
+  .recon { display:flex; align-items:center; gap:10px; border-radius:8px; padding:10px 13px; font-size:0.88em; margin:8px 0; }
+  .recon.ok { background:#eef7ee; border:1px solid #bfe0bf; }
+  .recon.warn { background:#fff8ec; border:1px solid #f0d6a8; }
+
+  table.cf { border-collapse: collapse; width: 100%; font-size: 0.88em; background:#fff; }
+  table.cf th, table.cf td { border: 1px solid #e2dce9; padding: 6px 9px; text-align: right; }
+  table.cf th:first-child, table.cf td:first-child, table.cf th.l, table.cf td.l { text-align: left; }
+  table.cf thead th { background: #3a2b4d; color: #fff; }
+  table.cf tbody tr:nth-child(even) { background: #f7f5fa; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:0.78em; }
+  .tag.bank { background:#e8eefc; color:#2b54a8; } .tag.card { background:#fdeef0; color:#b5384b; }
+  .filters { display:flex; gap:8px; margin:8px 0; flex-wrap:wrap; align-items:center; }
+  .filters select, .filters input { padding:5px 8px; border:1px solid #bbb; border-radius:6px; }
+  #status { color:#555; margin:8px 0; }
+</style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="main-content">
+  <div class="cf-content">
+    <h1>사업 현금흐름 <span class="muted">· 관리자 전용</span> <span class="build" id="buildStamp"></span></h1>
+    <div id="status">불러오는 중…</div>
+
+    <!-- ① 업로드 -->
+    <h2>① 파일 업로드 <span class="muted">(매달 한 번씩 · 겹치는 거래는 자동 제외)</span></h2>
+    <div class="upload-row">
+      <div>
+        <label class="drop" id="dropBank">
+          <div class="ic">🏦</div>
+          <div class="t">카카오뱅크 거래내역</div>
+          <div class="s">엑셀(.xlsx)/CSV 끌어다 놓기 · 클릭</div>
+          <input type="file" id="fileBank" accept=".xlsx,.xls,.csv">
+        </label>
+        <div class="upload-result" id="resBank"></div>
+      </div>
+      <div>
+        <label class="drop" id="dropCard">
+          <div class="ic">💳</div>
+          <div class="t">삼성카드 사용내역</div>
+          <div class="s">엑셀(.xlsx)/CSV 끌어다 놓기 · 클릭</div>
+          <input type="file" id="fileCard" accept=".xlsx,.xls,.csv">
+        </label>
+        <div class="upload-result" id="resCard"></div>
+      </div>
+    </div>
+
+    <div id="report" style="display:none;">
+      <!-- 기간 -->
+      <h2>② 기간 / 상세 보기 월</h2>
+      <div class="period">
+        <span class="muted">그래프 범위:</span>
+        <button data-range="6">최근 6개월</button>
+        <button data-range="12" class="active">최근 12개월</button>
+        <button data-range="0">전체</button>
+      </div>
+      <div class="chart-wrap"><canvas id="monthlyChart" height="95"></canvas></div>
+
+      <!-- ③ 요약 (월 드롭다운으로 선택, 최근이 위) -->
+      <h2>③ <select id="monthSel" style="font-size:0.8em;padding:4px 8px;border:1px solid #bbb;border-radius:6px;"></select> 요약 <span class="muted">· 계좌 기준</span>
+        <label class="muted" style="font-size:0.62em;margin-left:10px;font-weight:normal;cursor:pointer;"><input type="checkbox" id="invToggle"> 📦 재고 반영</label>
+      </h2>
+      <div id="netBanner" class="netbanner"></div>
+      <div class="card-grid" id="summaryCards"></div>
+
+      <!-- ④ 지출 분석 + 카드 드릴다운 -->
+      <h2>④ 지출 분석 <span class="muted">· 도넛=계좌 기준 / 우측=삼성카드 한 줄 펼치기</span></h2>
+      <div class="two-col">
+        <div class="chart-wrap"><canvas id="catChart" height="220"></canvas></div>
+        <div class="panel" id="cardDrill"></div>
+      </div>
+
+      <!-- ⑤ 거래 상세 -->
+      <h2>⑤ 거래 상세 <span class="muted">(계좌 기준)</span></h2>
+      <div class="filters">
+        <select id="fType"><option value="all">수입+지출</option><option value="in">수입만</option><option value="out">지출만</option></select>
+        <select id="fCat"><option value="all">전체 분류</option></select>
+        <input id="fSearch" placeholder="내용 검색 (예: 삼성카드, 급여)">
+        <label class="muted"><input type="checkbox" id="fAllMonths"> 전체 월</label>
+      </div>
+      <div id="txTable"></div>
+    </div>
+  </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="./firebaseConfig.js"></script>
+  <script src="./loadManageNavbar.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="./admin_cashflow.js?v=9"></script>
+</body>
+</html>
