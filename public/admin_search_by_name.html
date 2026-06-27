@@ -18,6 +18,10 @@
         .nm-table img { width: 70px; height: 70px; object-fit: cover; border-radius: 5px; display: block; }
         .nm-table .col-img { width: 80px; text-align: center; }
         .nm-table .col-code { white-space: nowrap; font-weight: bold; }
+        .nm-table .col-copy { white-space: nowrap; width: 1%; text-align: center; }
+        .copy-btn { padding: 4px 9px; margin: 2px; font-size: 0.8em; cursor: pointer; border: 1px solid #b9a7d4; background: #efe9f7; border-radius: 5px; }
+        .copy-btn:hover { background: #e2d8f1; }
+        .copy-btn.copied { background: #b9e6b9; border-color: #7fc97f; }
         .muted { color: #888; font-size: 0.85em; }
         #status { color: #555; margin: 6px 0; }
         mark { background: #ffe27a; padding: 0 1px; }
@@ -43,6 +47,6 @@
     <script src="./firebaseConfig.js"></script>
     <script src="./loadManageNavbar.js"></script>
     <script src="./imageFallback.js"></script>
-    <script src="./admin_search_by_name.js?v=1"></script>
+    <script src="./admin_search_by_name.js?v=2"></script>
 </body>
 </html>

@@ -8,7 +8,48 @@
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    let DOCS = null; // [{ code, name, img }]  (SET_ 제외)
+    let DOCS = null; // [{ code, name, img, hasSet }]  (SET_ 제외)
+
+    // 클립보드 복사 (https에선 navigator.clipboard, 아니면 execCommand fallback)
+    async function copyText(text) {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch (e) { /* fallback 시도 */ }
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        } catch (e) { return false; }
+    }
+
+    async function onCopyClick(e) {
+        const btn = e.target.closest('.copy-btn');
+        if (!btn) return;
+        const ok = await copyText(btn.getAttribute('data-copy') || '');
+        const orig = btn.dataset.label || btn.textContent;
+        btn.dataset.label = orig;
+        btn.textContent = ok ? '복사됨' : '실패';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
+    }
+
+    // 셀러코드 복사 버튼들. 세트(SET_) 문서가 있는 상품만 '+세트' 버튼 추가.
+    function copyBtns(r) {
+        const single = `<button type="button" class="copy-btn" data-copy="${esc(r.code)}" title="셀러코드 복사">복사</button>`;
+        const withSet = r.hasSet
+            ? `<button type="button" class="copy-btn" data-copy="${esc(r.code)},SET_${esc(r.code)}" title="셀러코드 + 세트 셀러코드(콤마 연결) 복사">+세트</button>`
+            : '';
+        return single + withSet;
+    }
 
     // 메인이미지: Cafe24URL 우선, 없으면 첫 옵션 이미지 (Cafe24URL 비어있는 상품 대비)
     function mainImage(data) {
@@ -41,10 +82,11 @@
                 <td class="col-img">${img}</td>
                 <td>${highlight(r.name, q)}</td>
                 <td class="col-code"><a href="${link(r.code)}" target="_blank" rel="noopener">${esc(r.code)}</a></td>
+                <td class="col-copy">${copyBtns(r)}</td>
             </tr>`;
         }).join('');
         $('result').innerHTML = `<table class="nm-table">
-            <thead><tr><th>이미지</th><th>이름</th><th>셀러코드</th></tr></thead>
+            <thead><tr><th>이미지</th><th>이름</th><th>셀러코드</th><th>복사</th></tr></thead>
             <tbody>${body}</tbody>
         </table>`;
     }
@@ -63,16 +105,20 @@
     document.addEventListener('DOMContentLoaded', async () => {
         $('searchBtn').addEventListener('click', search);
         $('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); search(); } });
+        $('result').addEventListener('click', onCopyClick); // 복사 버튼(동적 생성) 위임 처리
         try {
             $('status').textContent = '상품 데이터 불러오는 중...';
             const snap = await db.collection('Products').get();
-            DOCS = [];
+            const items = [];
+            const setCodes = new Set(); // 존재하는 SET_ 문서 id 모음 → 세트 보유 여부 판정용
             snap.forEach(d => {
-                if (d.id.startsWith('SET_')) return; // 세트는 본품과 이름 중복 → 제외
+                if (d.id.startsWith('SET_')) { setCodes.add(d.id); return; } // 세트는 본품과 이름 중복 → 목록 제외, 존재만 기록
                 const data = d.data();
                 // Products 의 상품 이름 필드는 '스토어키워드네임' (상품명은 주문 쪽 필드라 비어있음)
-                DOCS.push({ code: d.id, name: data.스토어키워드네임 || data.상품명 || '', img: mainImage(data) });
+                items.push({ code: d.id, name: data.스토어키워드네임 || data.상품명 || '', img: mainImage(data) });
             });
+            items.forEach(it => { it.hasSet = setCodes.has('SET_' + it.code); });
+            DOCS = items;
             $('status').textContent = `상품 ${DOCS.length.toLocaleString()}건 로드 완료 · 검색어를 입력하세요.`;
             $('nameInput').focus();
         } catch (e) {
