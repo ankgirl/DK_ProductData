@@ -1,0 +1,144 @@
+<!-- admin_payroll.html — 직원 급여 관리 (관리자 전용) -->
+<!-- 직원 입/퇴사 · 월 급여정산 · 정산서 PDF 발송 · 출퇴근 QR · 과거 정산 조회 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>직원 급여 관리 (관리자)</title>
+<link rel="stylesheet" href="./style.css">
+<style>
+  :root{ --pp:#3a2b4d; --pp2:#5a4478; --lav:#f3f0f8; --line:#e0dae8; --gold:#ffe27a; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:20px 16px 60px; }
+  h1{ font-size:1.5em; margin:8px 0 2px; }
+  h2{ font-size:1.12em; margin:26px 0 10px; border-bottom:2px solid var(--pp); padding-bottom:6px; }
+  .muted{ color:#8a8099; font-size:.85em; font-weight:normal; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin:12px 0; }
+  .btn{ padding:8px 16px; border:1px solid var(--pp2); background:var(--pp); color:#fff; border-radius:8px; cursor:pointer; font-size:.9em; }
+  .btn.sec{ background:#fff; color:var(--pp); } .btn.gold{ background:var(--gold); color:#5a4400; border-color:#e6c860; font-weight:bold; }
+  .btn.sm{ padding:4px 10px; font-size:.8em; } .btn.danger{ background:#fff; color:#c0392b; border-color:#e6b0aa; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  table{ border-collapse:collapse; width:100%; font-size:.88em; }
+  th,td{ border:1px solid var(--line); padding:7px 9px; text-align:left; }
+  thead th{ background:var(--pp); color:#fff; } tbody tr:nth-child(even){ background:#f7f5fa; }
+  .r{ text-align:right; } .c{ text-align:center; }
+  .pill{ display:inline-block; padding:1px 9px; border-radius:10px; font-size:.78em; }
+  .pill.on{ background:#e2f4e8; color:#1d7a3f; } .pill.off{ background:#f0eef2; color:#999; } .pill.sent{ background:#e6eefb; color:#2b54a8; }
+  .tag{ font-size:.76em; padding:1px 6px; border-radius:6px; }
+  .tag.ab{ background:#fdecee; color:#b5283c; } .tag.ov{ background:#eef3fd; color:#2b54a8; } .tag.et{ background:#fff4e0; color:#9a6b00; } .tag.ch{ background:#efe7fb; color:#5a3ea0; }
+  .form-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  .form-row label{ font-size:.85em; color:#5a5266; min-width:78px; }
+  input,select,textarea{ padding:7px 9px; border:1px solid #cfc7dd; border-radius:7px; font-size:.9em; font-family:inherit; }
+  .row-tot td{ font-weight:bold; background:#efeaf6 !important; }
+  .row-final td{ font-weight:bold; background:var(--pp)!important; color:#fff; font-size:1.05em; }
+  .neg{ color:#c0392b; } .hide{ display:none !important; }
+  .weekbox{ border:1px solid var(--line); border-radius:9px; margin:9px 0; overflow:hidden; }
+  .weekhd{ background:var(--lav); padding:7px 11px; font-weight:bold; font-size:.86em; display:flex; justify-content:space-between; }
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,20,45,.45); display:flex; align-items:center; justify-content:center; z-index:50; }
+  .modal{ background:#fff; border-radius:14px; padding:22px; max-width:460px; width:92%; }
+  .emp-select{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+  #gate{ max-width:420px; margin:80px auto; text-align:center; }
+  .build{ color:#bbb; font-size:.72em; }
+  /* 정산서(PDF 렌더 대상) */
+  #payslipDoc{ width:720px; background:#fff; color:#222; padding:34px 40px; font-size:13px; }
+  #payslipDoc h2{ border:none; text-align:center; font-size:22px; margin:0; }
+  #payslipDoc .sub{ text-align:center; color:#888; margin:2px 0 18px; }
+  #payslipDoc table{ font-size:12px; margin:6px 0; }
+  #payslipDoc th,#payslipDoc td{ border:1px solid #ccc; padding:5px 7px; }
+  #payslipDoc thead th{ background:#333; color:#fff; }
+  #payslipDoc .wk{ font-weight:bold; margin:12px 0 3px; font-size:12px; }
+  #pdfStage{ position:fixed; left:-3000px; top:0; }
+</style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="main-content">
+  <div class="wrap">
+
+    <!-- 로그인 게이트 -->
+    <div id="gate" class="hide">
+      <h1>직원 급여 관리</h1>
+      <p class="muted" id="gateMsg">관리자 로그인이 필요합니다.</p>
+      <button class="btn" id="gateLogin">Google로 로그인</button>
+    </div>
+
+    <div id="app" class="hide">
+      <h1>직원 급여 관리 <span class="muted">· 관리자 전용</span> <span class="build" id="build"></span></h1>
+      <p class="muted" id="whoami"></p>
+
+      <!-- ① 직원 관리 -->
+      <h2>① 직원 관리</h2>
+      <div class="card">
+        <div id="empTable">불러오는 중…</div>
+        <div style="margin-top:12px;"><button class="btn" id="toggleAdd">+ 직원 입사</button></div>
+        <div id="addForm" class="hide" style="margin-top:12px; border-top:1px dashed var(--line); padding-top:12px;">
+          <div class="form-row"><label>이름</label><input id="fName" placeholder="예: 홍길동" style="flex:1"></div>
+          <div class="form-row"><label>직원 Gmail</label><input id="fEmail" placeholder="예: hong@gmail.com" style="flex:1"></div>
+          <div class="form-row"><label>근무 시작일</label><input id="fStart" type="date"></div>
+          <div class="form-row"><label>계약 시급</label><input id="fWage" type="number" value="11000" style="width:130px"> 원 <span class="muted">· 소정 평일 09:00~13:00</span></div>
+          <div class="form-row"><button class="btn gold" id="saveEmp">입사 등록</button> <span id="addMsg" class="muted"></span></div>
+        </div>
+      </div>
+
+      <!-- ② 급여 정산 -->
+      <h2>② 급여 정산</h2>
+      <div class="card">
+        <div class="emp-select">
+          <label class="muted">직원</label><select id="settleEmp"></select>
+          <label class="muted">정산월</label><select id="settleMonth"></select>
+          <button class="btn" id="btnSettle">🧮 급여 정산</button>
+          <span class="muted">직전달이 기본 선택됩니다</span>
+        </div>
+      </div>
+      <div id="settleResult" class="hide"></div>
+
+      <!-- ③ 출퇴근 QR -->
+      <h2>③ 출퇴근 QR <span class="muted">(프린트해서 붙여두기 · 스캔 시각만 기록·신뢰기반)</span></h2>
+      <div class="card">
+        <div class="emp-select"><label class="muted">직원</label><select id="qrEmp"></select>
+          <button class="btn sec sm" id="btnQr">QR 생성</button>
+          <button class="btn sec sm" id="btnQrPrint">🖨 프린트</button></div>
+        <div id="qrArea" style="display:flex; gap:26px; flex-wrap:wrap; margin-top:8px;"></div>
+      </div>
+
+      <!-- ④ 과거 정산 기록 -->
+      <h2>④ 과거 정산 기록 <span class="muted">(월별)</span></h2>
+      <div class="card"><div id="pastArea"><span class="muted">직원 선택 후 표시</span></div></div>
+    </div>
+  </div>
+  </div>
+
+  <!-- 발송 모달 -->
+  <div id="sendM" class="modal-bg hide"><div class="modal">
+    <h3 style="margin:0 0 4px;">정산서 발송</h3>
+    <p class="muted" id="sendTo" style="margin:0 0 12px;"></p>
+    <div class="form-row" style="flex-direction:column;align-items:stretch">
+      <label>메일 본문 <span class="muted">(비우면 기본멘트만 발송)</span></label>
+      <div style="background:var(--lav);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:.86em;margin-bottom:6px;">
+        기본멘트: <b id="defaultMsg"></b></div>
+      <textarea id="extraMsg" rows="3" placeholder="추가로 전할 말이 있으면 여기에 작성 (선택)"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+      <button class="btn sec" id="sendCancel">취소</button>
+      <button class="btn gold" id="sendGo">📧 발송</button>
+    </div>
+    <p id="sendMsg" class="muted" style="margin-top:8px"></p>
+  </div></div>
+
+  <!-- PDF 렌더 무대(화면 밖) -->
+  <div id="pdfStage"><div id="payslipDoc"></div></div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
+  <script src="./firebaseConfig.js"></script>
+  <script src="./loadManageNavbar.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="./payroll_compute.js"></script>
+  <script src="./hr_common.js?v=2"></script>
+  <script src="./admin_payroll.js?v=7"></script>
+</body>
+</html>

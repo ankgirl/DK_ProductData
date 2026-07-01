@@ -1,0 +1,134 @@
+<!-- attendance.html — 직원용 출퇴근·급여 (관리툴/관리자페이지와 분리된 별도 페이지) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내 출퇴근 · 급여 | 다꾸하루</title>
+<style>
+  :root{ --pp:#3a2b4d; --pp2:#5a4478; --lav:#f3f0f8; --line:#e0dae8; --gold:#ffe27a; }
+  *{ box-sizing:border-box; }
+  body{ font-family:'Malgun Gothic',system-ui,sans-serif; margin:0; background:#faf9fc; color:#2a2233; }
+  .topbar{ background:var(--pp); color:#fff; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  .topbar .brand{ color:var(--gold); font-weight:bold; }
+  .topbar .who{ font-size:.85em; opacity:.9; } .topbar a{ color:#ffd; }
+  .wrap{ max-width:820px; margin:0 auto; padding:18px 14px 60px; }
+  h1{ font-size:1.35em; margin:6px 0 2px; }
+  h2{ font-size:1.05em; margin:22px 0 8px; border-bottom:2px solid var(--pp); padding-bottom:5px; }
+  .muted{ color:#8a8099; font-size:.85em; font-weight:normal; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:15px 16px; margin:11px 0; }
+  .btn{ padding:8px 15px; border:1px solid var(--pp2); background:var(--pp); color:#fff; border-radius:8px; cursor:pointer; font-size:.88em; }
+  .btn.sec{ background:#fff; color:var(--pp); } .btn.sm{ padding:4px 10px; font-size:.8em; }
+  table{ border-collapse:collapse; width:100%; font-size:.86em; }
+  th,td{ border:1px solid var(--line); padding:6px 8px; }
+  thead th{ background:var(--pp); color:#fff; } tbody tr:nth-child(even){ background:#f7f5fa; }
+  .c{ text-align:center; } .r{ text-align:right; }
+  .estimate{ background:linear-gradient(135deg,#4a3568,#6b4f92); color:#fff; border-radius:14px; padding:18px 20px; }
+  .estimate .lbl{ font-size:.85em; opacity:.85; } .estimate .big{ font-size:2.1em; font-weight:bold; margin:4px 0; }
+  .estimate .sub{ font-size:.82em; opacity:.85; } .estimate .chips{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{ background:rgba(255,255,255,.15); border-radius:8px; padding:5px 10px; font-size:.8em; }
+  .tag{ font-size:.74em; padding:1px 6px; border-radius:6px; }
+  .tag.ab{ background:#fdecee; color:#b5283c; } .tag.ov{ background:#eef3fd; color:#2b54a8; } .tag.et{ background:#fff4e0; color:#9a6b00; } .tag.ch{ background:#efe7fb; color:#5a3ea0; }
+  .edited{ color:#b5283c; font-size:.72em; cursor:help; }
+  .acc{ cursor:pointer; user-select:none; } .hide{ display:none !important; }
+  input,select,textarea{ padding:7px 9px; border:1px solid #cfc7dd; border-radius:7px; font-size:.9em; font-family:inherit; }
+  .form-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  .form-row label{ font-size:.85em; color:#5a5266; min-width:88px; }
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,20,45,.45); display:flex; align-items:center; justify-content:center; z-index:50; }
+  .modal{ background:#fff; border-radius:14px; padding:22px; max-width:440px; width:92%; }
+  .adminbar{ background:#fff8e0; border:1px solid #f0d98a; border-radius:10px; padding:9px 12px; font-size:.85em; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:11px 0; }
+  #gate{ max-width:420px; margin:80px auto; text-align:center; }
+  .neg{ color:#c0392b; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">🕘 다꾸하루 출퇴근</span>
+  <span class="who" id="who"></span>
+</div>
+
+<div class="wrap">
+  <div id="gate">
+    <h1>내 출퇴근 · 급여</h1>
+    <p class="muted" id="gateMsg">Gmail로 로그인해 주세요.</p>
+    <button class="btn" id="gateLogin">Google로 로그인</button>
+  </div>
+
+  <div id="app" class="hide">
+    <div class="adminbar hide" id="adminbar">🔒 <b>관리자 모드</b> — 조회 직원:
+      <select id="empSel"></select>
+      <span class="muted">모든 직원 기록 조회·수정 가능 (수정 시 수정자·이력 기록)</span>
+    </div>
+
+    <h1 id="title">내 출퇴근 · 급여</h1>
+
+    <div class="estimate card" style="border:none" id="estimate"></div>
+    <p class="muted">※ 실제 지급액은 관리자 정산 확정 시 이월·조정이 반영되어 달라질 수 있습니다.</p>
+
+    <h2>이번 달 출퇴근 기록 <span class="muted">· 본인/관리자 수정 가능</span></h2>
+    <div class="card" style="padding:0;overflow:hidden"><div id="myrows">불러오는 중…</div></div>
+
+    <h2>사전 등록 <span class="muted">· 미리 알려두기</span></h2>
+    <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn" id="btnOff">🌴 휴무 등록</button>
+      <button class="btn sec" id="btnChg">🕑 업무시간 변경 등록</button>
+      <div class="muted" style="align-self:center">사정이 있을 때 결근/시간변경을 미리 등록 → 급여 정산에 반영</div>
+    </div>
+    <div class="card"><b style="font-size:.9em">등록된 예정</b><div id="excList" style="margin-top:6px">불러오는 중…</div></div>
+
+    <h2 class="acc" id="ruleToggle">급여 계산 규칙 ▾ <span class="muted">(눌러서 펼치기)</span></h2>
+    <div id="rule" class="card hide" style="font-size:.86em;line-height:1.7">
+      · 계약시급 <b id="ruleWage">11,000원</b> · 소정근무 평일 09:00~13:00(1일 4시간)<br>
+      · 출근: 09:00 이전·단순지각 → <b>09:00으로 계산</b> / 사전 합의 변경 시 합의시간 기준<br>
+      · 조퇴: 사유 불문 <b>풀근무(4시간=240분) 보장</b> / 초과근무: 실제 퇴근까지 시급 비례(가산 없음)<br>
+      · 결근: 해당일 <b>0원</b>, 그 주 <b>주휴수당 전액 미발생</b><br>
+      · 주휴수당(월~일 개근·주15h↑): (소정시간÷40)×8×시급 (5일=44,000)<br>
+      · 원천징수 3.3%(소득세 3% + 지방세 0.3%, 각 10원 절사) · 달 경계 미완성 주 주휴는 다음 달 이월
+    </div>
+
+    <h2>과거 급여 정산서 <span class="muted">· 월별</span></h2>
+    <div class="card" style="padding:0;overflow:hidden"><div id="pastArea">불러오는 중…</div></div>
+  </div>
+</div>
+
+<!-- 수정 모달 -->
+<div id="editM" class="modal-bg hide"><div class="modal">
+  <h3 style="margin:0 0 4px" id="editTitle">기록 수정</h3>
+  <p class="muted" id="editSub" style="margin:0 0 12px"></p>
+  <div class="form-row"><label>출근</label><input type="time" id="editIn"></div>
+  <div class="form-row"><label>퇴근</label><input type="time" id="editOut"></div>
+  <div class="form-row"><label><input type="checkbox" id="editAbsent"> 결근/휴무</label></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+    <button class="btn sec" id="editCancel">취소</button><button class="btn" id="editSave">저장</button></div>
+  <p class="muted" id="editMsg" style="margin-top:6px"></p>
+</div></div>
+
+<!-- 휴무 모달 -->
+<div id="offM" class="modal-bg hide"><div class="modal">
+  <h3 style="margin:0 0 12px">🌴 휴무 등록</h3>
+  <div class="form-row"><label>날짜</label><input type="date" id="offDate"></div>
+  <div class="form-row"><label>사유(선택)</label><input id="offMemo" placeholder="예: 개인 사정" style="flex:1"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+    <button class="btn sec" id="offCancel">취소</button><button class="btn" id="offSave">등록</button></div>
+</div></div>
+
+<!-- 시간변경 모달 -->
+<div id="chgM" class="modal-bg hide"><div class="modal">
+  <h3 style="margin:0 0 4px">🕑 업무시간 변경 등록</h3>
+  <p class="muted" style="margin:0 0 12px">일회성 변경 — 이 날짜의 출근/퇴근 예정시간을 정합니다. 급여 정산에 반영됩니다.</p>
+  <div class="form-row"><label>날짜</label><input type="date" id="chgDate"></div>
+  <div class="form-row"><label>출근 예정</label><input type="time" id="chgIn" value="10:00"></div>
+  <div class="form-row"><label>퇴근 예정</label><input type="time" id="chgOut" value="14:00"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+    <button class="btn sec" id="chgCancel">취소</button><button class="btn" id="chgSave">등록</button></div>
+</div></div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="./firebaseConfig.js"></script>
+<script src="./payroll_compute.js"></script>
+<script src="./hr_common.js?v=2"></script>
+<script src="./attendance.js?v=7"></script>
+</body>
+</html>

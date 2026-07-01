@@ -1,0 +1,47 @@
+<!-- attendance_scan.html — 출퇴근 QR 스캔 랜딩 (로그인 없이 익명인증으로 기록·신뢰기반) -->
+<!-- QR URL: attendance_scan.html?emp={empId}&type=in|out&name={직원명(선택)} -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>출퇴근 기록 | 다꾸하루</title>
+<style>
+  :root{ --pp:#3a2b4d; --lav:#f3f0f8; --line:#e0dae8; --grn:#1d7a3f; --red:#b5283c; }
+  *{ box-sizing:border-box; }
+  body{ font-family:'Malgun Gothic',system-ui,sans-serif; margin:0; background:#f2eef8; color:#2a2233; }
+  .phone{ max-width:400px; margin:26px auto; background:#fff; border-radius:20px; box-shadow:0 8px 30px rgba(50,30,80,.18); overflow:hidden; }
+  .phead{ padding:16px; color:#fff; text-align:center; }
+  .phead.in{ background:linear-gradient(135deg,#1d7a3f,#2fa15a); } .phead.out{ background:linear-gradient(135deg,#b5283c,#d64a5c); }
+  .phead.wait{ background:linear-gradient(135deg,#5a4478,#7a5fa6); }
+  .phead .t{ font-size:1.1em; font-weight:bold; }
+  .pbody{ padding:22px; text-align:center; }
+  .bigcheck{ font-size:3.2em; }
+  .who{ font-size:1.4em; font-weight:bold; margin:6px 0; }
+  .time{ font-size:2.6em; font-weight:bold; letter-spacing:1px; margin:4px 0; }
+  .time.in{ color:var(--grn); } .time.out{ color:var(--red); }
+  .sub{ color:#8a8099; font-size:.9em; }
+  .note{ margin-top:14px; background:var(--lav); border-radius:10px; padding:10px 12px; font-size:.85em; text-align:left; }
+  .warn{ background:#fdecee; border:1px solid #f0b6bf; border-radius:12px; padding:14px; margin:14px 0; text-align:left; }
+  .warn .h{ color:var(--red); font-weight:bold; margin-bottom:6px; }
+  .btn{ padding:10px 16px; border:none; border-radius:9px; cursor:pointer; font-size:.95em; font-weight:bold; }
+  .btn.grn{ background:var(--grn); color:#fff; } .btn.red{ background:var(--red); color:#fff; }
+  .btn.sec{ background:#fff; color:var(--pp); border:1px solid #5a4478; font-weight:normal; }
+  .field{ display:flex; gap:8px; align-items:center; justify-content:center; margin:10px 0; }
+  input[type=time]{ padding:9px 11px; border:1px solid #cfc7dd; border-radius:8px; font-size:1.1em; }
+  .footlink{ text-align:center; margin:16px; } .footlink a{ color:var(--pp); font-size:.85em; }
+</style>
+</head>
+<body>
+<div id="app"><div class="phone"><div class="phead wait"><div class="t">출퇴근 기록</div></div><div class="pbody"><div class="sub">기록 중…</div></div></div></div>
+<div class="footlink"><a href="attendance.html">→ 내 전체 출퇴근·급여 보기 (로그인)</a></div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="./firebaseConfig.js"></script>
+<script src="./payroll_compute.js"></script>
+<script src="./hr_common.js?v=2"></script>
+<script src="./attendance_scan.js?v=2"></script>
+</body>
+</html>

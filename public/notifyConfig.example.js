@@ -32,4 +32,7 @@ export const NOTIFY_CONFIG = {
   EMAILJS_TEMPLATE_ID: '',
   EMAILJS_PUBLIC_KEY:  '',
   RECIPIENT_EMAIL:     'dakkuharu@gmail.com',
+
+  // 급여 정산서(PDF 첨부) 발송용 템플릿 ID. 템플릿 변수: to_email/to_name/subject/message, 첨부 content(base64)/filename.
+  EMAILJS_PAYSLIP_TEMPLATE_ID: '',
 };

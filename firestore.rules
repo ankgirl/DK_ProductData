@@ -1,19 +1,70 @@
 rules_version = '2';
 
+// 다꾸하루 Firestore 보안 규칙
+// ─────────────────────────────────────────────────────────────
+// 방침:
+//  · 기존 6개 컬렉션(Products/Orders/CompletedOrders/RandomboxOrders/InventorySnapshots/AdminConfig)
+//    → 지금까지와 100% 동일하게 전체 오픈 유지(앱이 로그인 없이 읽고 씀). 동작 불변.
+//  · 신규 HR/** (직원·출퇴근·급여) → 이메일 기반 잠금.
+//    - 관리자(dakkuharu@gmail.com): 전체 읽기/쓰기
+//    - 직원 본인: 본인 branch(HR/{내empId}/**)만 읽기/쓰기
+//    - 출퇴근(attendance): 로그인만 되어 있으면 읽기/기록 허용(QR 익명 스캔 포함·신뢰기반)
+//  · catch-all( /{document=**} ) 제거. HR 이 그 아래로 새면 잠금 무효화되기 때문.
+//    기존 컬렉션은 명시적으로 열거해 오픈(repo 전수확인: 위 6개뿐).
+//  · 직원 문서 read 는 emails 배열(여러 로그인 이메일) 멤버십으로 판정. 옛 문서는 단일 email 로 폴백.
+//    → 테스트 이메일 + 실제 이메일을 함께 등록해 둘 다 로그인 가능(본인 email 쿼리가 규칙상 안전하도록).
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2030, 11, 27);
+    function legacyOpen() { return request.time < timestamp.date(2030, 11, 27); }
+
+    // ===== 기존 컬렉션: 전체 오픈 =====
+    match /Products/{doc=**}           { allow read, write: if legacyOpen(); }
+    match /Orders/{doc=**}             { allow read, write: if legacyOpen(); }
+    match /CompletedOrders/{doc=**}    { allow read, write: if legacyOpen(); }
+    match /RandomboxOrders/{doc=**}    { allow read, write: if legacyOpen(); }
+    match /InventorySnapshots/{doc=**} { allow read, write: if legacyOpen(); }
+    match /AdminConfig/{doc=**}        { allow read, write: if legacyOpen(); }
+    match /CashFlowTx/{doc=**}         { allow read, write: if legacyOpen(); }
+    match /Notices/{doc=**}            { allow read, write: if legacyOpen(); }
+
+    // ===== HR: 직원 / 출퇴근 / 급여 =====
+    function isSignedIn() { return request.auth != null; }
+    function tokenEmail() { return isSignedIn() ? request.auth.token.email : null; }
+    function isAdmin() { return tokenEmail() == 'dakkuharu@gmail.com'; }
+    // 직원의 로그인 허용 이메일 목록. 신규 emails 배열 우선, 없으면 legacy 단일 email 로 폴백.
+    function empEmails(empId) {
+      let d = get(/databases/$(database)/documents/HR/$(empId)).data;
+      return d.get('emails', [d.email]);
+    }
+    function isOwnerOf(empId) { return isSignedIn() && tokenEmail() != null && tokenEmail() in empEmails(empId); }
+
+    match /HR/{empId} {
+      // 직원 문서: 관리자만 생성/수정(입·퇴사·시급).
+      // 읽기: 관리자 또는 본인(emails 배열 멤버십). 본인 조회는 where('emails','array-contains',내이메일) 쿼리로 함.
+      //   ※ array-contains 쿼리가 규칙상 안전하려면 규칙이 resource.data.emails 를 '직접' 참조해야 함
+      //     (.get(...,기본값)으로 감싸면 정적 검증이 깨져 쿼리 전체가 거부됨). → 모든 HR 문서는 emails 배열 필수.
+      allow read:  if isAdmin() || (request.auth != null && request.auth.token.email in resource.data.emails);
+      allow write: if isAdmin();
+
+      // 출퇴근: 읽기/기록은 로그인만 되면 허용(QR 익명 스캔이 상태확인·기록 위해 필요·신뢰기반).
+      //          직원명·이메일·시급 등 민감정보는 위 HR/{empId} 문서 read 규칙으로 보호됨.
+      match /attendance/{d} {
+        allow read, create, update: if isSignedIn();
+        allow delete:               if isAdmin();
+      }
+
+      // 사전등록(휴무·시간변경): 관리자 또는 본인.
+      match /exceptions/{d} {
+        allow read, write: if isAdmin() || isOwnerOf(empId);
+      }
+
+      // 급여 정산서: 관리자 또는 본인 읽기. 작성/발송은 관리자만.
+      match /payslips/{d} {
+        allow read:  if isAdmin() || isOwnerOf(empId);
+        allow write: if isAdmin();
+      }
     }
   }
 }
