@@ -25,6 +25,7 @@ service cloud.firestore {
     match /CompletedOrders/{doc=**}    { allow read, write: if legacyOpen(); }
     match /RandomboxOrders/{doc=**}    { allow read, write: if legacyOpen(); }
     match /InventorySnapshots/{doc=**} { allow read, write: if legacyOpen(); }
+    match /StockSnapshots/{doc=**}     { allow read, write: if legacyOpen(); }
     match /AdminConfig/{doc=**}        { allow read, write: if legacyOpen(); }
     match /CashFlowTx/{doc=**}         { allow read, write: if legacyOpen(); }
     match /Notices/{doc=**}            { allow read, write: if legacyOpen(); }

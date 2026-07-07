@@ -70,6 +70,31 @@ exports.dailyInventorySnapshot = onSchedule(
           자동: true, // 자정 자동 기록 표식 (수동 저장과 구분)
         });
 
+        // 품목별 재고 스냅샷(본품 단위) — 재입고 계획(admin_restock_plan)의 "품절 보정"이
+        // 과거 실측(재고보유일)을 쓸 수 있도록 매일 남긴다. 한 문서에 {셀러코드: 재고수량} 맵으로.
+        // 세트/제외품목은 제외(판매 가능한 본품만). 값 정확도보다 "재고>0 여부"가 핵심.
+        const stockMap = {};
+        let stockItems = 0;
+        for (const [pid, data] of docs) {
+          if (pid.startsWith("SET_")) continue;
+          if (exclude.has(pid)) continue;
+          const od = data.OptionDatas || {};
+          let q = 0;
+          for (const k in od) {
+            if (Object.prototype.hasOwnProperty.call(od, k)) {
+              q += Number(od[k].Counts) || 0;
+            }
+          }
+          stockMap[pid] = q;
+          stockItems++;
+        }
+        await db.collection("StockSnapshots").doc(id).set({
+          날짜: id,
+          기록시각: FieldValue.serverTimestamp(),
+          품목수: stockItems,
+          재고: stockMap,
+        });
+
         logger.info("[dailyInventorySnapshot] 기록 완료", {
           날짜: id,
           상품수: docs.size,
@@ -78,6 +103,7 @@ exports.dailyInventorySnapshot = onSchedule(
           고아세트: flags.고아세트.length,
           원가미입력: flags.원가미입력.length,
           재고원가전체: acc.원가.전체,
+          재고스냅샷품목수: stockItems,
         });
       } catch (err) {
         // 실패를 silent pass 하지 않음: error 로그 남기고 re-throw → 실행이 "실패"로 마킹되어
