@@ -19,6 +19,8 @@
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const keyOf = (code, option) => code + '|' + option;
+    const playDingDong = () => { const s = window.SoundFeedback; if (s) s.playDingDong(); };
+    const playError = () => { const s = window.SoundFeedback; if (s) s.playError(); };
 
     function todayStr(d) {
         d = d || new Date();
@@ -116,12 +118,14 @@
 
         const r = await resolveBarcode(raw);
         if (r.error) {
+            playError(); // 땡: 검색 실패/문제
             current = null;
             renderCard();
             $('scanMsg').textContent = `⛔ ${r.error} (${esc(r.value || raw)})`;
             focusBarcode();
             return;
         }
+        playDingDong(); // 띵동: 검색 성공
         if (r.multi) console.warn('[재입고] 바코드 다중 셀러코드:', r.value, r.multi);
         current = { code: r.code, option: r.option, name: r.name, img: r.img, before: r.before, barcode: r.value };
         qty = '10'; primed = true;
@@ -158,6 +162,7 @@
             console.error('[재입고 DB저장 실패]', c.code, c.option, e);
             counts.set(keyOf(c.code, c.option), before); // 롤백
             setRowStatus(rowId, 'fail', '⚠️ 저장실패');
+            playError(); // 땡: 저장 문제
             return;
         }
         setRowStatus(rowId, 'ok', '✅ 저장');
@@ -206,6 +211,14 @@
     // =========================================================
     function renderCard() {
         const box = $('scanCard');
+        // 확인 경고: 대기 중이면 빨갛게 깜빡이며 강조
+        const warn = $('confirmWarn');
+        if (warn) {
+            warn.classList.toggle('pending', !!current);
+            warn.innerHTML = current
+                ? '⚠️ <b>확인 대기 중</b> — 마지막 제품이면 <b>[확인]</b>을 눌러 저장하세요! (다음 바코드를 찍으면 자동 저장됨)'
+                : '⚠️ 마지막 제품은 스캔 후 반드시 <b>[확인]</b>을 눌러야 저장됩니다.';
+        }
         if (!current) {
             box.className = 'rs-card rs-empty';
             box.innerHTML = '<div class="rs-wait">바코드를 스캔하세요</div>';
@@ -279,28 +292,65 @@
             const snap = await db.collection('RestockLogs').where('날짜', '==', d).get();
             const rows = [];
             snap.forEach(doc => rows.push(doc.data()));
-            // timestamp desc (막 추가된 건 pending이라 0으로 밀림)
-            rows.sort((a, b) => (b.timestamp && b.timestamp.seconds || 0) - (a.timestamp && a.timestamp.seconds || 0));
-            if (!rows.length) { $('dateStatus').textContent = `${d} 재입고 기록 없음`; return; }
+            if (!rows.length) { $('dateStatus').textContent = `${d} 재입고 기록 없음`; $('dateResult').innerHTML = ''; return; }
+
+            // 제품(sellerCode) → 옵션(option) 그룹핑
+            //  · addedSum = 그날 그 옵션에 추가한 수량 합계(여러 번 스캔 합산)
+            //  · logAfter = 그날 마지막 스캔의 after (실제 최종재고 못 구할 때 폴백용)
+            const products = new Map();
+            for (const r of rows) {
+                const code = r.sellerCode || '';
+                if (!products.has(code)) products.set(code, new Map());
+                const opts = products.get(code);
+                const k = r.option || '';
+                if (!opts.has(k)) opts.set(k, { key: k, name: r.보여주기용옵션명 || k, img: r.옵션이미지URL || '', addedSum: 0, logAfter: 0, latestTs: -1, scans: 0 });
+                const o = opts.get(k);
+                o.addedSum += num(r.added);
+                o.scans += 1;
+                const ts = (r.timestamp && r.timestamp.seconds) || 0;
+                if (ts >= o.latestTs) { o.latestTs = ts; o.logAfter = num(r.after); }
+                if (!o.img && r.옵션이미지URL) o.img = r.옵션이미지URL;
+            }
+
+            // 최종재고는 재입고 로그가 아니라 Products의 '현재 실제 재고'.
+            // (재입고 후 판매자코드 페이지 등에서 수량을 바꿨을 수 있으므로 지금 다시 조회)
+            const codes = [...products.keys()].sort((a, b) => a.localeCompare(b));
+            $('dateStatus').textContent = `${d} · 현재 재고 확인 중…`;
+            const liveData = new Map();
+            const snaps = await Promise.all(codes.map(c => db.collection('Products').doc(c).get().catch(() => null)));
+            snaps.forEach((s, i) => { if (s && s.exists) liveData.set(codes[i], s.data()); });
+
+            const finalOf = (code, o) => {
+                const od = (liveData.get(code) || {}).OptionDatas;
+                if (od && od[o.key] && typeof od[o.key].Counts !== 'undefined') return { val: num(od[o.key].Counts), live: true };
+                return { val: o.logAfter, live: false };
+            };
+
             const totalAdded = rows.reduce((s, r) => s + num(r.added), 0);
-            $('dateStatus').textContent = `${d} · ${rows.length}건 · 합계 수량 ${totalAdded}`;
-            const body = rows.map(r => {
-                const t = (r.timestamp && r.timestamp.toDate) ? r.timestamp.toDate() : null;
-                const tstr = t ? `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}` : '';
-                const sign = num(r.added) >= 0 ? '+' + num(r.added) : String(num(r.added));
-                return `<tr>
-                    <td class="rs-scol-img"><img src="${esc(r.옵션이미지URL || '')}" alt="" onerror="tryAlternativeExtension(this)"></td>
-                    <td>${esc(r.sellerCode)}</td>
-                    <td>${esc(r.보여주기용옵션명 || r.option)}</td>
-                    <td class="rs-added">${sign}</td>
-                    <td>${num(r.before)} → <b>${num(r.after)}</b></td>
-                    <td>${esc(r.mode === 'total' ? '총수량' : '증가')}</td>
-                    <td>${tstr}</td>
+            $('dateStatus').textContent = `${d} · 제품 ${products.size}개 · 스캔 ${rows.length}건 · 총 추가수량 ${totalAdded} · 최종재고=현재 실제 재고`;
+
+            $('dateResult').innerHTML = codes.map(code => {
+                const opts = [...products.get(code).values()].sort((a, b) => a.name.localeCompare(b.name));
+                const prodAdded = opts.reduce((s, o) => s + o.addedSum, 0);
+                const optRows = opts.map(o => {
+                    const f = finalOf(code, o);
+                    const mark = f.live ? '' : '<span class="muted" title="현재 재고를 못 찾아 재입고 기록값을 표시">*</span>';
+                    return `<tr>
+                    <td class="rs-scol-img"><img src="${esc(o.img)}" alt="" onerror="tryAlternativeExtension(this)"></td>
+                    <td>${esc(o.name)}</td>
+                    <td class="rs-added">+${o.addedSum}</td>
+                    <td class="rs-final"><b>${f.val}</b>${mark}</td>
+                    <td class="muted">${o.scans}회</td>
                 </tr>`;
+                }).join('');
+                return `<div class="rs-prodgroup">
+                    <div class="rs-prodhead">${esc(code)} <span class="muted">· 옵션 ${opts.length}개 · 오늘 +${prodAdded}</span></div>
+                    <table class="rs-table">
+                        <thead><tr><th>이미지</th><th>옵션</th><th>오늘 추가</th><th>최종재고</th><th>스캔</th></tr></thead>
+                        <tbody>${optRows}</tbody>
+                    </table>
+                </div>`;
             }).join('');
-            $('dateResult').innerHTML = `<table class="rs-table">
-                <thead><tr><th>이미지</th><th>셀러코드</th><th>옵션</th><th>수량</th><th>재고변화</th><th>모드</th><th>시간</th></tr></thead>
-                <tbody>${body}</tbody></table>`;
         } catch (e) {
             console.error(e);
             $('dateStatus').textContent = '⚠️ 오류: ' + e.message;
@@ -311,6 +361,15 @@
     // 초기화
     // =========================================================
     document.addEventListener('DOMContentLoaded', () => {
+        // 아이패드/브라우저 오디오 잠금 해제 (첫 사용자 제스처에서 1회)
+        const unlockOnce = () => {
+            if (window.SoundFeedback) window.SoundFeedback.unlock();
+            document.removeEventListener('pointerdown', unlockOnce);
+            document.removeEventListener('keydown', unlockOnce);
+        };
+        document.addEventListener('pointerdown', unlockOnce);
+        document.addEventListener('keydown', unlockOnce);
+
         // 모드 토글
         document.querySelectorAll('input[name="rsMode"]').forEach(r =>
             r.addEventListener('change', () => { mode = r.value; renderCard(); focusBarcode(); }));

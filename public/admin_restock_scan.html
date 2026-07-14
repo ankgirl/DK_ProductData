@@ -50,6 +50,15 @@
         .rs-table thead th { background: #3a2b4d; color: #fff; }
         .rs-scol-img img { width: 46px; height: 46px; object-fit: contain; }
         .rs-added { font-weight: bold; color: #2e7d32; }
+        .rs-final b { font-size: 1.25em; color: #3a2b4d; }
+        /* 마지막 제품 확인 경고 배너 */
+        .rs-warn { background: #fff3cd; border: 2px solid #e0a800; color: #664d03; border-radius: 8px; padding: 12px 14px; margin: 10px 0; font-size: 1.1em; font-weight: bold; text-align: center; }
+        .rs-warn.pending { background: #ffe0e0; border-color: #c0392b; color: #c0392b; animation: rsPulse 1s ease-in-out infinite; }
+        @keyframes rsPulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .rs-prodgroup { margin: 14px 0; border: 1px solid #e0d8ee; border-radius: 8px; overflow: hidden; }
+        .rs-prodhead { background: #efe9f5; padding: 8px 12px; font-weight: bold; color: #3a2b4d; }
+        .rs-prodgroup .rs-table { margin: 0; }
+        .rs-prodgroup .rs-table thead th { background: #6b5b82; }
         .rs-status.ib-saving { color: #888; }
         .rs-status.ib-ok { color: #2e7d32; font-weight: bold; }
         .rs-status.ib-fail { color: #c0392b; font-weight: bold; }
@@ -81,6 +90,8 @@
         <div id="scanMsg"></div>
 
         <div id="scanCard" class="rs-card rs-empty"></div>
+
+        <div id="confirmWarn" class="rs-warn">⚠️ 마지막 제품은 스캔 후 반드시 <b>[확인]</b>을 눌러야 저장됩니다.</div>
 
         <div id="keypad">
             <button type="button" data-k="7">7</button>
@@ -121,6 +132,7 @@
     <script src="./aSaveInventoryToSmartStore.js"></script>
     <script src="./barcodeUtils.js?v=2"></script>
     <script src="./imageUrlUtils.js?v=1"></script>
-    <script src="./admin_restock_scan.js?v=3"></script>
+    <script src="./soundFeedback.js?v=1"></script>
+    <script src="./admin_restock_scan.js?v=7"></script>
 </body>
 </html>
