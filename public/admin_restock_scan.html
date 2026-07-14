@@ -1,0 +1,126 @@
+<!-- admin_restock_scan.html — 재입고 스캔 (직원용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>재입고 스캔</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 900px; margin: 0 auto; padding: 16px; }
+        .rs-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+        .rs-top .rs-mode label { font-size: 1.05em; margin-right: 14px; cursor: pointer; }
+        .rs-top .rs-mode input { width: 20px; height: 20px; vertical-align: middle; }
+        .rs-sess { font-weight: bold; color: #3a2b4d; }
+        #status { color: #555; font-size: .92em; }
+
+        /* 스캔 입력칸: 스캐너 전용(inputmode=none) */
+        .rs-scanrow { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+        #barcodeInput { flex: 1; font-size: 1.3em; padding: 12px; border: 2px solid #3a2b4d; border-radius: 8px; text-align: center; }
+        #scanMsg { min-height: 20px; color: #c0392b; font-weight: bold; margin: 4px 2px; }
+
+        /* 스캔 카드 */
+        .rs-card { border: 2px solid #d8cfe6; border-radius: 12px; padding: 16px; margin: 8px 0 16px; background: #fff; }
+        .rs-card.rs-empty { background: #faf8fd; }
+        .rs-wait { text-align: center; color: #999; font-size: 1.2em; padding: 30px 0; }
+        .rs-info { display: flex; align-items: center; gap: 16px; }
+        .rs-img { width: 110px; height: 110px; object-fit: contain; border: 1px solid #eee; border-radius: 8px; }
+        .rs-meta .rs-code { color: #888; font-size: .9em; }
+        .rs-meta .rs-opt { font-size: 1.4em; font-weight: bold; margin: 4px 0; }
+        .rs-meta .rs-cur { font-size: 1.1em; }
+        .rs-meta .rs-cur b { font-size: 1.3em; color: #3a2b4d; }
+        .rs-qtybox { text-align: center; margin-top: 12px; }
+        .rs-qtylabel { color: #666; font-size: 1em; }
+        .rs-qty { font-size: 3.2em; font-weight: bold; color: #222; line-height: 1.1; }
+        .rs-qty.primed { color: #b088d0; }  /* 예약(기본10) 상태 표시 */
+        .rs-preview { color: #555; font-size: 1.15em; margin-top: 2px; }
+        .rs-preview b { color: #2e7d32; font-size: 1.15em; }
+        .rs-preview span { color: #2e7d32; }
+
+        /* 화면 숫자 키패드 */
+        #keypad { display: grid; grid-template-columns: repeat(3, 1fr) 1.2fr; gap: 8px; max-width: 520px; margin: 4px auto 0; }
+        #keypad button { font-size: 1.6em; padding: 18px 0; border: 1px solid #cbb; border-radius: 10px; background: #f7f4fb; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+        #keypad button:active { background: #e6dcf2; }
+        #keypad button[data-k="ok"] { grid-row: span 2; background: #3a2b4d; color: #fff; font-weight: bold; }
+        #keypad button[data-k="back"], #keypad button[data-k="clear"] { font-size: 1.05em; }
+
+        /* 세션/날짜 표 */
+        .rs-table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+        .rs-table th, .rs-table td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; vertical-align: middle; }
+        .rs-table thead th { background: #3a2b4d; color: #fff; }
+        .rs-scol-img img { width: 46px; height: 46px; object-fit: contain; }
+        .rs-added { font-weight: bold; color: #2e7d32; }
+        .rs-status.ib-saving { color: #888; }
+        .rs-status.ib-ok { color: #2e7d32; font-weight: bold; }
+        .rs-status.ib-fail { color: #c0392b; font-weight: bold; }
+        h2 { margin: 22px 0 6px; }
+        .rs-date { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .rs-date input[type="date"] { font-size: 1.05em; padding: 6px 10px; }
+        #dateStatus { color: #555; }
+        .muted { color: #888; font-size: .9em; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>재입고 스캔</h1>
+        <p class="muted">바코드를 찍고 수량(기본 10)을 화면 키패드로 입력 → 확인. 다음 바코드를 찍으면 직전 항목이 자동 확정됩니다. 저장 버튼 없이 한 건씩 즉시 저장·네이버 반영됩니다.</p>
+
+        <div class="rs-top">
+            <span class="rs-mode">
+                <label><input type="radio" name="rsMode" value="add" checked> 증가(기존+입력)</label>
+                <label><input type="radio" name="rsMode" value="total"> 총수량으로 설정</label>
+            </span>
+            <span class="rs-sess">이번 세션 <span id="sessionCount">0</span>건</span>
+            <span id="status"></span>
+        </div>
+
+        <div class="rs-scanrow">
+            <input id="barcodeInput" type="text" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="여기에 바코드 스캔">
+        </div>
+        <div id="scanMsg"></div>
+
+        <div id="scanCard" class="rs-card rs-empty"></div>
+
+        <div id="keypad">
+            <button type="button" data-k="7">7</button>
+            <button type="button" data-k="8">8</button>
+            <button type="button" data-k="9">9</button>
+            <button type="button" data-k="ok">확인</button>
+            <button type="button" data-k="4">4</button>
+            <button type="button" data-k="5">5</button>
+            <button type="button" data-k="6">6</button>
+            <button type="button" data-k="1">1</button>
+            <button type="button" data-k="2">2</button>
+            <button type="button" data-k="3">3</button>
+            <button type="button" data-k="clear">C (10)</button>
+            <button type="button" data-k="0">0</button>
+            <button type="button" data-k="back">⌫ 지우기</button>
+        </div>
+
+        <h2>이번 세션 재입고 목록</h2>
+        <table class="rs-table">
+            <thead><tr><th>이미지</th><th>셀러코드</th><th>옵션</th><th>수량</th><th>재고변화</th><th>상태</th></tr></thead>
+            <tbody id="sessionBody"></tbody>
+        </table>
+
+        <h2>날짜별 재입고 조회</h2>
+        <div class="rs-date">
+            <input type="date" id="dateInput">
+            <button id="dateBtn">조회</button>
+            <span id="dateStatus"></span>
+        </div>
+        <div id="dateResult"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadNavbar.js"></script>
+    <script src="./imageFallback.js"></script>
+    <script src="./aSaveInventoryToSmartStore.js"></script>
+    <script src="./barcodeUtils.js?v=2"></script>
+    <script src="./imageUrlUtils.js?v=1"></script>
+    <script src="./admin_restock_scan.js?v=3"></script>
+</body>
+</html>

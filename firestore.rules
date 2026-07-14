@@ -29,6 +29,7 @@ service cloud.firestore {
     match /AdminConfig/{doc=**}        { allow read, write: if legacyOpen(); }
     match /CashFlowTx/{doc=**}         { allow read, write: if legacyOpen(); }
     match /Notices/{doc=**}            { allow read, write: if legacyOpen(); }
+    match /RestockLogs/{doc=**}        { allow read, write: if legacyOpen(); }
 
     // ===== HR: 직원 / 출퇴근 / 급여 =====
     function isSignedIn() { return request.auth != null; }
