@@ -1,0 +1,73 @@
+<!-- admin_intake_barcode.html — 신상 입고 일괄 바코드/수량 등록 (관리자 전용) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신상 입고 바코드 등록 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1350px; margin: 0 auto; padding: 16px; }
+        .ib-input { background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 6px; padding: 12px 14px; margin: 12px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .ib-input input[type="text"] { width: 120px; padding: 8px; font-size: 1.1em; text-align: center; }
+        .ib-input button { padding: 8px 20px; }
+        .ib-bar { position: sticky; top: 0; z-index: 5; background: #efe9f5; border: 1px solid #d8cfe6; border-radius: 6px; padding: 8px 14px; margin: 8px 0; font-weight: bold; color: #3a2b4d; }
+        .ib-table { border-collapse: collapse; width: 100%; margin: 10px 0; table-layout: fixed; }
+        .ib-table th, .ib-table td { border: 1px solid #ccc; padding: 6px 8px; vertical-align: middle; text-align: center; word-break: break-all; }
+        .ib-table thead th { background: #3a2b4d; color: #fff; position: sticky; top: 44px; z-index: 4; }
+        .ib-table col.c-img { width: 90px; }
+        .ib-table col.c-opt { width: 130px; }
+        .ib-table col.c-cnt { width: 82px; }
+        .ib-table col.c-total { width: 60px; }
+        .ib-table col.c-exist { width: 120px; }
+        .ib-table col.c-bc { width: 200px; }
+        .ib-table col.c-status { width: 120px; }
+        .ib-table img { width: 80px; height: 80px; object-fit: contain; display: block; margin: 0 auto; }
+        .ib-prod-head td { background: #e7dff2; text-align: left; font-weight: bold; padding: 8px 10px; }
+        .ib-prod-head a { color: #3a2b4d; }
+        .ib-opt { font-size: 0.9em; }
+        .ib-table input[type="number"] { width: 70px; text-align: center; padding: 4px; }
+        .ib-table input.ib-barcode { width: 92%; padding: 6px; font-size: 1em; }
+        .ib-total { font-weight: bold; background: #faf8fd; }
+        .ib-exist { font-size: 0.82em; color: #555; }
+        .ib-status { font-size: 0.85em; white-space: nowrap; cursor: default; }
+        .ib-status.ib-saving { color: #888; }
+        .ib-status.ib-ok { color: #2e7d32; font-weight: bold; }
+        .ib-status.ib-fail { color: #c0392b; font-weight: bold; cursor: pointer; text-decoration: underline; }
+        .ib-status.ib-dup { color: #c0392b; font-weight: bold; }
+        .ib-table input.ib-invalid { background: #ffd5d5; border: 2px solid #c0392b; }
+        .muted { color: #888; font-size: 0.85em; }
+        #status { color: #555; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>신상 입고 바코드 등록</h1>
+        <p class="muted">
+            입고차수(예: <b>71</b>)를 입력해 조회하면 그 차수 <b>본품</b>의 전 옵션이 한 표로 펼쳐집니다.
+            바코드 칸에 스캔(Enter)하면 <b>그 즉시 저장</b>되고 다음 빈 옵션으로 자동 이동합니다. 저장 버튼은 없습니다.
+            실 재고가 다르면 개별/세트 수량을 고쳐 칸을 벗어나면 즉시 저장되고, 수량은 네이버에도 반영됩니다(바코드는 반영 안 함).
+        </p>
+
+        <div class="ib-input">
+            <label>입고차수: <input type="text" id="categoryInput" placeholder="예: 71" inputmode="numeric"></label>
+            <button id="loadBtn">조회</button>
+            <span id="status"></span>
+        </div>
+
+        <div class="ib-bar"><span id="progress"></span></div>
+
+        <div id="result"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadNavbar.js"></script>
+    <script src="./imageFallback.js"></script>
+    <script src="./aSaveInventoryToSmartStore.js"></script>
+    <script src="./barcodeUtils.js?v=1"></script>
+    <script src="./admin_intake_barcode.js?v=1"></script>
+</body>
+</html>

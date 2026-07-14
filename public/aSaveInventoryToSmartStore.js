@@ -1,13 +1,54 @@
 
 
-async function sendInventoryUpdate(sellerCode, optionsData, setStock, statusType) {
-    // 1. FastAPI 서버의 엔드포인트 URL 설정 (서버가 로컬에서 실행 중이라고 가정)
-    //const API_URL = 'http://127.0.0.1:8000/api/inventory/batch-update-inventory';
-    //const API_URL = 'http://39.122.46.169:8000/api/inventory/batch-update-inventory';
-    //const API_URL = 'http://192.168.219.43:8000/api/inventory/batch-update-inventory';    
-    const API_URL = 'https://fastapi-inventory-689177215560.asia-northeast3.run.app/api/inventory/batch-update-inventory';
+// 스마트스토어(네이버) 재고 일괄변경 FastAPI 엔드포인트 — 이 파일의 모든 전송 함수가 공유.
+const SMARTSTORE_INVENTORY_API = 'https://fastapi-inventory-689177215560.asia-northeast3.run.app/api/inventory/batch-update-inventory';
+// 본품 payload의 set_stock_quantity 에 넣는 "세트 재고는 변경하지 않음" 센티넬(서버 약속값).
+const SET_STOCK_UNCHANGED = -9999;
 
-    
+/**
+ * payload 리스트를 그대로 POST하고 { response, result } 를 반환. (alert/UI 없음 — 호출부가 결정)
+ * 모든 재고 전송(전체/필드단위)의 단일 저수준 통로.
+ */
+async function postInventoryPayloads(payloadList) {
+    const response = await fetch(SMARTSTORE_INVENTORY_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadList),
+    });
+    const result = await response.json().catch(() => ({}));
+    return { response, result };
+}
+
+/**
+ * 옵션 하나의 재고만 스마트스토어에 반영 (세트는 SET_STOCK_UNCHANGED 로 건드리지 않음).
+ * 실패 시 throw → 호출부가 상태표시/재시도. DB는 이미 저장됐으므로 되돌리지 않는다.
+ */
+async function pushOptionStockToSmartStore(sellerCode, optionName, stockQuantity) {
+    const { response, result } = await postInventoryPayloads([{
+        seller_code: sellerCode,
+        options: [{ option_code: optionName, stock_quantity: parseInt(stockQuantity, 10) }],
+        set_stock_quantity: SET_STOCK_UNCHANGED,
+    }]);
+    if (!response.ok) throw new Error((result && result.message) || 'SmartStore 옵션 재고 전송 실패');
+    return result;
+}
+
+/**
+ * 세트(SET_) 재고만 스마트스토어에 반영 (본품 옵션은 options: [] 로 건드리지 않음).
+ */
+async function pushSetStockToSmartStore(sellerCode, setStockQuantity) {
+    const { response, result } = await postInventoryPayloads([{
+        seller_code: 'SET_' + sellerCode,
+        options: [],
+        set_stock_quantity: parseInt(setStockQuantity, 10),
+    }]);
+    if (!response.ok) throw new Error((result && result.message) || 'SmartStore 세트 재고 전송 실패');
+    return result;
+}
+
+async function sendInventoryUpdate(sellerCode, optionsData, setStock, statusType) {
+    const API_URL = SMARTSTORE_INVENTORY_API;
+
     const payloadList = [];   // <-- 결과 저장 배열
 
     let counts = -9999;
