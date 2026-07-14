@@ -51,5 +51,24 @@
         return String(소분류명 == null ? '' : 소분류명).replace('차입고', '').trim();
     }
 
-    root.BarcodeUtils = { refineBarcode, validateCountInput, stripCategory, MAX_REASONABLE_COUNT };
+    // ---- 바코드 인덱스 ----
+    // 전 상품 Map(id→data)을 훑어 바코드 → 사용처[{code, option}] 목록을 만든다.
+    // option === null 은 문서레벨 Barcode(구형). 신상입고(중복검사)·재입고(옵션조회)가 공유.
+    function buildBarcodeIndex(docsMap) {
+        const index = new Map();
+        docsMap.forEach((data, id) => {
+            const add = (bc, option) => {
+                const v = String(bc == null ? '' : bc).trim();
+                if (!v) return;
+                if (!index.has(v)) index.set(v, []);
+                index.get(v).push({ code: id, option });
+            };
+            if (data.Barcode) add(data.Barcode, null);
+            const od = data.OptionDatas || {};
+            for (const k in od) add(od[k].바코드, k);
+        });
+        return index;
+    }
+
+    root.BarcodeUtils = { refineBarcode, validateCountInput, stripCategory, buildBarcodeIndex, MAX_REASONABLE_COUNT };
 })(window);

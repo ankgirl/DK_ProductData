@@ -20,7 +20,7 @@
 (function () {
     'use strict';
 
-    const { refineBarcode, validateCountInput, stripCategory } = window.BarcodeUtils;
+    const { refineBarcode, validateCountInput, stripCategory, buildBarcodeIndex } = window.BarcodeUtils;
 
     const $ = id => document.getElementById(id);
     const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
@@ -32,23 +32,6 @@
     let barcodeIndex = new Map();   // 바코드 -> [{code, option}] (중복검사용, 본품 옵션만 관리)
     let barcodeInputs = [];         // 화면의 바코드 input들(포커스 순회용, 렌더 순서)
     const retry = new Map();        // ridx -> 실패한 DB저장 재시도 함수 (상태칸 클릭 시 실행)
-
-    // ---- 바코드 중복 인덱스 ----
-    // 전 상품을 1회 훑어 바코드 → 사용처 목록을 만든다. 스캔마다 전체 재조회하지 않기 위함.
-    function buildBarcodeIndex() {
-        barcodeIndex = new Map();
-        for (const [id, data] of allDocs) {
-            const add = (bc, option) => {
-                const v = String(bc || '').trim();
-                if (!v) return;
-                if (!barcodeIndex.has(v)) barcodeIndex.set(v, []);
-                barcodeIndex.get(v).push({ code: id, option });
-            };
-            if (data.Barcode) add(data.Barcode, null);        // 문서 레벨 바코드(구형)
-            const od = data.OptionDatas || {};
-            for (const k in od) add(od[k].바코드, k);
-        }
-    }
 
     // 인덱스에서 (code,option)의 옛 바코드 제거 후 새 바코드 등록 (저장 성공 시 호출)
     function reindexBarcode(code, option, oldBc, newBc) {
@@ -133,7 +116,9 @@
 
             const optRows = entries.map(([optKey, ov]) => {
                 const rid = ridx++;
-                const label = ov.보여주기용옵션명 || optKey;
+                // 저장된 URL이 없는 옛 상품은 즉석 생성(공용 헬퍼) → 이미지가 뜨도록
+                const disp = window.ImageUrlUtils.optionImage(p, optKey);
+                const label = disp.보여주기용옵션명 || optKey;
                 const cnt = num(ov.Counts);
                 const existBc = String(ov.바코드 || '').trim();
                 const registered = existBc ? '1' : '';
@@ -141,8 +126,8 @@
                     ? `<input type="number" class="ib-set" data-code="${esc(code)}" min="0" step="1" inputmode="numeric" value="${setCount}" data-prev="${setCount}">`
                     : `<span class="muted">없음</span>`;
                 return `<tr data-code="${esc(code)}" data-option="${esc(optKey)}" data-ridx="${rid}" data-hasset="${hasSet ? '1' : ''}">
-                    <td class="ib-imgcell"><img src="${esc(ov.옵션이미지URL || '')}" alt="옵션" loading="lazy" onerror="tryAlternativeExtension(this)"></td>
-                    <td class="ib-imgcell"><img src="${esc(ov.실제이미지URL || '')}" alt="실제" loading="lazy" onerror="tryAlternativeExtension(this)"></td>
+                    <td class="ib-imgcell"><img src="${esc(disp.옵션이미지URL || '')}" alt="옵션" loading="lazy" onerror="tryAlternativeExtension(this)"></td>
+                    <td class="ib-imgcell"><img src="${esc(disp.실제이미지URL || '')}" alt="실제" loading="lazy" onerror="tryAlternativeExtension(this)"></td>
                     <td class="ib-opt">${esc(label)}</td>
                     <td><input type="number" class="ib-count" min="0" step="1" inputmode="numeric" value="${cnt}" data-prev="${cnt}"></td>
                     <td>${setCell}</td>
@@ -372,7 +357,7 @@
             const snap = await db.collection('Products').get();
             allDocs = new Map();
             snap.forEach(doc => allDocs.set(doc.id, doc.data()));
-            buildBarcodeIndex();
+            barcodeIndex = buildBarcodeIndex(allDocs);
 
             // 본품(SET_ 아님) 중 stripCategory(소분류명) === 입력값
             const products = [];
