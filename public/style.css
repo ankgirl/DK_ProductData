@@ -10,8 +10,40 @@ body {
     min-width: 200px; /* 최소 너비 설정 */
     background-color: #f4f4f4; /* 배경 색상 */
     padding: 20px; /* 여백 */
+    padding-top: 56px; /* 토글 버튼과 겹치지 않도록 상단 여백 */
     box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* 그림자 효과 */
+    transition: width .2s ease, min-width .2s ease, padding .2s ease;
 }
+
+/* ===== 왼쪽 메뉴 접기/펼치기 ===== */
+/* 접힘 상태: #navbar 폭 0으로 숨김 → 본문이 가로 전체 사용 */
+body.nav-collapsed #navbar {
+    width: 0;
+    min-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    overflow: hidden;
+    box-shadow: none;
+}
+/* 좌측 상단 고정 토글 버튼 (접혀도 항상 보임) */
+#navToggle {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    background: #3a2b4d;
+    color: #fff;
+    font-size: 1.25em;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+#navToggle:hover { background: #4a3a5e; }
+@media print { #navToggle { display: none; } }
 
 .large-button {
     font-size: 1.8em; /* 버튼의 폰트 크기를 2배로 설정 */
