@@ -1,7 +1,7 @@
 // order_processing2_display.js
 
 import { checkServiceBarcode, checkBarcode } from './orderHelpers.js';
-import { playDingDong, playBeep } from './playsound.js';
+import { playDingDong, playBeep, playBlip } from './playsound.js';
 import {
     getProductByBarcode,
     getProductBySellerCode,
@@ -60,11 +60,36 @@ function fillImg(node, imgName, src) {
  * @param {number} totalCost
  * @param {number} serviceTotalSales
  */
+// 주문번호 등 텍스트를 클립보드에 복사 (실패 시 textarea 폴백). 버튼에 잠깐 '복사됨!' 표시.
+function copyTextToClipboard(text, btn) {
+    const flash = () => {
+        if (!btn) return;
+        const prev = btn.textContent;
+        btn.textContent = '복사됨!';
+        setTimeout(() => { btn.textContent = prev; }, 1200);
+    };
+    const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand('copy'); flash(); } catch (e) { console.warn('복사 실패:', e); }
+        document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(flash, fallback);
+    } else {
+        fallback();
+    }
+}
+
 export function renderOrderSummary(orderData, orderNumber, container, totalCost, serviceTotalSales) {
     const tmpl  = document.getElementById('orderSummaryTemplate');
     const clone = tmpl.content.cloneNode(true);
 
     fillField(clone, 'order-number',        orderNumber);
+    // 주문번호 복사 버튼
+    const copyBtn = clone.querySelector('.copy-order-btn');
+    if (copyBtn) copyBtn.addEventListener('click', () => copyTextToClipboard(String(orderNumber), copyBtn));
     fillField(clone, '운송장번호',           orderData.운송장번호);
     fillField(clone, '서비스제품금액',       orderData.서비스제품금액);
     fillField(clone, '서비스총판매가금액',   serviceTotalSales);
@@ -564,10 +589,14 @@ attachOrderChangeHandler(orderDropdown, orderDetailsDiv, messageDiv);
         if (event.key !== 'Enter') return;
         let barcode = refineInputValue(serviceBarcodeInput.value.trim());
         if (!barcode) return;
-        if (barcode === '9999999999') {
+        if (barcode === '5555555555') {
+            // 아무 처리도 하지 않고 커서만 운송장번호 입력란으로 이동
+            deliveryNumberInput.focus();
+        } else if (barcode === '9999999999') {
             barcodeInput.focus();
         } else {
-            await checkServiceBarcode(barcode, orderDropdown, messageDiv);
+            const result = await checkServiceBarcode(barcode, orderDropdown, messageDiv);
+            if (result) playBlip(); // 서비스 바코드 정상 스캔 → 짧은 확인음(딩동/땡과 구분)
         }
         serviceBarcodeInput.value = '';
     });

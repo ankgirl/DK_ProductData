@@ -74,7 +74,9 @@
     ====================================================================== -->
     <template id="orderSummaryTemplate">
         <div class="order-summary">
-            <h3>주문번호: <span data-field="order-number"></span></h3>
+            <h3>주문번호: <span data-field="order-number"></span>
+                <button type="button" class="copy-order-btn" style="margin-left:10px; padding:3px 12px; font-size:0.6em; border:1px solid #3a2b4d; background:#3a2b4d; color:#fff; border-radius:4px; cursor:pointer; vertical-align:middle;">복사</button>
+            </h3>
             <p><strong>운송장번호:</strong> <span data-field="운송장번호"></span></p>
             <p><strong><b style="color: red;">서비스제품금액:</b></strong> <span data-field="서비스제품금액"></span></p>
             <p><strong><b style="color: blue;">서비스총판매가금액:</b></strong> <span data-field="서비스총판매가금액"></span></p>

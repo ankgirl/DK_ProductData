@@ -42,6 +42,23 @@ export function playBeep() {
 }
 
 
+// 짧은 확인음(삑) — 서비스 바코드 정상 스캔 등 "잘 찍혔다"는 가벼운 피드백.
+// 구매 바코드의 딩동(두 음)/땡(긴 음)과 구분되는 짧은 단음.
+export function playBlip() {
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = context.createOscillator();
+    const gainNode = context.createGain();
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(880, context.currentTime); // A5
+    oscillator.connect(gainNode);
+    gainNode.connect(context.destination);
+    gainNode.gain.setValueAtTime(0.0001, context.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.4, context.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.1);
+    oscillator.start(context.currentTime);
+    oscillator.stop(context.currentTime + 0.12);
+}
+
 export function playBeepBeep() {
     const context = new (window.AudioContext || window.webkitAudioContext)();
 
