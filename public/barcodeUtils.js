@@ -51,6 +51,14 @@
         return String(소분류명 == null ? '' : 소분류명).replace('차입고', '').trim();
     }
 
+    // ---- 예약(특수 명령) 바코드 ----
+    // 주문처리에서 명령용으로 쓰는 값들 → 상품 바코드로 등록되면 주문처리 때 오작동하므로 등록 금지.
+    //   1111111111 포장완료 · 5555555555 운송장칸 이동 · 9999999999 구매바코드칸 이동
+    const RESERVED_BARCODES = ['1111111111', '5555555555', '9999999999'];
+    function isReservedBarcode(v) {
+        return RESERVED_BARCODES.indexOf(String(v == null ? '' : v).trim()) !== -1;
+    }
+
     // ---- 바코드 인덱스 ----
     // 전 상품 Map(id→data)을 훑어 바코드 → 사용처[{code, option}] 목록을 만든다.
     // option === null 은 문서레벨 Barcode(구형). 신상입고(중복검사)·재입고(옵션조회)가 공유.
@@ -70,5 +78,5 @@
         return index;
     }
 
-    root.BarcodeUtils = { refineBarcode, validateCountInput, stripCategory, buildBarcodeIndex, MAX_REASONABLE_COUNT };
+    root.BarcodeUtils = { refineBarcode, validateCountInput, stripCategory, buildBarcodeIndex, isReservedBarcode, RESERVED_BARCODES, MAX_REASONABLE_COUNT };
 })(window);

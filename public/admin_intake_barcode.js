@@ -20,7 +20,7 @@
 (function () {
     'use strict';
 
-    const { refineBarcode, validateCountInput, stripCategory, buildBarcodeIndex } = window.BarcodeUtils;
+    const { refineBarcode, validateCountInput, stripCategory, buildBarcodeIndex, isReservedBarcode } = window.BarcodeUtils;
 
     const $ = id => document.getElementById(id);
     const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
@@ -202,6 +202,16 @@
         const statusTd = $qs(tr, '.ib-status');
 
         if (value === '') { setStatus(statusTd, 'fail', '빈 값'); return; }
+
+        // 예약(특수 명령) 바코드 등록 금지 — 경고 후 멈춤(저장·이동 안 함).
+        //   1111111111/5555555555/9999999999 는 주문처리 명령용이라 상품 바코드로 쓰면 오작동.
+        if (isReservedBarcode(value)) {
+            setStatus(statusTd, 'dup', '⛔ 예약코드');
+            inp.classList.add('ib-invalid');
+            alert(`⛔ 예약된 특수 바코드입니다\n\n입력: ${value}\n\n이 값(1111111111 / 5555555555 / 9999999999)은 주문처리 명령용이라\n상품 바코드로 등록할 수 없습니다. 저장하지 않았습니다.`);
+            inp.select();
+            return;
+        }
 
         // 중복 검사 — 다른 셀러코드/옵션이 이미 쓰는 바코드면 경고 후 멈춤(저장·이동 안 함).
         const dup = findDuplicate(value, code, option);
