@@ -329,7 +329,18 @@
             const totalAdded = rows.reduce((s, r) => s + num(r.added), 0);
             $('dateStatus').textContent = `${d} · 제품 ${products.size}개 · 스캔 ${rows.length}건 · 총 추가수량 ${totalAdded} · 최종재고=현재 실제 재고`;
 
-            $('dateResult').innerHTML = codes.map(code => {
+            // 조회된 전체 셀러코드를 한 번에 복사하는 버튼(개별 X). '+세트'는 세트 문서가 하나라도 있을 때만.
+            //  · 전체 셀러코드: code1,code2,...
+            //  · 전체 +세트: 각 code 뒤에 SET_code(존재 시)를 이어붙여 code1,SET_code1,code2,... 형태
+            const allCodes = codes.join(',');
+            const allWithSet = codes.flatMap(c => allDocs.has('SET_' + c) ? [c, 'SET_' + c] : [c]).join(',');
+            const anySet = codes.some(c => allDocs.has('SET_' + c));
+            const copyAllBar = `<div class="rs-copyall">
+                <button type="button" class="copy-btn" data-copy="${esc(allCodes)}" title="조회된 전체 셀러코드를 콤마로 이어 복사">전체 셀러코드 복사 (${codes.length}개)</button>
+                ${anySet ? `<button type="button" class="copy-btn" data-copy="${esc(allWithSet)}" title="전체 셀러코드 + 세트 셀러코드까지 콤마로 이어 복사">전체 +세트 복사</button>` : ''}
+            </div>`;
+
+            $('dateResult').innerHTML = copyAllBar + codes.map(code => {
                 const opts = [...products.get(code).values()].sort((a, b) => a.name.localeCompare(b.name));
                 const prodAdded = opts.reduce((s, o) => s + o.addedSum, 0);
                 const optRows = opts.map(o => {
@@ -343,8 +354,10 @@
                     <td class="muted">${o.scans}회</td>
                 </tr>`;
                 }).join('');
+                // 셀러코드 클릭 → 셀러코드 검색 페이지(자동검색)로 이동. 재입고 목록 유지 위해 새 탭.
+                const searchUrl = './search_by_seller_code.html?sellerCode=' + encodeURIComponent(code);
                 return `<div class="rs-prodgroup">
-                    <div class="rs-prodhead">${esc(code)} <span class="muted">· 옵션 ${opts.length}개 · 오늘 +${prodAdded}</span></div>
+                    <div class="rs-prodhead"><a class="rs-codelink" href="${esc(searchUrl)}" target="_blank" rel="noopener" title="이 셀러코드로 상품 검색">${esc(code)}</a> <span class="muted">· 옵션 ${opts.length}개 · 오늘 +${prodAdded}</span></div>
                     <table class="rs-table">
                         <thead><tr><th>이미지</th><th>옵션</th><th>오늘 추가</th><th>최종재고</th><th>스캔</th></tr></thead>
                         <tbody>${optRows}</tbody>
@@ -394,6 +407,7 @@
         // 날짜 조회
         $('dateInput').value = todayStr();
         $('dateBtn').addEventListener('click', queryByDate);
+        window.ClipboardUtils.bindCopyButtons($('dateResult')); // 조회결과 셀러코드 복사 버튼(동적 생성) 위임
 
         renderCard();
         loadAll().then(focusBarcode).catch(e => { console.error(e); $('status').textContent = '⚠️ 로드 오류: ' + e.message; });

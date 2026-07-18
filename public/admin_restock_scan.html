@@ -57,6 +57,12 @@
         @keyframes rsPulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         .rs-prodgroup { margin: 14px 0; border: 1px solid #e0d8ee; border-radius: 8px; overflow: hidden; }
         .rs-prodhead { background: #efe9f5; padding: 8px 12px; font-weight: bold; color: #3a2b4d; }
+        .rs-codelink { color: #3a2b4d; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+        .rs-codelink:hover { color: #6b3fa0; }
+        .rs-copyall { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+        .copy-btn { padding: 8px 14px; margin: 0; font-size: 0.95em; cursor: pointer; border: 1px solid #b9a7d4; background: #efe9f7; border-radius: 6px; font-weight: bold; color: #3a2b4d; }
+        .copy-btn:hover { background: #e2d8f1; }
+        .copy-btn.copied { background: #b9e6b9; border-color: #7fc97f; }
         .rs-prodgroup .rs-table { margin: 0; }
         .rs-prodgroup .rs-table thead th { background: #6b5b82; }
         .rs-status.ib-saving { color: #888; }
@@ -133,6 +139,7 @@
     <script src="./barcodeUtils.js?v=3"></script>
     <script src="./imageUrlUtils.js?v=1"></script>
     <script src="./soundFeedback.js?v=1"></script>
-    <script src="./admin_restock_scan.js?v=7"></script>
+    <script src="./clipboardUtils.js?v=1"></script>
+    <script src="./admin_restock_scan.js?v=10"></script>
 </body>
 </html>
