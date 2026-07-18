@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>판매중지 처리</title>
+    <title>취소·반품 처리</title>
     <link rel="stylesheet" href="./style.css">
     <style>
         #scanTable { border-collapse: collapse; width: 100%; margin-top: 10px; }
@@ -11,15 +11,17 @@
         #scanTable th { background-color: #f2f2f2; }
         #scanTable td.name-cell { text-align: left; word-break: break-all; }
         #scanTable img { max-width: 70px; max-height: 70px; display: block; margin: 0 auto; }
-        .set-tag { display: inline-block; margin-top: 3px; font-size: 0.8em; color: #3a2b4d; background:#ece6f5; padding: 1px 6px; border-radius: 3px; }
+        .qty-cell { white-space: nowrap; }
+        .qty-val { display: inline-block; min-width: 34px; font-weight: bold; font-size: 1.1em; color: #1a7a1a; }
+        .qty-btn { width: 28px; height: 28px; font-size: 1.1em; border: 1px solid #999; background:#fff; border-radius: 4px; cursor: pointer; vertical-align: middle; }
         .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-weight: bold; white-space: nowrap; }
         .status-대기 { background:#eee; color:#555; }
         .status-처리중 { background:#ffe08a; color:#7a5b00; }
         .status-완료 { background:#c8f0c8; color:#1a7a1a; }
         .status-실패 { background:#ffd5d5; color:#c0392b; }
         .batch-actions { margin: 15px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        #disableAllBtn { height: 50px; font-size: 1.2em; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; padding: 0 20px; }
-        #disableAllBtn:disabled { background-color: #e79aa2; cursor: not-allowed; }
+        #processBtn { height: 50px; font-size: 1.2em; background-color: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; padding: 0 20px; }
+        #processBtn:disabled { background-color: #a5cfa7; cursor: not-allowed; }
         #copyCodesBtn { height: 40px; border: 1px solid #3a2b4d; background:#3a2b4d; color:#fff; border-radius: 5px; cursor: pointer; padding: 0 16px; }
         #copyCodesBtn:disabled { background:#b3a9c2; border-color:#b3a9c2; cursor: not-allowed; }
         #clearAllBtn { height: 40px; border: 1px solid #999; background:#fff; border-radius: 5px; cursor: pointer; padding: 0 16px; }
@@ -30,23 +32,17 @@
 <body>
     <div id="navbar"></div>
     <div class="content">
-        <h1>판매중지 처리 (여러 개 한꺼번에)</h1>
-        <p style="color:#555;">바코드를 <b>연속으로 쭉 찍으면</b> 아래 목록에 쌓입니다. 다 찍은 뒤 <b>전체 판매중지 처리</b>를 누르면 하나씩 순차대로 처리합니다.</p>
+        <h1>취소·반품 처리 (여러 개 한꺼번에)</h1>
+        <p style="color:#555;">반품/취소된 상품 바코드를 <b>연속으로 쭉 찍으면</b> 해당 <b>단품 옵션</b>이 목록에 쌓입니다(같은 옵션 또 찍으면 수량 +1). 다 찍은 뒤 <b>전체 수량 추가 처리</b>를 누르면 각 옵션 재고에 그 수량만큼 더하고 스마트스토어에도 반영합니다.</p>
         <form id="searchByBarcodeForm">
             <label for="barcode">바코드:</label>
             <input type="text" id="barcode" name="barcode" autocomplete="off" required>
-            <button type="submit">목록에 추가</button>
-        </form>
-        <br>
-        <form id="searchBySellerCodeForm">
-            <label for="sellerCode">셀러코드:</label>
-            <input type="text" id="sellerCode" name="sellerCode" autocomplete="off" required>
-            <button type="submit">목록에 추가</button>
+            <button type="submit">목록에 추가 (+1)</button>
         </form>
         <div id="scanMsg" style="min-height: 1.4em; margin-top: 8px;"></div>
 
         <div class="batch-actions">
-            <button id="disableAllBtn" type="button" disabled>전체 판매중지 처리 (0)</button>
+            <button id="processBtn" type="button" disabled>전체 수량 추가 처리 (0)</button>
             <button id="copyCodesBtn" type="button" disabled>셀러코드 전체 복사 (0)</button>
             <button id="clearAllBtn" type="button">목록 비우기</button>
             <span id="summary"></span>
@@ -58,13 +54,16 @@
                     <th style="width:40px;">#</th>
                     <th style="width:90px;">이미지</th>
                     <th>이름</th>
-                    <th style="width:150px;">셀러코드</th>
-                    <th style="width:130px;">상태</th>
-                    <th style="width:70px;">삭제</th>
+                    <th style="width:140px;">옵션</th>
+                    <th style="width:130px;">셀러코드</th>
+                    <th style="width:120px;">추가수량</th>
+                    <th style="width:120px;">재고</th>
+                    <th style="width:120px;">상태</th>
+                    <th style="width:60px;">삭제</th>
                 </tr>
             </thead>
             <tbody id="scanTableBody">
-                <tr id="emptyRow"><td colspan="6" style="color:#999; padding:20px;">아직 찍은 상품이 없습니다.</td></tr>
+                <tr><td colspan="9" style="color:#999; padding:20px;">아직 찍은 상품이 없습니다.</td></tr>
             </tbody>
         </table>
     </div>
@@ -72,9 +71,9 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="./firebaseConfig.js"></script>
     <script src="./loadNavbar.js"></script>
-    <script src="displayProductData.js"></script>
-    <script src="aSaveInventoryToSmartStore.js"></script>
-    <script src="./disableProduct.js"></script> <!-- 판매중지 공용 로직 (disable_by_barcode.js 가 사용) -->
-    <script type="module" src="./disable_by_barcode.js"></script>
+    <script src="./displayProductData.js"></script> <!-- tryAlternativeExtension, getMainImage -->
+    <script src="./imageUrlUtils.js"></script>       <!-- ImageUrlUtils.optionImage -->
+    <script src="./aSaveInventoryToSmartStore.js"></script> <!-- pushOptionStockToSmartStore -->
+    <script type="module" src="./cancel_return_scan.js"></script>
 </body>
 </html>

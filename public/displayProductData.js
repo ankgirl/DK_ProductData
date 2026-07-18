@@ -1,4 +1,14 @@
 
+// 상품 대표이미지 URL: Cafe24URL 우선, 없으면 첫 옵션 이미지 (Cafe24URL 비어있는 옛 상품 대비).
+// 여러 화면(판매중지 배치 목록 등)에서 공용으로 쓰도록 전역 등록.
+window.getMainImage = function (data) {
+    if (!data) return '';
+    if (data.Cafe24URL) return data.Cafe24URL;
+    const od = data.OptionDatas || {};
+    const first = od['옵션1'] || od[Object.keys(od)[0]] || {};
+    return first.옵션이미지URL || first.실제이미지URL || '';
+};
+
 window.tryAlternativeExtension = function(img) {
     const exts = ['png', 'jpg', 'webp', 'jpeg'];
     const idx = parseInt(img.dataset.extTry || '0');

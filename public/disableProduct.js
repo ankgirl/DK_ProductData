@@ -33,7 +33,11 @@
         }
     }
 
-    async function disableAllOptions(sellerCode) {
+    // @param {Object} [opts]
+    // @param {boolean} [opts.silent=false] true면 alert를 띄우지 않는다(여러 건 순차 처리 시 팝업 폭탄 방지).
+    //        성공/실패는 반환값(성공)·throw(실패)로 알려주므로 호출부가 UI를 담당한다.
+    async function disableAllOptions(sellerCode, opts = {}) {
+        const { silent = false } = opts;
         const url = `${API_BASE}/api/inventory/disable-all-options`;
 
         async function disableOne(code) {
@@ -50,7 +54,7 @@
         const main = await disableOne(sellerCode);
         if (!main.ok) {
             console.error("판매중지 실패:", main.result);
-            alert(`실패: ${main.result.message}`);
+            if (!silent) alert(`실패: ${main.result.message}`);
             throw new Error(main.result.message || "서버 응답 오류");
         }
         console.log("판매중지 성공:", main.result);
@@ -78,7 +82,7 @@
         // 3. Firestore 재고 0 처리 (일반 + SET_)
         await setAllCountsToZero(sellerCode);
 
-        alert(`성공: ${main.result.message} (${main.result.seller_code})${setMsg}`);
+        if (!silent) alert(`성공: ${main.result.message} (${main.result.seller_code})${setMsg}`);
         return main.result;
     }
 
