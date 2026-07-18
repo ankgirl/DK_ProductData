@@ -9,7 +9,7 @@
 (function () {
   'use strict';
 
-  const BUILD = 'v1 · 2026-06-24';
+  const BUILD = 'v2 · 2026-07-19 (세이프박스=자금이동 제외)';
   const COLLECTION = 'CashFlowTx';
   const BATCH_LIMIT = 400;
 
@@ -88,13 +88,18 @@
   // → 금액 750,000 은 임대, 그 외는 '본인출금'(자금이동, 총지출에서 제외).
   const SAJU_RENT = 750000;
   // 자금이동(매출·비용 아님) — 총수입/총지출/도넛에서 제외, 표에는 표시
-  const EXCLUDED_CATS = new Set(['본인출금', '본인입금']);
+  // 세이프박스 = 카카오뱅크 임시보관함. 넣기/빼기 모두 같은 사업자금 이동일 뿐 수입·지출 아님.
+  //   (넣기: 거래구분·내용 모두 '세이프박스', 금액 −  / 빼기: 거래구분 '일반입금'·내용 '세이프박스', 금액 +)
+  //   이자는 별도 표시 안 됨 → 처리 대상에서 제외(무시).
+  const EXCLUDED_CATS = new Set(['본인출금', '본인입금', '세이프박스']);
   const isExcluded = c => EXCLUDED_CATS.has(c);
   const isExpense = tx => tx.amount < 0 && !isExcluded(categorize(tx));
   const isIncome = tx => tx.amount > 0 && !isExcluded(categorize(tx));
 
   function categorize(tx) {
     const d = tx.desc || '';
+    // 세이프박스(자금이동) — 넣기(-)/빼기(+) 모두 내용이 '세이프박스'. 수입·지출 분기보다 먼저 판정.
+    if (/세이프박스/.test(d)) return '세이프박스';
     if (tx.source === 'card_samsung') {
       // 가맹점명 기준 분류 (순서 중요: 구체적인 것 먼저)
       if (/택스앤톡|자비스앤빌런즈/.test(d)) return '세무사';          // 자비스앤빌런즈=삼쩜삼
@@ -338,6 +343,8 @@
     const expense = bank.filter(isExpense).reduce((s, t) => s - t.amount, 0);
     const ownerDraw = bank.filter(t => categorize(t) === '본인출금').reduce((s, t) => s - t.amount, 0);
     const ownerIn = bank.filter(t => categorize(t) === '본인입금').reduce((s, t) => s + t.amount, 0);
+    // 세이프박스 순이동(넣은 돈 − 뺀 돈). 자금이동이라 수입·지출엔 안 들어가고 참고용으로만 표시.
+    const safeBox = bank.filter(t => categorize(t) === '세이프박스').reduce((s, t) => s - t.amount, 0);
     const byCat = {};
     bank.forEach(t => { if (isExpense(t)) { const c = categorize(t); byCat[c] = (byCat[c] || 0) - t.amount; } });
     const cardPaid = bank.filter(t => /삼성카드/.test(t.desc) && t.amount < 0).reduce((s, t) => s - t.amount, 0);
@@ -351,6 +358,7 @@
       cardCell('매입', won(byCat['매입'] || 0), '상품 사입') +
       cardCell('본인입금', won(ownerIn), '자금이동 · 매출 아님') +
       cardCell('본인출금', won(ownerDraw), '자금이동 · 지출 아님') +
+      cardCell('세이프박스', `${safeBox >= 0 ? '＋' : '－'}${won(Math.abs(safeBox))}`, '자금이동 · 넣은−뺀(수입/지출 아님)') +
       cardCell('삼성카드 결제', won(cardPaid), '↓ 우측에서 분해');
 
     renderNetBanner(m, income, expense, profit);
