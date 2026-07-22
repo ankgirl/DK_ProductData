@@ -1,0 +1,76 @@
+<!-- admin_search_by_category.html — 소분류명으로 그 목록 제품의 '변경 전(기존) 셀러코드' 찾기 (관리자 전용) -->
+<!-- 용도: 하루 동안 여러 셀러코드를 바꾼 뒤, 창고에서 옛 코드로 물건을 찾아 새 코드 위치로 옮기기 위한 목록. -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>변경된 셀러코드 찾기 (관리자)</title>
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        .content { max-width: 1100px; margin: 0 auto; padding: 16px; }
+        .nm-input { background: #f3f0f8; border: 1px solid #d8cfe6; border-radius: 6px; padding: 12px 14px; margin: 12px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .nm-input input[type=text] { flex: 1; min-width: 200px; padding: 8px; font-size: 1em; }
+        .nm-input select { padding: 8px; font-size: 0.95em; }
+        .nm-input button { padding: 8px 18px; }
+        .nm-input label.chk { display: inline-flex; align-items: center; gap: 5px; font-size: 0.92em; color: #3a2b4d; }
+        .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+        .nm-table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        .nm-table th, .nm-table td { border: 1px solid #ccc; padding: 8px 10px; vertical-align: middle; }
+        .nm-table thead th { background: #3a2b4d; color: #fff; position: sticky; top: 0; }
+        .nm-table tbody tr:nth-child(even) { background: #f6f4f9; }
+        .nm-table img { width: 64px; height: 64px; object-fit: cover; border-radius: 5px; display: block; }
+        .nm-table .col-img { width: 74px; text-align: center; }
+        .nm-table .col-code { white-space: nowrap; font-weight: bold; }
+        .nm-table .old-code { color: #b03a2e; }
+        .nm-table .arrow { text-align: center; color: #888; font-weight: bold; }
+        .nm-table .new-code a { color: #1f6f43; }
+        .nm-table .col-copy { white-space: nowrap; width: 1%; text-align: center; }
+        .copy-btn { padding: 4px 9px; margin: 2px; font-size: 0.8em; cursor: pointer; border: 1px solid #b9a7d4; background: #efe9f7; border-radius: 5px; }
+        .copy-btn:hover { background: #e2d8f1; }
+        .copy-btn.copied { background: #b9e6b9; border-color: #7fc97f; }
+        .copy-all-btn { padding: 6px 14px; font-size: 0.9em; cursor: pointer; border: 1px solid #7fc97f; background: #d7f0d7; border-radius: 6px; font-weight: bold; }
+        .copy-all-btn:hover { background: #c3e8c3; }
+        .copy-all-btn.copied { background: #a9dda9; }
+        .badge-log { font-size: 0.72em; background: #d7e8ff; color: #1a4b8c; border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
+        .badge-guess { font-size: 0.72em; background: #ffe9c7; color: #8a5a00; border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
+        .muted { color: #888; font-size: 0.85em; }
+        #status { color: #555; margin: 6px 0; }
+    </style>
+</head>
+<body>
+    <div id="navbar"></div>
+    <div class="content">
+        <h1>변경된 셀러코드 찾기 <span class="muted">· 창고 재배치용 · 관리자 전용</span></h1>
+        <p class="muted">
+            셀러코드를 바꿔도 이미지 URL에는 <b>변경 전 원래 셀러코드</b>가 남습니다. 이를 이용해
+            <b>셀러코드가 바뀐 적 있는 제품만</b> 골라 <b>기존 코드 → 현재 코드</b>로 보여줍니다.
+            창고에서 <span class="old-code">기존(빨강)</span> 코드로 물건을 찾아 <span style="color:#1f6f43">현재(초록)</span> 코드 위치로 옮기세요.
+        </p>
+
+        <div class="nm-input">
+            <input type="text" id="categoryInput" list="categoryList" placeholder="소분류명 (예: 64 · cat · 방꾸미기) — 비우면 전체" autocomplete="off">
+            <datalist id="categoryList"></datalist>
+            <select id="periodSelect" title="변경 시점 필터(이력이 기록된 변경분에만 적용)">
+                <option value="all">기간: 전체(이미지 추정 포함)</option>
+                <option value="today">오늘 변경분만</option>
+                <option value="7d">최근 7일</option>
+            </select>
+            <label class="chk"><input type="checkbox" id="changedOnly" checked> 변경된 제품만</label>
+            <button id="searchBtn">검색</button>
+            <label class="chk" title="라벨(용지) 크기 — 프린터에 넣은 라벨에 맞춰 조절 (가로×세로 mm)">🖨️ 라벨 가로 <input type="number" id="labelW" value="50" min="10" max="200" step="1" style="width:52px"> × 세로 <input type="number" id="labelH" value="30" min="10" max="200" step="1" style="width:52px"> mm</label>
+            <span id="status"></span>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="./firebaseConfig.js"></script>
+    <script src="./loadManageNavbar.js"></script>
+    <script src="./imageFallback.js"></script>
+    <script src="./clipboardUtils.js?v=1"></script>
+    <script src="./admin_search_by_category.js?v=3"></script>
+</body>
+</html>

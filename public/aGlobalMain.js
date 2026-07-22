@@ -224,6 +224,22 @@ export async function changeSellerCodeAtomic(currentSellerCode, newSellerCode, w
         batch.set(col.doc(`SET_${newSellerCode}`), { ...setProduct, SellerCode: `SET_${newSellerCode}`, ...(withCategory && { 소분류명: newCategory }) });
         batch.delete(col.doc(`SET_${currentSellerCode}`));
     }
+
+    // 셀러코드 변경 이력 기록(창고 재배치용) — 변경과 같은 batch로 원자적 커밋.
+    // 변경이 성공하면 이력도 반드시 남고, 변경이 실패하면 이력도 안 남는다(불일치 없음).
+    // 조회: admin_search_by_category (기존→새 코드, dateKey로 '오늘 변경분' 필터).
+    batch.set(db.collection('SellerCodeChangeLog').doc(), {
+        oldSellerCode: currentSellerCode,
+        newSellerCode,
+        oldCategory: currentProduct.소분류명 || null,
+        newCategory: withCategory ? newCategory : (currentProduct.소분류명 || null),
+        productName: currentProduct.스토어키워드네임 || currentProduct.상품명 || '',
+        img: currentProduct.Cafe24URL || '',
+        hadSet: setSnap.exists,
+        changedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        dateKey: new Date().toLocaleDateString('sv-SE'), // 로컬(KST) YYYY-MM-DD — 일자별 그룹/필터용
+    });
+
     await batch.commit();      // 원자적: 전부 성공 또는 전부 실패
     invalidateProductCache();
 
