@@ -30,6 +30,10 @@ service cloud.firestore {
     match /CashFlowTx/{doc=**}         { allow read, write: if legacyOpen(); }
     match /Notices/{doc=**}            { allow read, write: if legacyOpen(); }
     match /RestockLogs/{doc=**}        { allow read, write: if legacyOpen(); }
+    // 셀러코드 변경 이력(창고 재배치용). 변경과 같은 batch로 기록되므로 여기가 막히면 변경 자체가 실패한다.
+    match /SellerCodeChangeLog/{doc=**} { allow read, write: if legacyOpen(); }
+    // 생성 바코드(DK########) 기록. 문서ID = 바코드 값 → 중복 생성 원천 차단.
+    match /GeneratedBarcodes/{doc=**}  { allow read, write: if legacyOpen(); }
 
     // ===== HR: 직원 / 출퇴근 / 급여 =====
     function isSignedIn() { return request.auth != null; }

@@ -51,40 +51,15 @@
     }
 
     // 셀러코드 라벨 프린트 — 라벨(용지) 1장당 현재(변경 후) 셀러코드 1개. 세트(SET_)는 프린트하지 않음.
-    // 라벨 크기는 mm 입력값(labelW×labelH)에 맞춰 @page 로 지정 → 라벨프린터에 딱 맞게 출력.
+    // 라벨 크기는 mm 입력값(labelW×labelH)에 맞춰 지정. 인쇄 엔진은 labelPrint.js 공용(생성 바코드 라벨과 공유).
     function printLabels(rows) {
         const codes = rows.map(r => r.code).filter(Boolean); // 현재 코드만(세트 제외 — 애초에 r.code에 SET_ 없음)
-        if (!codes.length) { alert('프린트할 셀러코드가 없습니다.'); return; }
-        const W = Math.max(10, Math.min(200, parseInt($('labelW').value, 10) || 50)); // 가로
-        const H = Math.max(10, Math.min(200, parseInt($('labelH').value, 10) || 30)); // 세로
-
-        // 가장 긴 코드가 한 줄에 들어가도록 라벨 폭 기준으로 글자 크기(mm) 산정(모노스페이스 ≈ 0.6em 폭).
-        const fitFont = code => {
-            const usable = Math.max(5, W - 3);
-            const fs = usable / (0.62 * Math.max(code.length, 1));
-            return Math.max(2.6, Math.min(9, fs)).toFixed(2);
-        };
-
-        const labelsHTML = codes.map(c =>
-            `<div class="lbl"><span style="font-size:${fitFont(c)}mm">${esc(c)}</span></div>`
-        ).join('');
-
-        const w = window.open('', '_blank');
-        if (!w) { alert('팝업이 차단되었습니다. 이 사이트의 팝업을 허용해주세요.'); return; }
-        w.document.write(
-            '<html><head><meta charset="utf-8"><title>셀러코드 라벨</title><style>' +
-            `@page{size:${W}mm ${H}mm;margin:0;}` +
-            'html,body{margin:0;padding:0;}' +
-            `.lbl{width:${W}mm;height:${H}mm;box-sizing:border-box;padding:1mm;` +
-            'display:flex;align-items:center;justify-content:center;text-align:center;' +
-            'page-break-after:always;break-after:page;overflow:hidden;}' +
-            '.lbl span{font-family:"Consolas","Malgun Gothic",monospace;font-weight:700;' +
-            'letter-spacing:-0.2px;line-height:1.05;word-break:break-all;}' +
-            '.lbl:last-child{page-break-after:auto;break-after:auto;}' +
-            '</style></head><body>' + labelsHTML + '</body></html>'
-        );
-        w.document.close(); w.focus();
-        setTimeout(() => w.print(), 300);
+        const W = window.LabelPrint.clampMm($('labelW').value, 50);
+        const H = window.LabelPrint.clampMm($('labelH').value, 30);
+        window.LabelPrint.print({
+            widthMm: W, heightMm: H, title: '셀러코드 라벨',
+            labels: codes.map(c => window.LabelPrint.textLabelHTML(c, W)),
+        });
     }
 
     function render(rows) {

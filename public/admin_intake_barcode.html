@@ -19,15 +19,25 @@
         .ib-table col.c-opt { width: 130px; }
         .ib-table col.c-cnt { width: 82px; }
         .ib-table col.c-total { width: 60px; }
-        .ib-table col.c-exist { width: 120px; }
-        .ib-table col.c-bc { width: 200px; }
+        .ib-table col.c-exist { width: 128px; }
+        .ib-table col.c-bc { width: 215px; }
         .ib-table col.c-status { width: 120px; }
         .ib-table img { width: 80px; height: 80px; object-fit: contain; display: block; margin: 0 auto; }
         .ib-prod-head td { background: #e7dff2; text-align: left; font-weight: bold; padding: 8px 10px; }
         .ib-prod-head a { color: #3a2b4d; }
         .ib-opt { font-size: 0.9em; }
         .ib-table input[type="number"] { width: 70px; text-align: center; padding: 4px; }
-        .ib-table input.ib-barcode { width: 92%; padding: 6px; font-size: 1em; }
+        .ib-bcwrap { display: flex; gap: 4px; align-items: center; }
+        .ib-table input.ib-barcode { flex: 1; min-width: 0; padding: 6px; font-size: 1em; }
+        .ib-gen { flex: 0 0 auto; padding: 5px 7px; font-size: 1em; line-height: 1; cursor: pointer; border: 1px solid #b9a7d4; background: #efe9f7; border-radius: 5px; }
+        .ib-gen:hover { background: #e2d8f1; }
+        .ib-gen:disabled { opacity: .45; cursor: default; }
+        .ib-genall { margin-left: 10px; padding: 4px 10px; font-size: 0.82em; cursor: pointer; border: 1px solid #b9a7d4; background: #fff; border-radius: 5px; font-weight: normal; }
+        .ib-genall:hover { background: #f3eefa; }
+        .ib-genall:disabled { opacity: .5; cursor: default; }
+        .ib-gen-row { background: #fffdf0; }
+        .ib-newbadge { margin-right: 3px; }
+        .ib-bar a { color: #3a2b4d; margin-left: 14px; font-size: 0.92em; }
         .ib-total { font-weight: bold; background: #faf8fd; }
         .ib-exist { font-size: 0.82em; color: #555; }
         .ib-status { font-size: 0.85em; white-space: nowrap; cursor: default; }
@@ -49,6 +59,11 @@
             바코드 칸에 스캔(Enter)하면 <b>그 즉시 저장</b>되고 다음 빈 옵션으로 자동 이동합니다. 저장 버튼은 없습니다.
             실 재고가 다르면 개별/세트 수량을 고쳐 칸을 벗어나면 즉시 저장되고, 수량은 네이버에도 반영됩니다(바코드는 반영 안 함).
         </p>
+        <p class="muted">
+            🎲 <b>바코드 생성</b>: 제조사 바코드가 <b>모든 옵션 동일</b>해서 옵션 구분이 안 될 때, 바코드칸 옆 <b>🎲</b>(또는 제품줄의
+            <b>빈 옵션 전체 생성</b>)을 누르면 <b>DK+9자리</b> 번호를 새로 발급해 바로 저장합니다. 발급분은 🆕로 표시되고,
+            라벨은 <b>생성 바코드 기록·프린트</b> 화면에서 <b>수량(개별+세트)만큼</b> 뽑습니다.
+        </p>
 
         <div class="ib-input">
             <label>입고차수: <input type="text" id="categoryInput" placeholder="예: 71" inputmode="numeric"></label>
@@ -56,7 +71,10 @@
             <span id="status"></span>
         </div>
 
-        <div class="ib-bar"><span id="progress"></span></div>
+        <div class="ib-bar">
+            <span id="progress"></span>
+            <a id="printLink" href="admin_generated_barcodes.html" target="_blank" rel="noopener" style="display:none;">🖨️ 생성 바코드 기록·라벨 프린트</a>
+        </div>
 
         <div id="result"></div>
     </div>
@@ -67,8 +85,9 @@
     <script src="./loadNavbar.js"></script>
     <script src="./imageFallback.js"></script>
     <script src="./aSaveInventoryToSmartStore.js"></script>
-    <script src="./barcodeUtils.js?v=3"></script>
+    <script src="./barcodeUtils.js?v=4"></script>
     <script src="./imageUrlUtils.js?v=1"></script>
-    <script src="./admin_intake_barcode.js?v=4"></script>
+    <script src="./generatedBarcodeStore.js?v=1"></script>
+    <script src="./admin_intake_barcode.js?v=5"></script>
 </body>
 </html>
