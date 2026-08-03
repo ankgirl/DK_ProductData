@@ -101,67 +101,153 @@
   function renderAll() {
     var e = state.emp;
     $('title').textContent = state.isAdmin ? (e.name + '님 출퇴근 · 급여') : '내 출퇴근 · 급여';
-    $('ruleWage').textContent = (e.hourlyWage || 11000).toLocaleString() + '원';
-    HR.loadRange(e.empId, state.year, state.month).then(function (range) {
-      var days = HR.mergeDays(range.atts, range.excs);
-      var opts = HR.payrollOpts(e);
-      var s = Payroll.settle(days, state.year, state.month, opts, []);
-      renderEstimate(s, days);
-      renderMyRows(s, range.atts);
+    renderMonthNav();
+    renderRule(e);
+    $('myrows').innerHTML = '불러오는 중…';
+    // loadDays = 기록 병합 + 미기록 소정일 채움(공용). 관리자 정산 화면과 동일한 날짜 집합을 본다.
+    HR.loadDays(e, state.year, state.month).then(function (r) {
+      var s = Payroll.settle(r.days, state.year, state.month, r.opts, []);
+      renderEstimate(s);
+      renderMyRows(s, r.atts);
+    }).catch(function (err) {
+      $('myrows').innerHTML = '<div style="padding:12px;color:#c0392b;font-size:.82em">⚠ 기록 조회 실패: ' + esc(err.code || err.message) + '</div>';
     });
     renderExceptions();
     loadPast();
   }
 
-  function renderEstimate(s, days) {
+  // ---- 월 이동 ----
+  // 과거 달을 자유롭게 조회. 미래 달은 데이터가 없으므로 이번 달까지만.
+  function renderMonthNav() {
+    var now = HR.thisMonth();
+    var sel = $('mSel'); sel.innerHTML = '';
+    var d = new Date(now.year, now.month - 1, 1);
+    var found = false;
+    for (var i = 0; i < 24; i++) {
+      var y = d.getFullYear(), m = d.getMonth() + 1;
+      var o = document.createElement('option');
+      o.value = y + '-' + m; o.textContent = HR.ymLabel(y, m) + (y === now.year && m === now.month ? ' (이번 달)' : '');
+      sel.appendChild(o);
+      if (y === state.year && m === state.month) found = true;
+      d.setMonth(d.getMonth() - 1);
+    }
+    // 24개월보다 이전으로 이동한 경우에도 선택값이 유지되도록 항목을 보충
+    if (!found) {
+      var o2 = document.createElement('option');
+      o2.value = state.year + '-' + state.month; o2.textContent = HR.ymLabel(state.year, state.month);
+      sel.appendChild(o2);
+    }
+    sel.value = state.year + '-' + state.month;
+    $('mNext').disabled = (state.year === now.year && state.month === now.month);
+  }
+  function goMonth(y, m) {
+    var d = new Date(y, m - 1, 1);
+    var now = HR.thisMonth();
+    if (d.getFullYear() > now.year || (d.getFullYear() === now.year && d.getMonth() + 1 > now.month)) return;
+    state.year = d.getFullYear(); state.month = d.getMonth() + 1;
+    renderAll();
+  }
+
+  // ---- 급여 규칙(급여유형별) ----
+  function renderRule(emp) {
+    var t = Payroll.empTypeDef(HR.empType(emp));
+    $('ruleWage').textContent = (emp.hourlyWage || 11000).toLocaleString() + '원';
+    $('ruleType').textContent = t.label + ' · ' + t.short;
+    $('ruleDeduct').innerHTML = t.notes.map(function (n) { return '· ' + esc(n); }).join('<br>');
+  }
+
+  function renderEstimate(s) {
     var worked = s.rows.filter(function (r) { return !r.absent; }).length;
-    var absent = s.rows.filter(function (r) { return r.absent; }).length;
+    var absent = s.rows.filter(function (r) { return r.absent && !r.missing; }).length;
+    var missing = s.rows.filter(function (r) { return r.missing; }).length;
     var fullWeeks = s.weeks.filter(function (w) { return w.juhyu > 0; }).length;
+    var now = HR.thisMonth();
+    var isNow = (state.year === now.year && state.month === now.month);
+    var dedTxt = s.deductions.map(function (d) { return ' − ' + d.label.replace(/\s*\(.*\)/, '') + ' ' + d.amount.toLocaleString(); }).join('');
     $('estimate').innerHTML =
-      '<div class="lbl">이번 달(' + state.year + '년 ' + state.month + '월) 지금까지 근무 기준 <b>예정 급여액</b></div>' +
+      '<div class="lbl">' + state.year + '년 ' + state.month + '월 ' + (isNow ? '지금까지 근무 기준 <b>예정 급여액</b>' : '<b>급여액</b>') +
+      ' <span style="opacity:.8">· ' + esc(s.typeLabel) + '</span></div>' +
       '<div class="big">₩ ' + s.net.toLocaleString() + '</div>' +
-      '<div class="sub">정산 총액 ' + s.total.toLocaleString() + ' − 소득세 ' + s.incomeTax.toLocaleString() + ' − 지방세 ' + s.localTax.toLocaleString() + ' · 지급예정 ' + (state.month === 12 ? state.year + 1 : state.year) + '년 ' + (state.month === 12 ? 1 : state.month + 1) + '월</div>' +
-      '<div class="chips"><span class="chip">용역수당 ' + s.용역수당.toLocaleString() + '</span><span class="chip">주휴수당 ' + s.주휴수당.toLocaleString() + '</span>' +
-      '<span class="chip">근무 ' + worked + '일 · 결근 ' + absent + '일</span><span class="chip">개근주 ' + fullWeeks + '</span></div>';
+      '<div class="sub">' + esc(s.totalName) + ' ' + s.total.toLocaleString() + dedTxt + ' · 지급예정 ' + (state.month === 12 ? state.year + 1 : state.year) + '년 ' + (state.month === 12 ? 1 : state.month + 1) + '월</div>' +
+      '<div class="chips"><span class="chip">' + esc(s.payName) + ' ' + s.용역수당.toLocaleString() + '</span><span class="chip">주휴수당 ' + s.주휴수당.toLocaleString() + '</span>' +
+      '<span class="chip">근무 ' + worked + '일 · 결근 ' + absent + '일</span>' +
+      (missing ? '<span class="chip" style="background:rgba(255,190,90,.35)">⚠ 미기록 ' + missing + '일</span>' : '') +
+      '<span class="chip">개근주 ' + fullWeeks + '</span></div>';
   }
 
   function renderMyRows(s, atts) {
     var attMap = {}; (atts || []).forEach(function (a) { attMap[a.date] = a; });
-    var tagTxt = { ab: '결근', ov: '초과', et: '조퇴→풀근무', ch: '시간변경' };
+    var tagTxt = { ms: '미기록', ab: '결근', ov: '초과', et: '조퇴→풀근무', ch: '시간변경' };
+    var missing = 0;
     var rows = s.rows.map(function (r) {
-      var kind = r.absent ? 'ab' : (r.agreedIn ? 'ch' : (r.workedMin > 240 ? 'ov' : (r.workedMin === 240 ? 'et' : '')));
+      if (r.missing) missing++;
+      var kind = r.missing ? 'ms' : (r.absent ? 'ab' : (r.agreedIn ? 'ch' : (r.workedMin > 240 ? 'ov' : (r.workedMin === 240 ? 'et' : ''))));
       var wd = ['일', '월', '화', '수', '목', '금', '토'][r.wd];
       var raw = attMap[r.date] || {};
       var inTxt = r.absent ? '-' : (raw.clockIn && raw.clockIn !== r.clampIn ? raw.clockIn + '→' + r.clampIn : (r.clampIn || '09:00'));
       var edited = (raw.editHistory && raw.editHistory.length) ? '<span class="edited" title="' + esc(lastEdit(raw.editHistory)) + '">✎수정됨</span>' : '';
-      return '<tr><td>' + r.date.slice(5) + ' (' + wd + ')</td><td class="c">' + inTxt + '</td><td class="c">' + (r.clockOut || '-') + '</td>' +
+      return '<tr' + (r.missing ? ' class="miss"' : '') + '><td>' + r.date.slice(5) + ' (' + wd + ')</td><td class="c">' + inTxt + '</td><td class="c">' + (r.clockOut || '-') + '</td>' +
         '<td class="r">' + (r.pay ? r.pay.toLocaleString() + '원' : '-') + '</td>' +
         '<td class="c">' + (kind && tagTxt[kind] ? '<span class="tag ' + kind + '">' + tagTxt[kind] + '</span>' : '') + ' ' + edited + '</td>' +
-        '<td class="c"><button class="btn sm sec" data-edit="' + r.date + '">수정</button></td></tr>';
+        '<td class="c"><button class="btn sm ' + (r.missing ? '' : 'sec') + '" data-edit="' + r.date + '" data-new="' + (r.missing ? 1 : 0) + '">' + (r.missing ? '＋등록' : '수정') + '</button></td></tr>';
     }).join('');
-    $('myrows').innerHTML = '<table><thead><tr><th>날짜</th><th class="c">출근</th><th class="c">퇴근</th><th class="r">용역수당</th><th class="c">비고</th><th class="c">수정</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    $('myrows').innerHTML =
+      (missing ? '<div class="misswarn">⚠ 기록이 없는 근무일이 <b>' + missing + '일</b> 있습니다. 실제로 근무했다면 <b>＋등록</b>으로 보충해 주세요. (미기록이 있는 주는 주휴수당이 발생하지 않습니다)</div>' : '') +
+      '<table><thead><tr><th>날짜</th><th class="c">출근</th><th class="c">퇴근</th><th class="r">' + esc(s.payName) + '</th><th class="c">비고</th><th class="c">수정</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div style="padding:9px 10px;border-top:1px solid var(--line)"><button class="btn sm sec" id="btnAddRec">＋ 다른 날짜 기록 추가</button> ' +
+      '<span class="muted">주말·공휴일 근무 등 표에 없는 날짜</span></div>';
     Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (b) {
-      b.onclick = function () { openEdit(b.getAttribute('data-edit'), attMap[b.getAttribute('data-edit')] || {}); };
+      b.onclick = function () {
+        var date = b.getAttribute('data-edit');
+        openEdit(date, attMap[date] || {}, { isNew: b.getAttribute('data-new') === '1' });
+      };
     });
+    // 기본 날짜 = 조회 중인 달 기준(이번 달이면 오늘, 지난 달이면 그 달 말일)
+    $('btnAddRec').onclick = function () { openEdit(defaultAddDate(), {}, { isNew: true, pickDate: true }); };
   }
   function lastEdit(h) { var e = h[h.length - 1]; return e.field + ': ' + (e.old || '-') + '→' + e['new'] + ' (' + (e.at || '').slice(0, 10) + ' by ' + e.by + ')'; }
 
-  // ---- 기록 수정 ----
-  var editDate = null;
-  function openEdit(date, raw) {
-    editDate = date;
-    $('editTitle').textContent = date + ' 기록 수정';
-    $('editSub').textContent = state.isAdmin ? '관리자 수정 — 수정자·이력이 기록됩니다.' : '본인 수정 — 수정 이력이 기록됩니다.';
-    $('editIn').value = raw.clockIn || ''; $('editOut').value = raw.clockOut || ''; $('editAbsent').checked = !!raw.absent;
+  // ---- 기록 수정 / 누락분 보충 등록 ----
+  // 수정과 신규 등록은 같은 모달·같은 저장 경로(editAttendance = set merge + 이력)를 쓴다.
+  var editDate = null, editPick = false;
+  function defaultAddDate() {
+    var now = HR.thisMonth();
+    if (state.year === now.year && state.month === now.month) return HR.todayStr();
+    return HR.ymd(state.year, state.month + 1, 0); // 그 달 말일
+  }
+  function openEdit(date, raw, o) {
+    o = o || {};
+    editDate = date; editPick = !!o.pickDate;
+    var so = (state.emp && state.emp.sojeong) || {};
+    $('editTitle').textContent = o.isNew ? '출퇴근 기록 등록' : (date + ' 기록 수정');
+    $('editSub').textContent = o.isNew
+      ? '누락된 기록을 보충 등록합니다 — 등록자·이력이 남습니다. 실제 근무한 시각으로 입력하세요.'
+      : (state.isAdmin ? '관리자 수정 — 수정자·이력이 기록됩니다.' : '본인 수정 — 수정 이력이 기록됩니다.');
+    $('editDateRow').classList.toggle('hide', !editPick);
+    $('editDate').value = date;
+    $('editDate').max = HR.todayStr();          // 미래 기록 방지
+    $('editDate').min = state.emp.startDate || '';
+    // 보충 등록은 소정시간을 기본값으로 채워 한 번에 저장할 수 있게 한다.
+    $('editIn').value = raw.clockIn || (o.isNew ? (so.start || '09:00') : '');
+    $('editOut').value = raw.clockOut || (o.isNew ? (so.end || '13:00') : '');
+    $('editAbsent').checked = o.isNew ? false : !!raw.absent;
     $('editMsg').textContent = ''; $('editM').classList.remove('hide');
   }
   function saveEdit() {
-    var patch = { clockIn: $('editIn').value || null, clockOut: $('editOut').value || null, absent: $('editAbsent').checked };
+    var date = editPick ? $('editDate').value : editDate;
+    if (!date) { $('editMsg').textContent = '날짜를 선택하세요.'; return; }
+    var patch = { date: date, clockIn: $('editIn').value || null, clockOut: $('editOut').value || null, absent: $('editAbsent').checked };
     if (patch.absent) { patch.clockIn = null; patch.clockOut = null; }
-    $('editMsg').textContent = '저장 중…';
-    HR.editAttendance(state.emp.empId, editDate, patch, state.viewer).then(function () {
-      $('editM').classList.add('hide'); renderAll();
-    }).catch(function (e) { $('editMsg').textContent = '실패: ' + e.message; });
+    else if (!patch.clockOut) { $('editMsg').textContent = '퇴근 시각을 입력하세요. (없으면 급여가 0원으로 계산됩니다)'; return; }
+    $('editSave').disabled = true; $('editMsg').textContent = '저장 중…';
+    HR.editAttendance(state.emp.empId, date, patch, state.viewer).then(function () {
+      $('editM').classList.add('hide');
+      // 다른 달 기록을 등록했으면 그 달로 이동 — "저장했는데 안 보인다"를 막는다.
+      var p = date.split('-');
+      if (+p[0] !== state.year || +p[1] !== state.month) goMonth(+p[0], +p[1]);
+      else renderAll();
+    }).catch(function (e) { $('editMsg').textContent = '실패: ' + e.message; })
+      .then(function () { $('editSave').disabled = false; });
   }
 
   // ---- 사전등록 ----
@@ -205,6 +291,9 @@
   // ---- 모달/바인딩 ----
   function bindStatic() {
     $('ruleToggle').onclick = function () { $('rule').classList.toggle('hide'); };
+    $('mSel').onchange = function () { var p = $('mSel').value.split('-'); goMonth(+p[0], +p[1]); };
+    $('mPrev').onclick = function () { goMonth(state.year, state.month - 1); };
+    $('mNext').onclick = function () { goMonth(state.year, state.month + 1); };
     $('btnOff').onclick = function () { $('offDate').value = HR.todayStr(); $('offM').classList.remove('hide'); };
     $('btnChg').onclick = function () { $('chgDate').value = HR.todayStr(); $('chgM').classList.remove('hide'); };
     $('offCancel').onclick = function () { $('offM').classList.add('hide'); };

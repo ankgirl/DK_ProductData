@@ -26,6 +26,10 @@
   .pill.on{ background:#e2f4e8; color:#1d7a3f; } .pill.off{ background:#f0eef2; color:#999; } .pill.sent{ background:#e6eefb; color:#2b54a8; }
   .tag{ font-size:.76em; padding:1px 6px; border-radius:6px; }
   .tag.ab{ background:#fdecee; color:#b5283c; } .tag.ov{ background:#eef3fd; color:#2b54a8; } .tag.et{ background:#fff4e0; color:#9a6b00; } .tag.ch{ background:#efe7fb; color:#5a3ea0; }
+  .tag.ms{ background:#ffe9c9; color:#8a5300; font-weight:bold; }
+  tbody tr.miss td{ background:#fffaf0 !important; }
+  .misswarn{ background:#fff6e5; border:1px solid #f0d98a; border-radius:8px; color:#8a5300; padding:8px 11px; font-size:.83em; margin:8px 0; }
+  .pill.type{ background:#ede7f7; color:#5a3ea0; }
   .form-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:8px 0; }
   .form-row label{ font-size:.85em; color:#5a5266; min-width:78px; }
   input,select,textarea{ padding:7px 9px; border:1px solid #cfc7dd; border-radius:7px; font-size:.9em; font-family:inherit; }
@@ -76,6 +80,7 @@
           <div class="form-row"><label>직원 Gmail</label><input id="fEmail" placeholder="예: hong@gmail.com" style="flex:1"></div>
           <div class="form-row"><label>근무 시작일</label><input id="fStart" type="date"></div>
           <div class="form-row"><label>계약 시급</label><input id="fWage" type="number" value="11000" style="width:130px"> 원 <span class="muted">· 소정 평일 09:00~13:00</span></div>
+          <div class="form-row"><label>급여 유형</label><select id="fType"></select> <span class="muted" id="fTypeHint"></span></div>
           <div class="form-row"><button class="btn gold" id="saveEmp">입사 등록</button> <span id="addMsg" class="muted"></span></div>
         </div>
       </div>
@@ -137,8 +142,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="./payroll_compute.js"></script>
-  <script src="./hr_common.js?v=2"></script>
-  <script src="./admin_payroll.js?v=7"></script>
+  <script src="./payroll_compute.js?v=3"></script>
+  <script src="./hr_common.js?v=3"></script>
+  <script src="./admin_payroll.js?v=9"></script>
 </body>
 </html>

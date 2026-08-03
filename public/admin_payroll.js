@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var BUILD = '2026-07-01';
+  var BUILD = '2026-08-03';
   var ctx = { emp: null, year: 0, month: 0, days: [], settle: null, adjustments: [] };
   var employees = [];
 
@@ -37,8 +37,26 @@
     loadEmployees();
   }
 
+  // 급여유형 <select> 채우기 — 유형 추가는 payroll_compute.js 의 EMPLOYMENT_TYPES 만 고치면 됨.
+  function fillTypeSelect(sel, value) {
+    sel.innerHTML = '';
+    Object.keys(Payroll.EMPLOYMENT_TYPES).forEach(function (k) {
+      var t = Payroll.EMPLOYMENT_TYPES[k];
+      var o = document.createElement('option');
+      o.value = k; o.textContent = t.label + ' — ' + t.short;
+      sel.appendChild(o);
+    });
+    sel.value = value || Payroll.DEFAULT_EMP_TYPE;
+  }
+  function typeHint(type) {
+    return Payroll.empTypeDef(type).notes.join(' / ');
+  }
+
   function bindStatic() {
     $('toggleAdd').onclick = function () { $('addForm').classList.toggle('hide'); };
+    fillTypeSelect($('fType'));
+    $('fType').onchange = function () { $('fTypeHint').textContent = typeHint($('fType').value); };
+    $('fTypeHint').textContent = typeHint($('fType').value);
     $('saveEmp').onclick = onSaveEmp;
     $('btnSettle').onclick = onSettle;
     $('btnQr').onclick = renderQR;
@@ -77,13 +95,31 @@
     var rows = employees.map(function (e) {
       var mails = HR.empEmails(e);
       var mailCell = esc(mails[0] || '-') + (mails.length > 1 ? ' <span class="muted">외 ' + (mails.length - 1) + '</span>' : '');
+      var t = Payroll.empTypeDef(HR.empType(e));
       return '<tr><td>' + esc(e.name) + '</td><td>' + mailCell + '</td><td>' + esc(e.startDate || '-') + '</td>' +
         '<td class="r">' + (e.hourlyWage || 11000).toLocaleString() + '원</td>' +
+        '<td class="c"><select data-type="' + e.empId + '" title="' + esc(typeHint(t.key)) + '"></select></td>' +
         '<td class="c">' + (e.active ? '<span class="pill on">재직</span>' : '<span class="pill off">퇴사 ' + (e.endDate || '') + '</span>') + '</td>' +
         '<td class="c"><button class="btn sm sec" data-emails="' + e.empId + '">✉ 이메일</button> ' +
         (e.active ? '<button class="btn sm danger" data-retire="' + e.empId + '">퇴사 처리</button>' : '') + '</td></tr>';
     }).join('');
-    $('empTable').innerHTML = '<table><thead><tr><th>이름</th><th>로그인 Gmail</th><th>근무 시작일</th><th class="r">시급</th><th class="c">상태</th><th class="c">관리</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    $('empTable').innerHTML = '<table><thead><tr><th>이름</th><th>로그인 Gmail</th><th>근무 시작일</th><th class="r">시급</th><th class="c">급여 유형</th><th class="c">상태</th><th class="c">관리</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="muted" style="margin-top:6px">※ 급여 유형에 따라 공제가 달라집니다 — ' +
+      Object.keys(Payroll.EMPLOYMENT_TYPES).map(function (k) { var t = Payroll.EMPLOYMENT_TYPES[k]; return '<b>' + t.label + '</b>: ' + esc(t.notes[0]); }).join(' / ') + '</div>';
+    // 급여유형 드롭다운(기존 직원 변경용) — 신규 등록은 입사 폼에서 지정
+    Array.prototype.forEach.call(document.querySelectorAll('[data-type]'), function (sel) {
+      var id = sel.getAttribute('data-type');
+      var emp = employees.filter(function (e) { return e.empId === id; })[0];
+      fillTypeSelect(sel, HR.empType(emp));
+      sel.onchange = function () {
+        var prev = HR.empType(emp);
+        sel.disabled = true;
+        HR.setEmploymentType(id, sel.value).then(function () {
+          emp.employmentType = sel.value; sel.disabled = false;
+          if ($('settleEmp').value === id) $('settleResult').classList.add('hide'); // 다시 정산해야 반영
+        }).catch(function (err) { alert('급여유형 변경 실패: ' + err.message); sel.value = prev; sel.disabled = false; });
+      };
+    });
     Array.prototype.forEach.call(document.querySelectorAll('[data-emails]'), function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-emails');
@@ -115,10 +151,11 @@
   }
   function onSaveEmp() {
     var name = $('fName').value.trim(), email = $('fEmail').value.trim(), start = $('fStart').value, wage = parseInt($('fWage').value, 10) || 11000;
+    var type = $('fType').value;
     if (!name || !email || !start) { $('addMsg').textContent = '이름·Gmail·근무시작일을 모두 입력하세요.'; return; }
     $('saveEmp').disabled = true; $('addMsg').textContent = '저장 중…';
-    HR.addEmployee({ name: name, email: email, startDate: start, hourlyWage: wage }).then(function () {
-      $('fName').value = ''; $('fEmail').value = ''; $('fStart').value = ''; $('fWage').value = '11000';
+    HR.addEmployee({ name: name, email: email, startDate: start, hourlyWage: wage, employmentType: type }).then(function () {
+      $('fName').value = ''; $('fEmail').value = ''; $('fStart').value = ''; $('fWage').value = '11000'; fillTypeSelect($('fType'));
       $('addMsg').textContent = '등록 완료'; $('saveEmp').disabled = false; $('addForm').classList.add('hide');
       loadEmployees();
     }).catch(function (e) { $('addMsg').textContent = '실패: ' + e.message; $('saveEmp').disabled = false; });
@@ -132,12 +169,11 @@
     $('settleResult').classList.remove('hide');
     $('settleResult').innerHTML = '<div class="card">불러오는 중…</div>';
     // 기존 저장된 정산서(이월/조정, 상태) 있으면 불러오기
-    Promise.all([HR.loadRange(empId, year, month), HR.payCol(empId).doc(HR.ymLabel(year, month)).get()])
+    Promise.all([HR.loadDays(emp, year, month), HR.payCol(empId).doc(HR.ymLabel(year, month)).get()])
       .then(function (r) {
-        var range = r[0]; var saved = r[1].exists ? r[1].data() : null;
-        var days = HR.mergeDays(range.atts, range.excs);
+        var saved = r[1].exists ? r[1].data() : null;
         var adjustments = (saved && saved.adjustments) || [];
-        ctx = { emp: emp, year: year, month: month, days: days, adjustments: adjustments, status: (saved && saved.status) || 'none' };
+        ctx = { emp: emp, year: year, month: month, days: r[0].days, adjustments: adjustments, status: (saved && saved.status) || 'none' };
         recompute();
       }).catch(function (e) { $('settleResult').innerHTML = '<div class="card neg">정산 로드 실패: ' + e.message + '</div>'; });
   }
@@ -153,8 +189,16 @@
     var nextY = ctx.month === 12 ? ctx.year + 1 : ctx.year, nextM = ctx.month === 12 ? 1 : ctx.month + 1;
     var html = '<div class="card">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
-      '<div><b>' + esc(emp.name) + '</b> · ' + ctx.year + '년 ' + ctx.month + '월 정산 <span class="muted">(시급 ' + (emp.hourlyWage || 11000).toLocaleString() + '원 · 지급예정 ' + nextY + '년 ' + nextM + '월)</span></div>' +
+      '<div><b>' + esc(emp.name) + '</b> · ' + ctx.year + '년 ' + ctx.month + '월 정산 <span class="pill type">' + esc(s.typeLabel + ' · ' + s.typeShort) + '</span> ' +
+      '<span class="muted">(시급 ' + (emp.hourlyWage || 11000).toLocaleString() + '원 · 지급예정 ' + nextY + '년 ' + nextM + '월)</span></div>' +
       '<div class="muted">주(週) 기준: 월~일 실제 달력</div></div>';
+
+    var missing = s.rows.filter(function (r) { return r.missing; });
+    if (missing.length) {
+      html += '<div class="misswarn">⚠ 출퇴근 기록이 없는 근무일 <b>' + missing.length + '일</b>: ' +
+        missing.map(function (r) { return r.date.slice(5); }).join(', ') +
+        ' — 0원 처리되며 해당 주 주휴수당이 발생하지 않습니다. 실제 근무했다면 <b>출퇴근 페이지(attendance.html)</b>에서 보충 등록 후 다시 정산하세요.</div>';
+    }
 
     // 주별
     html += renderWeeks(s);
@@ -172,14 +216,14 @@
 
     // 합계
     html += '<table style="margin-top:14px;"><tbody>' +
-      row('용역수당 합계', Payroll.fmtWon(s.용역수당)) +
+      row(esc(s.payName) + ' 합계', Payroll.fmtWon(s.용역수당)) +
       row('주휴수당 합계', Payroll.fmtWon(s.주휴수당)) +
       row('이월·조정', Payroll.fmtWon(s.adjustmentSum)) +
-      '<tr class="row-tot"><td>정산 총액</td><td class="r">' + Payroll.fmtWon(s.total) + '</td></tr>' +
-      '<tr><td>소득세 (3%)</td><td class="r neg">-' + s.incomeTax.toLocaleString() + '원</td></tr>' +
-      '<tr><td>지방소득세 (0.3%)</td><td class="r neg">-' + s.localTax.toLocaleString() + '원</td></tr>' +
-      '<tr class="row-final"><td>최종 지급액</td><td class="r">' + Payroll.fmtWon(s.net) + '</td></tr>' +
-      '</tbody></table>';
+      '<tr class="row-tot"><td>' + esc(s.totalName) + '</td><td class="r">' + Payroll.fmtWon(s.total) + '</td></tr>' +
+      s.deductions.map(function (d) { return '<tr><td>' + esc(d.label) + '</td><td class="r neg">-' + d.amount.toLocaleString() + '원</td></tr>'; }).join('') +
+      '<tr class="row-final"><td>' + esc(s.netName) + '</td><td class="r">' + Payroll.fmtWon(s.net) + '</td></tr>' +
+      '</tbody></table>' +
+      '<p class="muted" style="margin:6px 0 0">공제 기준(' + esc(s.typeLabel) + '): ' + s.typeNotes.map(esc).join(' / ') + '</p>';
 
     var carry = s.weeks.filter(function (w) { return w.carryOut; });
     if (carry.length) html += '<p class="muted">※ ' + carry.map(function (w) { return w.mondayStr.slice(5) + '~' + w.sundayStr.slice(5); }).join(', ') + ' 주휴수당은 주 완성 후 ' + nextM + '월 정산에 이월됩니다.</p>';
@@ -206,21 +250,21 @@
   }
 
   function renderWeeks(s) {
-    var tagTxt = { ab: '결근', ov: '초과', et: '조퇴→풀근무', ch: '시간변경' };
+    var tagTxt = { ms: '미기록', ab: '결근', ov: '초과', et: '조퇴→풀근무', ch: '시간변경' };
     return s.weeks.map(function (w, i) {
       var label = weekLabel(s, w, i);
       var body = w.rows.map(function (r) {
-        var kind = r.absent ? 'ab' : (r.agreedIn ? 'ch' : (r.workedMin > 240 ? 'ov' : (r.workedMin === 240 ? 'et' : '')));
+        var kind = r.missing ? 'ms' : (r.absent ? 'ab' : (r.agreedIn ? 'ch' : (r.workedMin > 240 ? 'ov' : (r.workedMin === 240 ? 'et' : ''))));
         var wd = ['일', '월', '화', '수', '목', '금', '토'][r.wd];
-        return '<tr><td>' + r.date.slice(5) + ' (' + wd + ')</td><td class="c">' + (r.absent ? '-' : (r.clampIn || '09:00')) + '</td>' +
+        return '<tr' + (r.missing ? ' class="miss"' : '') + '><td>' + r.date.slice(5) + ' (' + wd + ')</td><td class="c">' + (r.absent ? '-' : (r.clampIn || '09:00')) + '</td>' +
           '<td class="c">' + (r.clockOut || '-') + '</td><td class="r">' + (r.pay ? r.pay.toLocaleString() + '원' : '-') + '</td>' +
           '<td class="c">' + (kind && tagTxt[kind] ? '<span class="tag ' + kind + '">' + tagTxt[kind] + '</span>' : '') + '</td></tr>';
       }).join('');
       var sub = w.rows.reduce(function (a, r) { return a + r.pay; }, 0);
       var juhyuTxt = w.carryOut ? '이월' : Payroll.fmtWon(w.juhyu);
       return '<div class="weekbox"><div class="weekhd"><span>' + label + '</span><span class="muted">' + esc(w.status) + '</span></div>' +
-        '<table><thead><tr><th>날짜</th><th class="c">출근</th><th class="c">퇴근</th><th class="r">용역수당</th><th class="c">비고</th></tr></thead><tbody>' +
-        body + '<tr class="row-tot"><td colspan="3">용역 소계</td><td class="r">' + Payroll.fmtWon(sub) + '</td><td></td></tr>' +
+        '<table><thead><tr><th>날짜</th><th class="c">출근</th><th class="c">퇴근</th><th class="r">' + esc(s.payName) + '</th><th class="c">비고</th></tr></thead><tbody>' +
+        body + '<tr class="row-tot"><td colspan="3">' + esc(s.payName) + ' 소계</td><td class="r">' + Payroll.fmtWon(sub) + '</td><td></td></tr>' +
         '<tr><td colspan="3">주휴수당</td><td class="r">' + juhyuTxt + '</td><td></td></tr></tbody></table></div>';
     }).join('');
   }
@@ -259,6 +303,8 @@
     return {
       용역수당: s.용역수당, 주휴수당: s.주휴수당, adjustmentSum: s.adjustmentSum,
       total: s.total, incomeTax: s.incomeTax, localTax: s.localTax, net: s.net,
+      employmentType: s.employmentType, typeLabel: s.typeLabel,
+      deductions: s.deductions, deductionSum: s.deductionSum,
       weeks: s.weeks.map(function (w) { return { mondayStr: w.mondayStr, sundayStr: w.sundayStr, juhyu: w.juhyu, status: w.status, carryOut: w.carryOut }; }),
     };
   }
@@ -281,7 +327,7 @@
       var base64 = pdf.output('datauristring').split(',')[1];
       return sendEmail({
         to_email: HR.empEmails(ctx.emp).join(','), to_name: ctx.emp.name,
-        subject: '[다꾸하루] ' + ctx.year + '년 ' + ctx.month + '월 용역비 정산서',
+        subject: '[다꾸하루] ' + ctx.year + '년 ' + ctx.month + '월 ' + docTitle(),
         message: message, filename: pdfName(), content: base64,
       }).then(function () {
         return savePayslip('sent');
@@ -311,11 +357,13 @@
   }
 
   // ---------- 정산서 문서(PDF/미리보기) ----------
-  function pdfName() { return '용역비정산서_' + (ctx.emp.name || '') + '_' + HR.ymLabel(ctx.year, ctx.month) + '.pdf'; }
+  // 문서 제목·명칭은 급여유형별(프리랜서=용역비 / 근로자=급여)
+  function docTitle() { return (ctx.settle && ctx.settle.docTitle) || '급여 정산서'; }
+  function pdfName() { return docTitle().replace(/\s/g, '') + '_' + (ctx.emp.name || '') + '_' + HR.ymLabel(ctx.year, ctx.month) + '.pdf'; }
   function renderPayslipDoc() {
     var s = ctx.settle, emp = ctx.emp;
     var nextM = ctx.month === 12 ? 1 : ctx.month + 1;
-    var h = '<h2>용역비 정산서</h2><div class="sub">' + ctx.year + '년 ' + pad2(ctx.month) + '월</div>';
+    var h = '<h2>' + esc(s.docTitle) + '</h2><div class="sub">' + ctx.year + '년 ' + pad2(ctx.month) + '월</div>';
     h += '<table><tbody><tr><th style="width:90px">성명</th><td>' + esc(emp.name) + '</td><th style="width:90px">지급 예정일</th><td>' + ctx.year + '년 ' + pad2(nextM) + '월</td></tr>' +
       '<tr><th>계약 시급</th><td>' + (emp.hourlyWage || 11000).toLocaleString() + '원</td><th>정산월</th><td>' + ctx.year + '년 ' + pad2(ctx.month) + '월</td></tr></tbody></table>';
     s.weeks.forEach(function (w, i) {
@@ -327,22 +375,24 @@
         h += '<tr><td>' + r.date.slice(5).replace('-', '.') + ' ' + wd + '</td><td>' + (r.absent ? '-' : (r.clampIn || '09:00')) + '</td><td>' + (r.clockOut || '-') + '</td><td>' + Payroll.fmtDur(r.workedMin) + '</td><td style="text-align:right">' + (r.pay ? r.pay.toLocaleString() + '원' : '-') + '</td></tr>';
       });
       var sub = w.rows.reduce(function (a, r) { return a + r.pay; }, 0);
-      h += '<tr><td colspan="4">용역 소계</td><td style="text-align:right">' + sub.toLocaleString() + '원</td></tr>';
+      h += '<tr><td colspan="4">' + esc(s.payName) + ' 소계</td><td style="text-align:right">' + sub.toLocaleString() + '원</td></tr>';
       h += '<tr><td colspan="4">주휴수당</td><td style="text-align:right">' + (w.carryOut ? '이월' : (w.juhyu ? w.juhyu.toLocaleString() + '원' : (w.status.indexOf('개근') >= 0 ? '개근' : '미발생'))) + '</td></tr>';
       h += '</tbody></table>';
     });
     h += '<div class="wk">정산 내역</div><table><tbody>';
-    h += '<tr><td>용역수당 합계</td><td style="text-align:right">' + s.용역수당.toLocaleString() + '원</td></tr>';
+    h += '<tr><td>' + esc(s.payName) + ' 합계</td><td style="text-align:right">' + s.용역수당.toLocaleString() + '원</td></tr>';
     h += '<tr><td>주휴수당 합계</td><td style="text-align:right">' + s.주휴수당.toLocaleString() + '원</td></tr>';
     ctx.adjustments.forEach(function (a) { if (a.amount) h += '<tr><td>' + esc(a.label || '조정') + '</td><td style="text-align:right">' + a.amount.toLocaleString() + '원</td></tr>'; });
-    h += '<tr><td><b>정산 총액</b></td><td style="text-align:right"><b>' + s.total.toLocaleString() + '원</b></td></tr>';
-    h += '<tr><td>소득세 (3%)</td><td style="text-align:right;color:#c0392b">-' + s.incomeTax.toLocaleString() + '원</td></tr>';
-    h += '<tr><td>지방소득세 (0.3%)</td><td style="text-align:right;color:#c0392b">-' + s.localTax.toLocaleString() + '원</td></tr>';
-    h += '<tr style="background:#333;color:#fff"><td><b>최종 지급액</b></td><td style="text-align:right"><b>' + s.net.toLocaleString() + '원</b></td></tr>';
+    h += '<tr><td><b>' + esc(s.totalName) + '</b></td><td style="text-align:right"><b>' + s.total.toLocaleString() + '원</b></td></tr>';
+    s.deductions.forEach(function (d) {
+      h += '<tr><td>' + esc(d.label) + '</td><td style="text-align:right;color:#c0392b">-' + d.amount.toLocaleString() + '원</td></tr>';
+    });
+    h += '<tr style="background:#333;color:#fff"><td><b>' + esc(s.netName) + '</b></td><td style="text-align:right"><b>' + s.net.toLocaleString() + '원</b></td></tr>';
     h += '</tbody></table>';
+    h += '<p style="color:#888;font-size:11px;margin:4px 0 0">* 공제 기준(' + esc(s.typeLabel) + '): ' + s.typeNotes.map(esc).join(' / ') + '</p>';
     var carry = s.weeks.filter(function (w) { return w.carryOut; });
     if (carry.length) h += '<p style="color:#888;font-size:11px">* ' + carry.map(function (w) { return w.mondayStr.slice(5) + '~' + w.sundayStr.slice(5); }).join(', ') + ' 주휴수당은 주 완성 후 ' + nextM + '월 정산에 포함하여 지급됩니다.</p>';
-    h += '<p style="text-align:center;margin-top:18px">위와 같이 용역비를 정산합니다.</p><p style="text-align:center;font-weight:bold">다꾸하루</p>';
+    h += '<p style="text-align:center;margin-top:18px">위와 같이 ' + esc(s.feeName) + '를 정산합니다.</p><p style="text-align:center;font-weight:bold">다꾸하루</p>';
     return h;
   }
   function preview() {

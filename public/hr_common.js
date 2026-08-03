@@ -89,6 +89,16 @@
       return d.exists ? Object.assign({ empId: d.id }, d.data()) : null;
     });
   }
+  // 급여유형 정규화 — 알 수 없는 값/누락은 기본(프리랜서). 옛 문서엔 필드가 없으므로 폴백 필수.
+  function empType(emp) {
+    var t = emp && emp.employmentType;
+    return (t && Payroll.EMPLOYMENT_TYPES[t]) ? t : Payroll.DEFAULT_EMP_TYPE;
+  }
+  function setEmploymentType(empId, type) {
+    if (!Payroll.EMPLOYMENT_TYPES[type]) return Promise.reject(new Error('알 수 없는 급여유형: ' + type));
+    return empDoc(empId).update({ employmentType: type });
+  }
+
   // 신규 입사 (empId 자동)
   function addEmployee(data) {
     var ref = hrCol().doc();
@@ -101,6 +111,7 @@
       active: true,
       endDate: null,
       hourlyWage: data.hourlyWage || 11000,
+      employmentType: empType(data),
       sojeong: data.sojeong || { start: '09:00', end: '13:00', days: [1, 2, 3, 4, 5] },
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
@@ -125,7 +136,10 @@
       wage: (emp && emp.hourlyWage) || 11000,
       sojeongStart: so.start || '09:00',
       sojeongMin: 240,
+      sojeongDays: so.days || Payroll.DEFAULT_SOJEONG_DAYS,
       hireDate: emp && emp.startDate,
+      endDate: (emp && emp.active === false) ? (emp.endDate || null) : null,
+      employmentType: empType(emp),
     };
   }
 
@@ -167,6 +181,18 @@
       var atts = []; r[0].forEach(function (d) { atts.push(Object.assign({ date: d.id }, d.data())); });
       var excs = []; r[1].forEach(function (d) { excs.push(Object.assign({ date: d.id }, d.data())); });
       return { atts: atts, excs: excs };
+    });
+  }
+
+  // 화면 공통 로더: 범위 로드 → 병합 → 미기록 소정일 채움.
+  // 관리자 정산·직원 페이지가 모두 이걸 써서 "같은 날짜 집합·같은 계산"을 보게 한다.
+  function loadDays(emp, year, month) {
+    var opts = payrollOpts(emp);
+    return loadRange(emp.empId, year, month).then(function (r) {
+      return {
+        days: Payroll.fillMissing(mergeDays(r.atts, r.excs), year, month, opts),
+        atts: r.atts, excs: r.excs, opts: opts,
+      };
     });
   }
 
@@ -220,7 +246,8 @@
     listEmployees: listEmployees, findEmployeeByEmail: findEmployeeByEmail, getEmployee: getEmployee,
     addEmployee: addEmployee, retireEmployee: retireEmployee,
     normEmails: normEmails, empEmails: empEmails, setEmployeeEmails: setEmployeeEmails,
-    payrollOpts: payrollOpts, mergeDays: mergeDays, loadRange: loadRange,
+    empType: empType, setEmploymentType: setEmploymentType,
+    payrollOpts: payrollOpts, mergeDays: mergeDays, loadRange: loadRange, loadDays: loadDays,
     recordPunch: recordPunch, editAttendance: editAttendance,
     todayStr: todayStr, nowHM: nowHM, prevMonth: prevMonth, thisMonth: thisMonth, ymLabel: ymLabel, ymd: ymd,
   };

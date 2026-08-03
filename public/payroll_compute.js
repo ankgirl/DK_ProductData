@@ -11,7 +11,9 @@
 //    - 결근: 0원.
 //  · 주휴수당(월~일): 소정근무일 개근 & 주 소정 15h↑ → (소정시간/40)×8×시급.
 //    - 결근 1일이라도 → 0. 달 경계 미완성 주(일요일이 다음달) → 다음달 이월.
-//  · 원천징수: 소득세=floor10(총액×3%), 지방세=floor10(소득세×10%). 지급=총액-소득세-지방세.
+//  · 공제(급여유형별) — EMPLOYMENT_TYPES 참조. 유형은 직원문서 employmentType 필드.
+//    - freelancer(프리랜서): 소득세=floor10(총액×3%), 지방세=floor10(소득세×10%)  → 3.3%
+//    - employee(근로자)   : 고용보험=floor10(총액×0.9%). 산재는 사업주 전액부담 → 공제 없음.
 //
 // 전역 노출: window.Payroll
 
@@ -22,6 +24,41 @@
   var DEFAULT_SOJEONG_MIN = 240; // 1일 소정 4시간
   var DEFAULT_START = '09:00';
   var DEFAULT_END = '13:00';
+  var DEFAULT_SOJEONG_DAYS = [1, 2, 3, 4, 5]; // 월~금 (0=일)
+
+  // ---- 급여 유형(공제 방식) ----
+  // 직원마다 계약형태가 달라 공제가 다르다. 새 유형은 여기에만 추가하면 전 화면(정산·정산서·직원페이지)에 반영됨.
+  //   deductions[].of : 공제 기준액 키('total' 또는 앞선 공제 key)
+  var DEFAULT_EMP_TYPE = 'freelancer';
+  var EMPLOYMENT_TYPES = {
+    freelancer: {
+      key: 'freelancer', label: '프리랜서', short: '3.3% 원천징수',
+      docTitle: '용역비 정산서', payName: '용역수당', feeName: '용역비',
+      totalName: '정산 총액', netName: '최종 지급액',
+      deductions: [
+        { key: 'incomeTax', label: '소득세 (3%)', rate: 0.03, of: 'total' },
+        { key: 'localTax', label: '지방소득세 (0.3%)', rate: 0.10, of: 'incomeTax' },
+      ],
+      notes: ['사업소득 원천징수 3.3% (소득세 3% + 지방소득세 0.3%, 각 10원 미만 절사)'],
+    },
+    employee: {
+      key: 'employee', label: '근로자', short: '고용·산재보험',
+      // 용어는 세무대리 급여대장과 동일하게(기본급 / 지급액계 / 차인지급액) — 대조하기 쉽도록
+      docTitle: '급여 정산서', payName: '기본급', feeName: '급여',
+      totalName: '지급액계', netName: '차인지급액',
+      deductions: [
+        { key: 'employmentIns', label: '고용보험 (0.9%)', rate: 0.009, of: 'total' },
+      ],
+      notes: [
+        '고용보험 근로자부담 0.9% 공제 (10원 미만 절사)',
+        '산재보험 — 사업주 전액 부담(급여에서 공제하지 않음)',
+        '국민연금·건강보험·장기요양 미가입 (공제 0원)',
+        '소득세·지방소득세 원천징수 없음',
+      ],
+    },
+  };
+  function empTypeDef(type) { return EMPLOYMENT_TYPES[type] || EMPLOYMENT_TYPES[DEFAULT_EMP_TYPE]; }
+  function empTypeLabel(type) { var t = empTypeDef(type); return t.label + '(' + t.short + ')'; }
 
   function toMin(hhmm) {
     if (!hhmm) return null;
@@ -100,6 +137,7 @@
         clockIn: d.clockIn || null, clockOut: d.clockOut || null,
         agreedIn: d.agreedIn || null,
         absent: r.absent, workedMin: r.workedMin, pay: r.pay, clampIn: r.clampIn,
+        missing: !!d.missing,
         note: d.note || null,
       };
     });
@@ -129,13 +167,15 @@
         if (dt.getTime() >= hireUTC) soDays++;
       }
       var days = weekMap[wk];
-      var hasAbsent = days.some(function (x) { return x.absent; });
+      var hasMissing = days.some(function (x) { return x.missing; });
+      var hasAbsent = days.some(function (x) { return x.absent && !x.missing; });
       var workedDays = days.filter(function (x) { return !x.absent; }).length;
       var sojeongHours = soDays * 4;
 
       var juhyu = 0, status;
       if (!endsThisMonth) { status = '미완성→다음달 이월'; }
       else if (soDays === 0) { status = '소정일 없음'; }
+      else if (hasMissing) { status = '미기록 있음→미발생'; }
       else if (hasAbsent) { status = '결근→미발생'; }
       else if (sojeongHours < 15) { status = '주 15h미만→미발생'; }
       else if (workedDays < soDays) { status = '근무<소정→미발생'; }
@@ -147,7 +187,7 @@
         mondayStr: wk,
         sundayStr: sun.toISOString().slice(0, 10),
         endsThisMonth: endsThisMonth,
-        soDays: soDays, workedDays: workedDays, hasAbsent: hasAbsent,
+        soDays: soDays, workedDays: workedDays, hasAbsent: hasAbsent, hasMissing: hasMissing,
         juhyu: endsThisMonth ? juhyu : 0,
         carryOut: !endsThisMonth,   // 다음달 이월 표시
         status: status,
@@ -160,11 +200,61 @@
     return { year: year, month: month, rows: monthRows, weeks: weeks, 용역수당: 용역, 주휴수당: 주휴 };
   }
 
-  // ---- 원천징수 ----
-  function withholding(total) {
-    var incomeTax = floor10(total * 0.03);
-    var localTax = floor10(incomeTax * 0.10);
-    return { incomeTax: incomeTax, localTax: localTax, net: total - incomeTax - localTax };
+  // ---- 미기록 소정근무일 채우기 ----
+  // 기록이 아예 없는 소정근무일을 {missing:true, absent:true} 행으로 채워 "누락"을 화면에 드러낸다.
+  // ※ 급여 결과는 불변 — 미기록은 원래도 용역 0원이고, 주휴는 workedDays<soDays 로 이미 미발생이었다.
+  //   달라지는 건 "안 보이던 누락일이 보이고, 그 자리에서 보충 등록할 수 있다"는 것.
+  // opts: { sojeongDays:[0~6], hireDate, endDate, today:'YYYY-MM-DD' }
+  function fillMissing(days, year, month, opts) {
+    opts = opts || {};
+    var wdays = opts.sojeongDays || DEFAULT_SOJEONG_DAYS;
+    var hire = opts.hireDate || null;
+    var end = opts.endDate || null;
+    var today = opts.today || todayLocal();
+    var have = {};
+    (days || []).forEach(function (d) { have[d.date] = 1; });
+
+    // 커버 범위 = 이 달이 걸친 주 전체(첫날의 월요일 ~ 마지막날의 일요일). 달 경계 주휴 판정 구간까지 포함.
+    var cur = mondayOf(year, month, 1);
+    var lastDate = new Date(ymdToUTC(year, month + 1, 0)).getUTCDate();
+    var end2 = mondayOf(year, month, lastDate); end2.setUTCDate(end2.getUTCDate() + 6);
+
+    var out = (days || []).slice();
+    while (cur.getTime() <= end2.getTime()) {
+      var s = cur.toISOString().slice(0, 10);
+      var skip = have[s] || wdays.indexOf(cur.getUTCDay()) < 0 ||
+        s > today || (hire && s < hire) || (end && s > end);
+      if (!skip) out.push({ date: s, clockIn: null, clockOut: null, absent: true, missing: true, note: '미기록' });
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    out.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    return out;
+  }
+  function todayLocal() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  // ---- 공제(급여유형별) ----
+  // 반환: { deductions:[{key,label,amount}], deductionSum, net, incomeTax, localTax, employmentIns, ... }
+  // incomeTax/localTax 는 하위호환용으로 항상 존재(해당 없으면 0).
+  function withholding(total, type) {
+    var t = empTypeDef(type);
+    var base = { total: total };
+    var list = t.deductions.map(function (d) {
+      var amt = floor10((base[d.of] || 0) * d.rate);
+      base[d.key] = amt;
+      return { key: d.key, label: d.label, amount: amt };
+    });
+    var sum = list.reduce(function (s, d) { return s + d.amount; }, 0);
+    return {
+      employmentType: t.key, typeLabel: t.label, typeShort: t.short, notes: t.notes,
+      docTitle: t.docTitle, payName: t.payName, feeName: t.feeName,
+      totalName: t.totalName, netName: t.netName,
+      deductions: list, deductionSum: sum,
+      incomeTax: base.incomeTax || 0, localTax: base.localTax || 0, employmentIns: base.employmentIns || 0,
+      net: total - sum,
+    };
   }
 
   // ---- 월 정산 전체(이월/조정 포함) ----
@@ -174,14 +264,19 @@
     adjustments = adjustments || [];
     var adjSum = adjustments.reduce(function (s, a) { return s + (a.amount || 0); }, 0);
     var total = base.용역수당 + base.주휴수당 + adjSum;
-    var wh = withholding(total);
+    var wh = withholding(total, opts && opts.employmentType);
     return {
       year: year, month: month,
       rows: base.rows, weeks: base.weeks,
       용역수당: base.용역수당, 주휴수당: base.주휴수당,
       adjustments: adjustments, adjustmentSum: adjSum,
       total: total,
-      incomeTax: wh.incomeTax, localTax: wh.localTax, net: wh.net,
+      employmentType: wh.employmentType, typeLabel: wh.typeLabel, typeShort: wh.typeShort, typeNotes: wh.notes,
+      docTitle: wh.docTitle, payName: wh.payName, feeName: wh.feeName,
+      totalName: wh.totalName, netName: wh.netName,
+      deductions: wh.deductions, deductionSum: wh.deductionSum,
+      incomeTax: wh.incomeTax, localTax: wh.localTax, employmentIns: wh.employmentIns,
+      net: wh.net,
     };
   }
 
@@ -190,9 +285,13 @@
     DEFAULT_SOJEONG_MIN: DEFAULT_SOJEONG_MIN,
     DEFAULT_START: DEFAULT_START,
     DEFAULT_END: DEFAULT_END,
+    DEFAULT_SOJEONG_DAYS: DEFAULT_SOJEONG_DAYS,
+    EMPLOYMENT_TYPES: EMPLOYMENT_TYPES, DEFAULT_EMP_TYPE: DEFAULT_EMP_TYPE,
+    empTypeDef: empTypeDef, empTypeLabel: empTypeLabel,
     toMin: toMin, minToHHMM: minToHHMM, round: round, floor10: floor10,
     weekday: weekday, mondayOf: mondayOf, ymdStr: ymdStr, parseYMD: parseYMD,
-    fmtWon: fmtWon, fmtDur: fmtDur,
+    fmtWon: fmtWon, fmtDur: fmtDur, todayLocal: todayLocal,
+    fillMissing: fillMissing,
     computeDay: computeDay,
     computeMonth: computeMonth,
     withholding: withholding,
