@@ -101,6 +101,11 @@ export function groupByOrderNumber(rows) {
 }
 
 // ─── 합배송 통합 (송장번호 기준) ─────────────────────────────────────────────
+// 배송 정책 상수 — 정책이 바뀌면 여기만 고친다 (아래 계산식·안내문구가 모두 참조).
+// 이력: 2026-08 무료배송 기준 30,000원 → 50,000원 인상.
+export const FREE_SHIPPING_THRESHOLD = 50000; // 이 금액 이상이면 무료배송 대상
+export const SHIPPING_FEE = 3000;             // 건당 기본 배송비
+
 /**
  * 같은 송장번호를 가진 주문번호들을 대표 주문번호 1개로 병합.
  * 다른 주문번호의 ProductOrders / 총수량 / 총주문금액 / 총결제금액 / 기본배송비를
@@ -108,9 +113,9 @@ export function groupByOrderNumber(rows) {
  *
  * 합배송정보 필드 추가 (송장번호, 묶인주문번호들, 배송비환불금액, 안내문구).
  * 환불 룰: K = 배송비 발생 주문 수, S = 묶음 상품 정가 합.
- *   S ≥ 30,000 → K × 3,000   (무료배송 조건 충족 → 부과 배송비 전액 환불)
- *   S < 30,000 → (K−1) × 3,000 (배송비 1건만 받고 나머지 환불)
- *   K = 0      → 0
+ *   S ≥ FREE_SHIPPING_THRESHOLD → K × SHIPPING_FEE     (무료배송 조건 충족 → 부과 배송비 전액 환불)
+ *   S <  FREE_SHIPPING_THRESHOLD → (K−1) × SHIPPING_FEE (배송비 1건만 받고 나머지 환불)
+ *   K = 0                       → 0
  *
  * @param {Object} ordersMap  groupByOrderNumber 결과 (in-place 수정)
  * @returns {Object} 같은 ordersMap
@@ -159,11 +164,11 @@ export function mergeCombinedShipments(ordersMap) {
         }
 
         // 환불 룰 (기준선 분기):
-        //   S ≥ 30,000  → 무료배송 조건 충족 → 부과된 배송비 전액 환불 (K × 3,000)
-        //   S < 30,000  → 배송비 1건만 받고 나머지 환불        ((K-1) × 3,000)
+        //   S ≥ 기준선 → 무료배송 조건 충족 → 부과된 배송비 전액 환불 (K × 배송비)
+        //   S < 기준선 → 배송비 1건만 받고 나머지 환불        ((K-1) × 배송비)
         const refund  = K === 0
             ? 0
-            : (S >= 30000 ? K * 3000 : (K - 1) * 3000);
+            : (S >= FREE_SHIPPING_THRESHOLD ? K * SHIPPING_FEE : (K - 1) * SHIPPING_FEE);
         const message = refund > 0
             ? `합배송 ${orderNumbers.length}건 묶음 (송장 ${inv}) — 배송비 ${refund.toLocaleString()}원 환불 필요`
             : `합배송 ${orderNumbers.length}건 묶음 (송장 ${inv}) — 배송비 환불 불필요`;
