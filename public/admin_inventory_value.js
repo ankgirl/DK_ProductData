@@ -110,13 +110,15 @@
     }
 
     // ---- 스냅샷 저장 (오늘 날짜, 멱등 덮어쓰기) ----
+    // ★ 날짜 규칙: 스냅샷의 날짜는 "그 날 마감 시점의 재고"(labelBasis:'closing').
+    //   서버(Cloud Function)가 매일 자정에 '어제' 마감값으로 기록한다.
+    //   여기 수동 기록은 아직 안 끝난 오늘의 **장중 잠정값**(labelBasis:'asof', 잠정:true) →
+    //   오늘 자정에 서버가 같은 문서를 진짜 마감값으로 덮어쓰며 자동 확정된다.
     function todayStr() {
         const d = new Date();
         const p = n => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
     }
-    // 수동 저장 전용 (자동 적립은 Cloud Function이 매일 자정 KST에 수행).
-    // 제외목록을 방금 바꿔 오늘 스냅샷을 즉시 갱신하고 싶을 때만 사용.
     async function saveTodaySnapshot(result) {
         const id = todayStr();
         const doc = {
@@ -125,11 +127,14 @@
             원가: result.acc.원가,
             실판매가: result.acc.실판매가,
             정가: result.acc.정가,
+            자동: false,
+            잠정: true,            // 마감 전 값 (자정에 서버가 마감값으로 대체)
+            labelBasis: 'asof',
         };
         const el = $('snapshotStatus');
         try {
             await db.collection('InventorySnapshots').doc(id).set(doc);
-            el.textContent = `오늘(${id}) 스냅샷 수동 저장 완료.`;
+            el.textContent = `오늘(${id}) 잠정값 기록 완료 — 오늘 자정에 서버가 마감값으로 자동 확정합니다.`;
         } catch (e) {
             el.textContent = `⚠️ 스냅샷 저장 실패: ${e.message}`;
             console.error('[snapshot] 저장 실패', e);
@@ -145,7 +150,8 @@
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
     }
     function aggregate(arr, unit) {
-        if (unit === 'day') return arr.map(s => ({ label: s.날짜, s }));
+        // 마감 전 잠정값(오늘 수동 기록)은 라벨에 표시해 마감값과 헷갈리지 않게 한다.
+        if (unit === 'day') return arr.map(s => ({ label: s.잠정 ? `${s.날짜}(잠정)` : s.날짜, s }));
         const m = new Map(); // 정렬돼 있으므로 같은 key의 마지막(최신) 스냅샷 유지
         for (const s of arr) {
             const key = unit === 'month' ? s.날짜.slice(0, 7) : weekKey(s.날짜);

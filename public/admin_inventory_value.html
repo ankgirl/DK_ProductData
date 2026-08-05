@@ -47,7 +47,7 @@
             <button data-unit="week" class="unit-btn">주별</button>
             <button data-unit="month" class="unit-btn">월별</button>
             <button id="saveSnapshotBtn" class="unit-btn" style="margin-left:10px;">지금 기록</button>
-            <span class="muted" style="margin-left:10px;">스냅샷은 매일 자정(KST)에 서버에서 자동 기록됩니다. 제외목록을 바꾼 직후 오늘 값을 즉시 갱신하려면 “지금 기록”을 누르세요.</span>
+            <span class="muted" style="margin-left:10px;">각 점의 날짜 = <b>그 날 마감(자정) 시점</b> 재고입니다. 매일 자정(KST) 서버가 전날 마감값을 자동 기록합니다. “지금 기록”은 아직 안 끝난 <b>오늘의 잠정값</b>을 남기며, 오늘 자정에 마감값으로 자동 확정됩니다.</span>
         </div>
         <canvas id="trendChart" height="110"></canvas>
         <p class="muted" style="margin-top:6px;">※ 원가·실판매가·정가는 금액 차이가 커서 <b>각자 별도 스케일</b>로 그려 변동을 보이게 했습니다. 선의 높낮이 비교가 아니라 <b>각 선의 오르내림(추세)</b>으로 보세요. 정확한 금액은 점 위에 마우스를 올리면 표시됩니다.</p>
@@ -63,6 +63,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="./inventory_compute.js?v=1"></script>
     <script src="./chart_daterange.js?v=1"></script>
-    <script src="./admin_inventory_value.js?v=5"></script>
+    <script src="./admin_inventory_value.js?v=6"></script>
 </body>
 </html>

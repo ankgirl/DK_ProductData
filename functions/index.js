@@ -1,5 +1,8 @@
 // functions/index.js — 매일 자정(KST) 전체 재고 가치 스냅샷 자동 기록
 //
+// ★ 날짜 규칙: 스냅샷의 날짜(=문서ID) 는 "그 날 마감 시점의 재고" 를 뜻한다.
+//   자정에 도는 실행은 방금 끝난 하루(=어제) 의 마감값이므로 어제 날짜로 저장한다(closingDateStr).
+//
 // 계산 로직(computeInventory)은 public/inventory_compute.js 단일 소스를 공유한다.
 // 배포 시 predeploy 단계에서 이 폴더로 복사된다 (firebase.json 참고).
 // → 화면(admin_inventory_value.js)에 보이는 값과 자정 기록 값이 항상 동일.
@@ -24,13 +27,22 @@ const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD");
 const SENDER = "dakkuharu@gmail.com";
 
 /**
- * 자정(KST) 기준 날짜 문자열 "YYYY-MM-DD".
- * 런타임은 UTC이므로 +9h 보정 후 ISO 날짜를 잘라 쓴다.
+ * 이 실행이 기록해야 할 "마감일" 문자열 "YYYY-MM-DD".
+ *
+ * 스냅샷의 날짜 = "그 날 마감(자정) 시점의 재고" 라는 의미다(labelBasis:"closing").
+ * 이 함수는 00:00 KST 에 도는데, 그 순간 값은 '오늘'이 아니라 **어제 마감** 값이다.
+ * (예전엔 '오늘' 날짜로 저장해서 그래프가 하루씩 밀려 보였음 → 전체 기간 보정 완료)
+ *
+ * 스케줄러 지터 대비: KST 현재시각에 +1h 한 뒤 날짜를 잘라 -1일.
+ *  · 몇 초 일찍(전날 23:59:5x) 발화해도 → 같은 마감일
+ *  · 재시도로 늦게(당일 22시대까지) 돌아도 → 같은 마감일
  * @return {string} "YYYY-MM-DD"
  */
-function kstDateStr() {
-  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().slice(0, 10);
+function closingDateStr() {
+  const kstPlus1h = new Date(Date.now() + 10 * 60 * 60 * 1000);
+  const d = new Date(kstPlus1h.toISOString().slice(0, 10) + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 exports.dailyInventorySnapshot = onSchedule(
@@ -40,7 +52,7 @@ exports.dailyInventorySnapshot = onSchedule(
       region: "asia-northeast3",
     },
     async () => {
-      const id = kstDateStr();
+      const id = closingDateStr(); // 어제(=방금 끝난 하루)의 마감일
       try {
         // 제외목록 (관리자 화면과 동일한 AdminConfig/inventoryExclude)
         const exRef = db.collection("AdminConfig").doc("inventoryExclude");
@@ -68,6 +80,7 @@ exports.dailyInventorySnapshot = onSchedule(
           실판매가: acc.실판매가,
           정가: acc.정가,
           자동: true, // 자정 자동 기록 표식 (수동 저장과 구분)
+          labelBasis: "closing", // 날짜 = 그날 마감 시점 값 (장중 잠정값 'asof' 와 구분)
         });
 
         // 품목별 재고 스냅샷(본품 단위) — 재입고 계획(admin_restock_plan)의 "품절 보정"이
@@ -93,6 +106,7 @@ exports.dailyInventorySnapshot = onSchedule(
           기록시각: FieldValue.serverTimestamp(),
           품목수: stockItems,
           재고: stockMap,
+          labelBasis: "closing",
         });
 
         logger.info("[dailyInventorySnapshot] 기록 완료", {
