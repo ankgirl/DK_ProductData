@@ -16,6 +16,8 @@
     let allSnapshots = [];
     let chart = null;
     let currentUnit = 'day';
+    let currentType = 'bar';     // 'bar' = 방꾸미기/다꾸 누적막대, 'line' = 원가/실판매가/정가 추세선
+    let currentMetric = '원가';  // 막대 차트에서 볼 금액 기준
     let currentRange = { start: '', end: '' }; // 기간 필터 (DateRangeControl)
 
     // ---- 재고 가치 계산 (공유 순수 로직: inventory_compute.js) ----
@@ -164,43 +166,108 @@
         if (currentRange.end && dateStr > currentRange.end) return false;
         return true;
     }
-    function drawTrend(unit) {
-        const rows = aggregate(allSnapshots.filter(s => inRange(s.날짜)), unit);
-        const labels = rows.map(r => r.label);
-        const pick = metric => rows.map(r => (r.s[metric] && r.s[metric].전체) || 0);
-        const META = [['원가', '#c0392b'], ['실판매가', '#2e7d32'], ['정가', '#8884d8']];
-        // 항목별 가격대 차이가 커서 공용 축이면 변동이 거의 안 보임 →
-        // 각 항목을 자기 자신의 스케일(숨김 축)로 그려 일별 변동을 살린다. 실제 값은 툴팁에 표시.
-        const datasets = META.map(([label, color], i) => ({
-            label, data: pick(label), borderColor: color, backgroundColor: color,
+    // 스냅샷 s의 {금액기준}.{분류} 값 (옛 스냅샷에 키가 없어도 0으로 안전)
+    const val = (s, metric, key) => (s[metric] && Number(s[metric][key])) || 0;
+    // 축 눈금용 짧은 금액 (1,234만 / 1.2억)
+    function shortWon(v) {
+        const a = Math.abs(v);
+        if (a >= 1e8) return (v / 1e8).toFixed(1).replace(/\.0$/, '') + '억';
+        if (a >= 1e4) return Math.round(v / 1e4).toLocaleString('ko-KR') + '만';
+        return String(Math.round(v));
+    }
+
+    const CAT_META = [['방꾸미기', '#3b82f6'], ['다꾸', '#f59e0b']];
+    const LINE_META = [['원가', '#c0392b'], ['실판매가', '#2e7d32'], ['정가', '#8884d8']];
+
+    // 방꾸미기/다꾸를 다른 색으로 쌓아 올린 누적 막대 (막대 총높이 = 전체 재고가치)
+    function buildBarConfig(rows) {
+        const datasets = CAT_META.map(([cat, color]) => ({
+            label: cat, data: rows.map(r => val(r.s, currentMetric, cat)),
+            backgroundColor: color, borderColor: color, borderWidth: 0,
+            stack: 'inv', maxBarThickness: 46,
+        }));
+        return {
+            type: 'bar',
+            datasets,
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: c => `${c.dataset.label}: ${won(c.parsed.y)}`,
+                            footer: items => `합계: ${won(items.reduce((sum, i) => sum + i.parsed.y, 0))}`,
+                        },
+                    },
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true, ticks: { callback: shortWon } },
+                },
+            },
+        };
+    }
+
+    // 원가/실판매가/정가 추세선. 항목별 가격대 차이가 커서 공용 축이면 변동이 거의 안 보임 →
+    // 각 항목을 자기 자신의 스케일(숨김 축)로 그려 일별 변동을 살린다. 실제 값은 툴팁에 표시.
+    function buildLineConfig(rows) {
+        const datasets = LINE_META.map(([label, color], i) => ({
+            label, data: rows.map(r => val(r.s, label, '전체')),
+            borderColor: color, backgroundColor: color,
             tension: 0.2, pointRadius: 3, yAxisID: 'y' + i,
         }));
         const scales = {};
-        META.forEach((_, i) => { scales['y' + i] = { display: false, grace: '8%' }; });
-        const opts = {
-            responsive: true,
-            interaction: { mode: 'index', intersect: false },
-            plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${won(c.parsed.y)}` } } },
-            scales,
+        LINE_META.forEach((_, i) => { scales['y' + i] = { display: false, grace: '8%' }; });
+        return {
+            type: 'line',
+            datasets,
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${won(c.parsed.y)}` } } },
+                scales,
+            },
         };
+    }
+
+    const CHART_NOTE = {
+        bar: () => `※ 막대 하나 = 그 시점 재고 <b>${currentMetric}</b>이며, <span style="color:#3b82f6;font-weight:bold;">방꾸미기</span>·<span style="color:#f59e0b;font-weight:bold;">다꾸</span>를 쌓아 올린 것입니다(막대 총높이 = 전체). 막대 위에 마우스를 올리면 분류별 금액과 합계가 표시됩니다.`,
+        line: () => '※ 원가·실판매가·정가는 금액 차이가 커서 <b>각자 별도 스케일</b>로 그려 변동을 보이게 했습니다. 선의 높낮이 비교가 아니라 <b>각 선의 오르내림(추세)</b>으로 보세요. 정확한 금액은 점 위에 마우스를 올리면 표시됩니다.',
+    };
+
+    function drawTrend() {
+        const rows = aggregate(allSnapshots.filter(s => inRange(s.날짜)), currentUnit);
+        const cfg = currentType === 'bar' ? buildBarConfig(rows) : buildLineConfig(rows);
+        $('metricControls').style.display = currentType === 'bar' ? '' : 'none';
+        $('chartNote').innerHTML = CHART_NOTE[currentType]();
         if (chart) chart.destroy();
-        chart = new Chart($('trendChart'), { type: 'line', data: { labels, datasets }, options: opts });
+        chart = new Chart($('trendChart'), {
+            type: cfg.type,
+            data: { labels: rows.map(r => r.label), datasets: cfg.datasets },
+            options: cfg.options,
+        });
     }
     async function loadAndDrawTrend() {
         const snap = await db.collection('InventorySnapshots').orderBy('날짜').get();
         allSnapshots = [];
         snap.forEach(d => allSnapshots.push(d.data()));
-        drawTrend(currentUnit);
+        drawTrend();
     }
-    function bindUnitButtons() {
-        document.querySelectorAll('.unit-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentUnit = btn.dataset.unit;
-                drawTrend(currentUnit);
-            });
-        });
+    // 버튼 그룹 공용 바인더 (집계단위·차트종류·금액기준 모두 동일 동작 → 중복 방지)
+    function bindBtnGroup(selector, dataKey, onPick) {
+        const btns = [...document.querySelectorAll(selector)];
+        btns.forEach(btn => btn.addEventListener('click', () => {
+            btns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            onPick(btn.dataset[dataKey]);
+            drawTrend();
+        }));
+    }
+    function bindChartButtons() {
+        // [data-unit] 로 한정 — '지금 기록' 버튼도 .unit-btn 이라 전체 선택 시 오작동했음
+        bindBtnGroup('#chartControls .unit-btn[data-unit]', 'unit', v => { currentUnit = v; });
+        bindBtnGroup('#chartTypeControls button[data-type]', 'type', v => { currentType = v; });
+        bindBtnGroup('#chartTypeControls button[data-metric]', 'metric', v => { currentMetric = v; });
     }
 
     // ---- 재계산 (화면 표시 전용, DB 쓰기 없음) ----
@@ -224,12 +291,12 @@
             statusEl.textContent = `상품 ${DOCS.size.toLocaleString()}건 로드 완료. 계산 중...`;
 
             EXCLUDE = await loadExclude();
-            bindUnitButtons();
+            bindChartButtons();
 
             // 기간 선택 (기본 '전체') — 변경 시 차트만 다시 그림
             const rangeCtl = DateRangeControl.create($('rangeControl'), {
                 defaultPreset: 'all',
-                onApply: r => { currentRange = r; drawTrend(currentUnit); },
+                onApply: r => { currentRange = r; drawTrend(); },
             });
             currentRange = rangeCtl.get();
 
