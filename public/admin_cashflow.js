@@ -1,9 +1,11 @@
 // admin_cashflow.js — 사업 현금흐름 (관리자 전용)
-// 카카오뱅크 거래내역 + 삼성카드 사용내역 업로드 → 월별 현금흐름 그래프/표.
+// 카카오뱅크 거래내역 + 카드 사용내역(삼성·신한) 업로드 → 월별 현금흐름 그래프/표.
 //
 // 설계 핵심 (합의):
 //  - 합계(수입/지출/순현금흐름)의 source of truth = 카카오뱅크 계좌내역.
-//  - 삼성카드는 합계에 더하지 않음. 계좌의 "삼성카드" 출금 한 줄을 세부로 펼쳐보는 용도(드릴다운).
+//  - 카드는 합계에 더하지 않음. 계좌의 "○○카드" 출금 한 줄을 세부로 펼쳐보는 용도(드릴다운).
+//  - 카드사는 CARDS 레지스트리 한 곳에서만 관리 → 카드가 늘면 여기에 한 줄 추가(파싱·분류·대사 자동 확장).
+//  - 업로드한 카드 파일의 카드사는 내용으로 자동 판별(사용자가 고르지 않음).
 //  - 재업로드 멱등: 거래마다 고유 hash → 문서ID. 이미 있으면 skip, 신규만 추가.
 //  - 저장은 컬렉션 'CashFlowTx' 에만. 기존 Products/Orders 등은 절대 건드리지 않음.
 (function () {
@@ -100,17 +102,20 @@
     const d = tx.desc || '';
     // 세이프박스(자금이동) — 넣기(-)/빼기(+) 모두 내용이 '세이프박스'. 수입·지출 분기보다 먼저 판정.
     if (/세이프박스/.test(d)) return '세이프박스';
-    if (tx.source === 'card_samsung') {
-      // 가맹점명 기준 분류 (순서 중요: 구체적인 것 먼저)
+    if (isCardSource(tx.source)) {
+      // 가맹점명 기준 분류 (순서 중요: 구체적인 것 먼저). 카드사와 무관하게 같은 규칙을 쓴다.
       if (/택스앤톡|자비스앤빌런즈/.test(d)) return '세무사';          // 자비스앤빌런즈=삼쩜삼
       if (/건강보험|국민연금|사회보험/.test(d)) return '세금·공과';
       if (/선물하기/.test(d)) return '복리후생';                       // 카카오 선물하기 = 직원 명절보너스
       if (/우아한/.test(d)) return '식대';                            // 우아한형제들(배민)
       if (/잡코리아|사람인/.test(d)) return '채용';
       if (/LG전자/.test(d)) return '구독·HW';                         // LG전자 구독료
+      // 네이버페이 = 쇼핑 결제(사입·비품) → 광고(네이버파이낸셜)보다 먼저 판정해야 함
+      if (/네이버페이/.test(d)) return '매입';
       if (/FACEBK|FACEBOOK|메타|인스타|네이버/i.test(d)) return '광고'; // 네이버파이낸셜·네이버·페북
       if (/토빅스|쿠팡|박스|포장|비품|오피스|이케아|애플|마트킹|씨유/i.test(d)) return '비품';
       if (/LGU|SK통신|세븐모바일|\bKT\b|통신/i.test(d)) return '통신';
+      if (/카페24|고도몰|호스팅|도메인/i.test(d)) return '구독·SW';     // 쇼핑몰 호스팅
       if (/OPENAI|CHATGPT|CLAUDE|ANTHROPIC|ADOBE|MICROSOFT|CAPCUT|SURFSHARK|GOOGLE|구글|미리디|토글랩스|바로알림|구독/i.test(d)) return '구독·SW';
       return '기타';
     }
@@ -120,7 +125,7 @@
       if (/스토어|정산|네이버페이|페이먼트|매출/.test(d)) return '매출입금';
       return '기타수입';
     }
-    if (/삼성카드/.test(d)) return '카드대금';
+    if (CARD_BANK_RE.test(d)) return '카드대금';   // 계좌에서 빠져나간 카드 결제(모든 카드사)
     if (d.includes('성주현')) return Math.abs(tx.amount) === SAJU_RENT ? '임대' : '본인출금';
     for (const r of PAYEE_RULES) if (d.includes(r.has)) return r.cat;
     if (/급여|월급|상여/.test(d)) return '급여';
@@ -169,7 +174,8 @@
     throw new Error('카카오뱅크 형식이 아닙니다 (\'거래일시\' 헤더를 못 찾음).');
   }
 
-  function parseCard(wb) {
+  // ── 삼성카드 (엑셀: '이용일' 헤더, 시트별 일시불/할부) ──
+  function parseSamsungCard(wb) {
     let bad = 0, found = false; const out = [];
     for (const sn of wb.SheetNames) {
       if (sn.includes('해외')) continue; // 해외이용 시트는 일시불에 이미 포함 → 중복 합산 방지
@@ -200,8 +206,79 @@
         });
       }
     }
-    if (!found) throw new Error('삼성카드 형식이 아닙니다 (\'이용일\' 헤더를 못 찾음).');
+    if (!found) return null;   // 이 카드사 형식이 아님 → 다음 카드사 파서가 시도
     return { rows: out, bad };
+  }
+
+  // ── 신한카드 (홈페이지에서 기간 지정해 받은 엑셀: '거래일'+'승인번호' 헤더, 시트 1개) ──
+  // 특징:
+  //  · 취소 건은 별도 행으로 음수 금액(매입구분 '승인취소', 취소상태 '취소') → 부호 그대로 합산하면 상쇄됨
+  //  · 같은 거래가 '승인' → '결제확정' 으로 상태만 바뀌어 다시 내려옴
+  //    → 중복 판별 키에 매입구분·취소상태를 넣지 않는다(넣으면 같은 거래가 두 번 쌓임)
+  //  · 마지막 줄은 '총 N건' 합계행 → 거래일이 비어 있어 자동으로 걸러짐
+  function parseShinhanCard(wb) {
+    let bad = 0, found = false; const out = [];
+    for (const sn of wb.SheetNames) {
+      const rows = sheetRows(wb.Sheets[sn]);
+      const hr = findHeaderRow(rows, '거래일');
+      if (hr < 0) continue;
+      const H = rows[hr].map(c => String(c).trim());
+      const idx = n => H.indexOf(n);
+      const iD = idx('거래일'), iMer = idx('가맹점명'), iAmt = idx('금액'), iAppr = idx('승인번호'),
+        iUse = idx('이용구분'), iBuy = idx('매입구분'), iCancel = idx('취소상태'),
+        iCard = idx('이용카드'), iCur = idx('거래통화'), iFx = idx('해외이용금액');
+      if (iAppr < 0 || iAmt < 0) continue;   // '거래일'만 있고 승인번호가 없으면 신한 형식이 아님
+      found = true;
+      for (let r = hr + 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || !String(row[iD] || '').trim()) continue;      // 합계행('총 N건')은 거래일이 비어 있음
+        const mer = String(row[iMer] || '').trim();
+        if (!mer || /^총\s|합계/.test(mer)) continue;
+        const d = bankDate(row[iD]);                               // '2026.08.06 11:05'
+        if (!d) { bad++; continue; }
+        const use = stripNum(row[iAmt]);                           // 취소는 음수 → 부호 유지
+        if (!use) continue;
+        const appr = String(row[iAppr] || '').trim();
+        const useType = String(row[iUse] || '').trim();            // 일시불 / 할부(3개월) / 해외일시불
+        const months = (useType.match(/(\d+)\s*개월/) || [])[1] || '';
+        // 키에는 '변하지 않는 것'만 — 상태(매입구분/취소상태)는 재다운로드 때 바뀐다.
+        const key = `card_shinhan|${appr || d.ts}|${d.date}|${mer}|${use}`;
+        out.push({
+          _id: idOf(key), source: 'card_shinhan', date: d.date, ts: d.ts, month: monthOf(d.date),
+          amount: -use, useAmount: use, desc: mer,
+          approvalNo: appr, useType: useType, installMonths: months, installSeq: '',
+          buyStatus: String(row[iBuy] || '').trim(),
+          canceled: !!String(row[iCancel] || '').trim(),
+          cardName: String(row[iCard] || '').trim(),
+          currency: iCur >= 0 ? String(row[iCur] || '').trim() : '',
+          foreignAmount: iFx >= 0 ? String(row[iFx] || '').trim() : '',
+        });
+      }
+    }
+    if (!found) return null;
+    return { rows: out, bad };
+  }
+
+  // ── 카드사 레지스트리 ──
+  // 카드가 늘면 여기에 한 줄만 추가하면 파싱·분류·드릴다운·대사가 모두 따라온다.
+  //   bankRe = 계좌내역에서 그 카드 결제 출금을 찾는 패턴(대사·'카드대금' 분류에 사용)
+  const CARDS = [
+    { key: 'card_samsung', label: '삼성카드', bankRe: /삼성카드/, parse: parseSamsungCard },
+    { key: 'card_shinhan', label: '신한카드', bankRe: /신한카드/, parse: parseShinhanCard },
+  ];
+  const CARD_BANK_RE = new RegExp(CARDS.map(c => c.bankRe.source).join('|'));
+  const isCardSource = s => CARDS.some(c => c.key === s);
+  const cardDef = key => CARDS.find(c => c.key === key);
+
+  // 업로드된 카드 파일이 어느 카드사인지 자동 판별 — 사용자가 고를 필요 없음
+  function parseCard(wb) {
+    for (const c of CARDS) {
+      const r = c.parse(wb);
+      if (r && r.rows.length) return Object.assign({ card: c }, r);
+      if (r) return Object.assign({ card: c }, r);   // 형식은 맞는데 0건(빈 기간)
+    }
+    throw new Error('지원하는 카드 명세서 형식이 아닙니다 (' +
+      CARDS.map(c => c.label).join(' / ') + ' 엑셀만 인식).');
   }
 
   // ---------- 업로드 ----------
@@ -223,7 +300,8 @@
     resEl.textContent = '⏳ 읽는 중…';
     try {
       const wb = await readWorkbook(file);
-      const { rows, bad } = kind === 'bank' ? parseBank(wb) : parseCard(wb);
+      const parsed = kind === 'bank' ? parseBank(wb) : parseCard(wb);
+      const { rows, bad } = parsed;
 
       // 신규 vs 중복 (메모리 셋 + 같은 파일 내 중복 제거)
       const seen = new Set();
@@ -249,7 +327,7 @@
       // 메모리 반영
       for (const tx of fresh) { existingIds.add(tx._id); allTx.push(tx); }
 
-      const label = kind === 'bank' ? '카카오뱅크' : '삼성카드';
+      const label = kind === 'bank' ? '카카오뱅크' : parsed.card.label;   // 카드사는 파일에서 자동 판별
       resEl.className = 'upload-result ' + (bad ? 'warn' : 'ok');
       resEl.innerHTML = `✅ ${label} ${rows.length}건 읽음 · ` +
         `<b class="add">신규 ${fresh.length}건 추가</b> · ` +
@@ -270,8 +348,18 @@
   function bankOf(month) {
     return allTx.filter(t => t.source === 'bank_kakao' && (!month || t.month === month));
   }
-  function cardOf(month) {
-    return allTx.filter(t => t.source === 'card_samsung' && (!month || t.month === month));
+  // cardKey 를 주면 그 카드사만, 없으면 전 카드사
+  function cardOf(month, cardKey) {
+    return allTx.filter(t => isCardSource(t.source) && (!cardKey || t.source === cardKey) &&
+      (!month || t.month === month));
+  }
+  // 계좌에서 그 달에 빠져나간 해당 카드 결제액
+  function cardPaidOf(month, re) {
+    return bankOf(month).filter(t => re.test(t.desc) && t.amount < 0).reduce((s, t) => s - t.amount, 0);
+  }
+  // 이번 달에 화면에 보여줄 카드사 = 사용내역이 있거나 계좌 결제가 잡힌 카드
+  function activeCards(month) {
+    return CARDS.filter(c => cardOf(month, c.key).length || cardPaidOf(month, c.bankRe));
   }
 
   // ---------- 렌더링 ----------
@@ -347,7 +435,7 @@
     const safeBox = bank.filter(t => categorize(t) === '세이프박스').reduce((s, t) => s - t.amount, 0);
     const byCat = {};
     bank.forEach(t => { if (isExpense(t)) { const c = categorize(t); byCat[c] = (byCat[c] || 0) - t.amount; } });
-    const cardPaid = bank.filter(t => /삼성카드/.test(t.desc) && t.amount < 0).reduce((s, t) => s - t.amount, 0);
+    const cardPaid = cardPaidOf(m, CARD_BANK_RE);      // 전 카드사 합계(요약 표시는 카드사별로 아래에서)
 
     const cardCell = (k, v, sub) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="sub">${sub || ''}</div></div>`;
     const profit = income - expense;
@@ -359,11 +447,13 @@
       cardCell('본인입금', won(ownerIn), '자금이동 · 매출 아님') +
       cardCell('본인출금', won(ownerDraw), '자금이동 · 지출 아님') +
       cardCell('세이프박스', `${safeBox >= 0 ? '＋' : '－'}${won(Math.abs(safeBox))}`, '자금이동 · 넣은−뺀(수입/지출 아님)') +
-      cardCell('삼성카드 결제', won(cardPaid), '↓ 우측에서 분해');
+      // 카드사별 결제액 (사용내역이나 계좌 결제가 있는 카드만 표시)
+      (activeCards(m).map(c => cardCell(c.label + ' 결제', won(cardPaidOf(m, c.bankRe)), '↓ 우측에서 분해')).join('') ||
+        cardCell('카드 결제', won(cardPaid), '↓ 우측에서 분해'));
 
     renderNetBanner(m, income, expense, profit);
     drawCat(byCat, m);
-    renderCardDrill(m, cardPaid);
+    renderCardDrill(m);
     renderTable();
   }
 
@@ -428,31 +518,44 @@
     });
   }
 
-  function renderCardDrill(m, bankCardPaid) {
-    const card = cardOf(m);
+  // 카드사별 드릴다운(사용내역이 있는 카드는 각각 한 블록). 카드가 늘어도 CARDS 만 보고 자동 확장.
+  function renderCardDrill(m) {
+    const cards = activeCards(m);
+    if (!cards.length) {
+      $('cardDrill').innerHTML =
+        `<h3 style="margin-top:0;font-size:1em;">💳 ${m} 카드, 뭐에 썼나</h3>` +
+        `<div class="recon warn">ℹ️ 이 달(${m})엔 카드 사용내역이 없습니다. 카드 파일을 올리면 여기에 세부가 표시됩니다. ` +
+        `(지원: ${CARDS.map(c => c.label).join(' · ')})</div>`;
+      return;
+    }
+    $('cardDrill').innerHTML = cards.map(c => cardDrillBlock(m, c)).join('') +
+      `<p class="muted" style="margin-bottom:0;">※ 카드 '이용일' 기준 합계입니다. 계좌 결제(청구)와 시점이 달라 차이가 날 수 있어요. ` +
+      `할부는 이용 시점에 전액으로 잡히므로 청구액과 다릅니다.</p>`;
+  }
+  function cardDrillBlock(m, c) {
+    const card = cardOf(m, c.key);
+    const bankPaid = cardPaidOf(m, c.bankRe);
     const detailSum = card.reduce((s, t) => s + t.useAmount, 0);
     const byCat = {};
-    card.forEach(t => { const c = categorize(t); byCat[c] = (byCat[c] || 0) + t.useAmount; });
+    card.forEach(t => { const k = categorize(t); byCat[k] = (byCat[k] || 0) + t.useAmount; });
     const rows = Object.entries(byCat).sort((a, b) => b[1] - a[1])
-      .map(([c, v]) => `<tr><td class="l">${esc(c)}</td><td>${won(v)}</td></tr>`).join('');
+      .map(([k, v]) => `<tr><td class="l">${esc(k)}</td><td>${won(v)}</td></tr>`).join('');
 
     let recon;
     if (!card.length) {
-      recon = `<div class="recon warn">ℹ️ 이 달(${m})엔 삼성카드 사용내역이 없습니다. 카드 파일을 올리면 여기에 세부가 표시됩니다.</div>`;
+      recon = `<div class="recon warn">ℹ️ 계좌에서 ${won(bankPaid)}원이 결제됐는데 이 달 사용내역 파일이 없습니다. ` +
+        `${esc(c.label)} 엑셀을 올리면 세부가 표시됩니다.</div>`;
     } else {
-      const diff = detailSum - bankCardPaid;
-      const ok = Math.abs(diff) < 1000 || bankCardPaid === 0;
+      const diff = detailSum - bankPaid;
       recon = `<div class="recon ${Math.abs(diff) < 1000 ? 'ok' : 'warn'}">` +
         (Math.abs(diff) < 1000
-          ? `✅ 카드 세부합계 ${won(detailSum)} ≈ 계좌 카드결제 ${won(bankCardPaid)}`
-          : `⚠️ 카드 사용 ${won(detailSum)} vs 계좌 결제 ${won(bankCardPaid)} · 차이 ${won(diff)} (할부·청구주기 차이일 수 있음)`) +
+          ? `✅ 카드 세부합계 ${won(detailSum)} ≈ 계좌 카드결제 ${won(bankPaid)}`
+          : `⚠️ 카드 사용 ${won(detailSum)} vs 계좌 결제 ${won(bankPaid)} · 차이 ${won(diff)} (할부·청구주기 차이일 수 있음)`) +
         `</div>`;
     }
-    $('cardDrill').innerHTML =
-      `<h3 style="margin-top:0;font-size:1em;">💳 ${m} 삼성카드, 뭐에 썼나</h3>` + recon +
-      (card.length ? `<table class="cf"><thead><tr><th class="l">분류</th><th>금액</th></tr></thead><tbody>${rows}` +
-        `<tr style="font-weight:bold;background:#efe7f7;"><td class="l">합계(이용 기준)</td><td>${won(detailSum)}</td></tr></tbody></table>` +
-        `<p class="muted" style="margin-bottom:0;">※ 카드 '이용일' 기준 합계입니다. 계좌 결제(청구)와 시점이 달라 차이가 날 수 있어요.</p>` : '');
+    return `<h3 style="margin-top:0;font-size:1em;">💳 ${m} ${esc(c.label)}, 뭐에 썼나</h3>` + recon +
+      (card.length ? `<table class="cf" style="margin-bottom:14px"><thead><tr><th class="l">분류</th><th>금액</th></tr></thead><tbody>${rows}` +
+        `<tr style="font-weight:bold;background:#efe7f7;"><td class="l">합계(이용 기준)</td><td>${won(detailSum)}</td></tr></tbody></table>` : '');
   }
 
   function renderTable() {
@@ -535,6 +638,10 @@
       .then(rebuildAndRender)
       .catch(err => { console.error(err); $('status').textContent = '⚠️ 불러오기 실패: ' + err.message; });
   }
+
+  // 검증·디버깅용 훅 — 콘솔에서 파서를 직접 돌려 명세서 형식을 확인할 수 있다(읽기 전용, DB 접근 없음).
+  //   예) CashflowInternals.parseCard(XLSX.read(buf, {type:'array'}))
+  window.CashflowInternals = { CARDS, parseBank, parseCard, categorize, idOf };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

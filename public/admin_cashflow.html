@@ -96,8 +96,8 @@
       <div>
         <label class="drop" id="dropCard">
           <div class="ic">💳</div>
-          <div class="t">삼성카드 사용내역</div>
-          <div class="s">엑셀(.xlsx)/CSV 끌어다 놓기 · 클릭</div>
+          <div class="t">카드 사용내역 <span style="font-weight:normal">(삼성 · 신한)</span></div>
+          <div class="s">엑셀(.xlsx)/CSV 끌어다 놓기 · 클릭 <br>카드사는 파일에서 자동 인식 · 기간 겹쳐 올려도 중복 안 쌓임</div>
           <input type="file" id="fileCard" accept=".xlsx,.xls,.csv">
         </label>
         <div class="upload-result" id="resCard"></div>
@@ -123,7 +123,7 @@
       <div class="card-grid" id="summaryCards"></div>
 
       <!-- ④ 지출 분석 + 카드 드릴다운 -->
-      <h2>④ 지출 분석 <span class="muted">· 도넛=계좌 기준 / 우측=삼성카드 한 줄 펼치기</span></h2>
+      <h2>④ 지출 분석 <span class="muted">· 도넛=계좌 기준 / 우측=카드 결제 한 줄 펼치기(카드사별)</span></h2>
       <div class="two-col">
         <div class="chart-wrap"><canvas id="catChart" height="220"></canvas></div>
         <div class="panel" id="cardDrill"></div>
@@ -148,6 +148,6 @@
   <script src="./loadManageNavbar.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="./admin_cashflow.js?v=9"></script>
+  <script src="./admin_cashflow.js?v=10"></script>
 </body>
 </html>
