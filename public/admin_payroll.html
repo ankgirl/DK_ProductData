@@ -158,6 +158,13 @@
   <div id="sendM" class="modal-bg hide"><div class="modal">
     <h3 style="margin:0 0 4px;">정산서 발송</h3>
     <p class="muted" id="sendTo" style="margin:0 0 12px;"></p>
+    <div style="background:#fff8e6;border:1px solid #f0d68a;border-radius:8px;padding:8px 11px;margin-bottom:10px;font-size:.86em;">
+      <label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer;min-width:0">
+        <input type="checkbox" id="sendTest" style="margin-top:3px">
+        <span><b>테스트 발송</b> — 직원이 아니라 <b>관리자 본인에게만</b> 보냅니다.
+          제목에 [테스트]가 붙고, <b>발송 상태로 기록되지 않습니다</b>(직원 정산 이력에 남지 않음).</span>
+      </label>
+    </div>
     <div class="form-row" style="flex-direction:column;align-items:stretch">
       <label>메일 본문 <span class="muted">(비우면 기본멘트만 발송)</span></label>
       <div style="background:var(--lav);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:.86em;margin-bottom:6px;">
@@ -237,6 +244,6 @@
   <script src="./hr_common.js?v=4"></script>
   <script src="./hr_docs.js?v=1"></script>
   <script src="./hr_doc_seeds.js?v=1"></script>
-  <script src="./admin_payroll.js?v=10"></script>
+  <script src="./admin_payroll.js?v=11"></script>
 </body>
 </html>

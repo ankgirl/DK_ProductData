@@ -621,31 +621,47 @@
     };
   }
 
+  // 테스트 발송: 수신자를 관리자 본인으로 바꾸고 'sent' 로 기록하지 않는다.
+  // → 실제 직원 데이터 그대로 정산서를 만들어 발송 경로(시크릿·첨부·수신)를 확인하면서도
+  //   직원에게 메일이 가거나 정산 이력이 오염되지 않는다. (가짜 테스트 직원을 만들 필요 없음)
+  function isTestSend() { return !!($('sendTest') && $('sendTest').checked); }
+  function sendRecipients() { return isTestSend() ? [HR.ADMIN_EMAIL] : HR.empEmails(ctx.emp); }
+  function renderSendTo() {
+    var tos = sendRecipients();
+    $('sendTo').innerHTML = (isTestSend() ? '<b style="color:#8a5300">[테스트]</b> ' : '') +
+      '받는사람: <b>' + esc(tos.join(', ')) + '</b> · 첨부: ' + esc(pdfName());
+  }
   function openSend() {
-    var tos = HR.empEmails(ctx.emp);
-    if (!tos.length) { alert('직원 이메일이 없습니다.'); return; }
-    $('sendTo').innerHTML = '받는사람: <b>' + esc(tos.join(', ')) + '</b> · 첨부: ' + pdfName();
+    if (!HR.empEmails(ctx.emp).length) { alert('직원 이메일이 없습니다.'); return; }
+    if ($('sendTest')) { $('sendTest').checked = false; $('sendTest').onchange = renderSendTo; }
+    renderSendTo();
     $('defaultMsg').textContent = '“' + ctx.month + '월 정산내역 전달 드립니다.”';
     $('extraMsg').value = '';
     $('sendMsg').textContent = '';
     $('sendM').classList.remove('hide');
   }
   function doSend() {
+    var test = isTestSend();
+    var tos = sendRecipients();
+    if (!test && !confirm('직원(' + tos.join(', ') + ')에게 정산서를 발송합니다. 진행할까요?\n\n' +
+        '※ 발송 경로만 확인하려면 취소 후 “테스트 발송”을 체크하세요.')) return;
     $('sendGo').disabled = true; $('sendMsg').textContent = 'PDF 생성 중…';
     var extra = $('extraMsg').value.trim();
-    var message = ctx.month + '월 정산내역 전달 드립니다.' + (extra ? '\n\n' + extra : '');
+    var message = (test ? '[테스트 발송] 실제 직원에게는 발송되지 않았습니다.\n\n' : '') +
+      ctx.month + '월 정산내역 전달 드립니다.' + (extra ? '\n\n' + extra : '');
     buildPDF().then(function (pdf) {
-      $('sendMsg').textContent = '메일 발송 중…';
+      $('sendMsg').textContent = '메일 발송 중…' + (test ? ' (테스트 — 관리자 본인)' : '');
       var base64 = pdf.output('datauristring').split(',')[1];
       return sendEmail({
-        to_email: HR.empEmails(ctx.emp).join(','), to_name: ctx.emp.name,
-        subject: '[다꾸하루] ' + ctx.year + '년 ' + ctx.month + '월 ' + docTitle(),
+        to_email: tos.join(','), to_name: test ? '관리자(테스트)' : ctx.emp.name,
+        subject: (test ? '[테스트] ' : '') + '[다꾸하루] ' + ctx.year + '년 ' + ctx.month + '월 ' + docTitle(),
         message: message, filename: pdfName(), content: base64,
       }).then(function () {
-        return savePayslip('sent');
+        // 테스트 발송은 정산 상태를 바꾸지 않는다(직원 이력에 '발송됨'으로 남으면 안 되므로)
+        return test ? null : savePayslip('sent');
       }).then(function () {
-        $('sendMsg').textContent = '✅ 발송 완료';
-        setTimeout(function () { $('sendM').classList.add('hide'); }, 1200);
+        $('sendMsg').textContent = test ? '✅ 테스트 발송 완료 — ' + HR.ADMIN_EMAIL + ' 메일함을 확인하세요 (상태 기록 안 함)' : '✅ 발송 완료';
+        setTimeout(function () { $('sendM').classList.add('hide'); }, test ? 2600 : 1200);
       });
     }).catch(function (e) {
       // 발송 실패 시 사용자가 직접 첨부할 수 있게 PDF 다운로드
