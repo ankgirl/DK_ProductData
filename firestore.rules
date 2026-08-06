@@ -71,6 +71,18 @@ service cloud.firestore {
         allow read:  if isAdmin() || isOwnerOf(empId);
         allow write: if isAdmin();
       }
+
+      // 계약서 사진(고용계약서·변경합의서 등): 관리자 전용.
+      //   메타 문서와 그 아래 pages 하위문서까지 한 번에 잠근다({doc=**}).
+      //   본인 열람은 열어 두지 않음 — 직원 화면에서는 표시하지 않는다.
+      match /contracts/{doc=**} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // 관리자 문서함: 재사용 계약 양식(사람별 데이터 아님). 관리자 전용.
+    match /HRDocTemplates/{doc=**} {
+      allow read, write: if isAdmin();
     }
   }
 }

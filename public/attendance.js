@@ -151,7 +151,8 @@
   // ---- 급여 규칙(급여유형별) ----
   function renderRule(emp) {
     var t = Payroll.empTypeDef(HR.empType(emp));
-    $('ruleWage').textContent = (emp.hourlyWage || 11000).toLocaleString() + '원';
+    // 오늘 기준 유효 시급(시급 변경 이력 반영). hourlyWage 필드는 예약 변경 전까지 옛 값일 수 있어 직접 쓰지 않는다.
+    $('ruleWage').textContent = HR.currentWage(emp).toLocaleString() + '원';
     $('ruleType').textContent = t.label + ' · ' + t.short;
     $('ruleDeduct').innerHTML = t.notes.map(function (n) { return '· ' + esc(n); }).join('<br>');
   }

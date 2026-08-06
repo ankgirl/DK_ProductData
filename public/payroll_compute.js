@@ -60,6 +60,36 @@
   function empTypeDef(type) { return EMPLOYMENT_TYPES[type] || EMPLOYMENT_TYPES[DEFAULT_EMP_TYPE]; }
   function empTypeLabel(type) { var t = empTypeDef(type); return t.label + '(' + t.short + ')'; }
 
+  // ---- 기간별 시급 ----
+  // opts.wageHistory = [{from:'YYYY-MM-DD', wage:12000}, ...] (정렬 무관, 중복 from 없음 가정)
+  // 그 날짜에 유효한 시급 = from <= date 인 항목 중 from 이 가장 늦은 것. 없으면 opts.wage(기본 시급).
+  // → 이력이 없으면 예전과 100% 동일하게 동작한다(전 구간 opts.wage).
+  function wageAt(date, opts) {
+    opts = opts || {};
+    var base = opts.wage || DEFAULT_WAGE;
+    var hist = opts.wageHistory;
+    if (!date || !hist || !hist.length) return base;
+    var best = null;
+    for (var i = 0; i < hist.length; i++) {
+      var h = hist[i];
+      if (!h || !h.from || h.from > date) continue;
+      if (!best || h.from > best.from) best = h;
+    }
+    return best ? (Number(best.wage) || base) : base;
+  }
+  // 해당 월에 적용된 시급 구간 목록 [{from,to,wage}] — 화면·정산서에 "언제부터 얼마" 표시용
+  function wageSpans(year, month, opts) {
+    var lastDay = new Date(ymdToUTC(year, month + 1, 0)).getUTCDate();
+    var spans = [], cur = null;
+    for (var d = 1; d <= lastDay; d++) {
+      var ds = ymdStr(year, month, d);
+      var w = wageAt(ds, opts);
+      if (!cur || cur.wage !== w) { cur = { from: ds, to: ds, wage: w }; spans.push(cur); }
+      else cur.to = ds;
+    }
+    return spans;
+  }
+
   function toMin(hhmm) {
     if (!hhmm) return null;
     var p = String(hhmm).split(':');
@@ -99,7 +129,7 @@
   // opts: { wage, sojeongMin, sojeongStart }
   function computeDay(day, opts) {
     opts = opts || {};
-    var wage = opts.wage || DEFAULT_WAGE;
+    var wage = wageAt(day.date, opts); // 그 날짜에 유효한 시급(이력 없으면 opts.wage)
     var sojeongMin = opts.sojeongMin || DEFAULT_SOJEONG_MIN;
     var sojeongStart = toMin(opts.sojeongStart || DEFAULT_START);
 
@@ -137,6 +167,7 @@
         clockIn: d.clockIn || null, clockOut: d.clockOut || null,
         agreedIn: d.agreedIn || null,
         absent: r.absent, workedMin: r.workedMin, pay: r.pay, clampIn: r.clampIn,
+        wage: wageAt(d.date, opts),
         missing: !!d.missing,
         note: d.note || null,
       };
@@ -179,7 +210,11 @@
       else if (hasAbsent) { status = '결근→미발생'; }
       else if (sojeongHours < 15) { status = '주 15h미만→미발생'; }
       else if (workedDays < soDays) { status = '근무<소정→미발생'; }
-      else { juhyu = round((sojeongHours / weeklyStd) * dailyStd * wage); status = '개근 ' + sojeongHours + 'h'; }
+      else {
+        // 주휴는 그 주가 끝나는 시점(일요일) 기준 시급으로 계산 — 주 중간에 시급이 바뀌어도 판정이 흔들리지 않음
+        juhyu = round((sojeongHours / weeklyStd) * dailyStd * wageAt(sun.toISOString().slice(0, 10), opts));
+        status = '개근 ' + sojeongHours + 'h';
+      }
 
       // 이번 달에 귀속(일요일이 이번 달)일 때만 주휴 합산
       weeks.push({
@@ -288,6 +323,7 @@
     DEFAULT_SOJEONG_DAYS: DEFAULT_SOJEONG_DAYS,
     EMPLOYMENT_TYPES: EMPLOYMENT_TYPES, DEFAULT_EMP_TYPE: DEFAULT_EMP_TYPE,
     empTypeDef: empTypeDef, empTypeLabel: empTypeLabel,
+    wageAt: wageAt, wageSpans: wageSpans,
     toMin: toMin, minToHHMM: minToHHMM, round: round, floor10: floor10,
     weekday: weekday, mondayOf: mondayOf, ymdStr: ymdStr, parseYMD: parseYMD,
     fmtWon: fmtWon, fmtDur: fmtDur, todayLocal: todayLocal,

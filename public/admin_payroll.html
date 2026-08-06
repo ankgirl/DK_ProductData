@@ -109,6 +109,47 @@
       <!-- ④ 과거 정산 기록 -->
       <h2>④ 과거 정산 기록 <span class="muted">(월별)</span></h2>
       <div class="card"><div id="pastArea"><span class="muted">직원 선택 후 표시</span></div></div>
+
+      <!-- ⑤ 계약 문서함 -->
+      <h2>⑤ 계약 문서함 <span class="muted">(재사용 양식 · 날짜만 바꿔 인쇄)</span></h2>
+      <div class="card">
+        <div class="emp-select">
+          <label class="muted">양식</label><select id="tplSelect" style="min-width:230px"></select>
+          <button class="btn sec sm" id="tplNew">+ 새 양식</button>
+          <button class="btn sec sm" id="tplEdit">✎ 본문 편집</button>
+          <button class="btn sm danger" id="tplDel">삭제</button>
+          <button class="btn sec sm" id="tplSeed" title="원본 계약서에서 옮겨온 기본 양식 3종을 등록합니다">기본 양식 불러오기</button>
+          <span class="muted" id="tplMsg"></span>
+        </div>
+
+        <!-- 값 입력 + 미리보기 -->
+        <div id="tplFillArea" class="hide" style="margin-top:12px; border-top:1px dashed var(--line); padding-top:12px;">
+          <div class="form-row">
+            <label>직원 자동채움</label>
+            <select id="tplEmp" style="min-width:150px"><option value="">— 선택 안 함 —</option></select>
+            <span class="muted">선택하면 성명·시급·계약시작일이 자동으로 채워집니다</span>
+          </div>
+          <div id="tplFields"></div>
+          <div class="form-row" style="margin-top:10px">
+            <button class="btn gold" id="tplPrint">🖨 인쇄</button>
+            <button class="btn sec" id="tplRefresh">미리보기 갱신</button>
+          </div>
+          <div style="margin-top:10px;background:#fbfafd;border:1px solid var(--line);border-radius:10px;padding:16px 18px;">
+            <div class="muted" style="margin-bottom:6px">미리보기</div>
+            <div id="tplPreview" style="white-space:pre-wrap;font-size:.86em;line-height:1.75;max-height:420px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 18px;"></div>
+          </div>
+        </div>
+
+        <!-- 본문 편집 -->
+        <div id="tplEditArea" class="hide" style="margin-top:12px; border-top:1px dashed var(--line); padding-top:12px;">
+          <div class="form-row"><label>양식 이름</label><input id="tplName" style="flex:1" placeholder="예: 프리랜서 용역계약서"></div>
+          <div class="form-row" style="flex-direction:column;align-items:stretch">
+            <label style="margin-bottom:4px">본문 <span class="muted">— 값이 바뀌는 자리는 <b>{{항목명}}</b> 으로 적으면 입력칸이 자동 생성됩니다 (예: {{작성일}}, {{시급}})</span></label>
+            <textarea id="tplBody" rows="16" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:.85em"></textarea>
+          </div>
+          <div class="form-row"><button class="btn gold" id="tplSave">저장</button><button class="btn sec" id="tplCancel">취소</button></div>
+        </div>
+      </div>
     </div>
   </div>
   </div>
@@ -130,6 +171,56 @@
     <p id="sendMsg" class="muted" style="margin-top:8px"></p>
   </div></div>
 
+  <!-- 시급 변경 모달 -->
+  <div id="wageM" class="modal-bg hide"><div class="modal" style="max-width:560px">
+    <h3 style="margin:0 0 4px;">시급 변경</h3>
+    <p class="muted" id="wageWho" style="margin:0 0 12px;"></p>
+    <div class="form-row"><label>새 시급</label><input id="wageNew" type="number" step="10" style="width:140px"> 원</div>
+    <div class="form-row"><label>적용 시작일</label><input id="wageFrom" type="date">
+      <span class="muted">이 날짜부터의 근무에 새 시급이 적용됩니다</span></div>
+    <div class="form-row"><label>메모</label><input id="wageMemo" style="flex:1" placeholder="예: 2026년 임금 인상 합의 (선택)"></div>
+    <div class="form-row"><button class="btn gold" id="wageSave">변경 저장</button>
+      <button class="btn sec" id="wageCancel">닫기</button>
+      <span id="wageMsg" class="muted"></span></div>
+    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;">
+      <div class="muted" style="margin-bottom:6px">적용 이력 <span class="muted">(과거 정산은 그 시점 시급으로 계산됩니다)</span></div>
+      <div id="wageHist"></div>
+    </div>
+  </div></div>
+
+  <!-- 계약서 보관함 모달 -->
+  <div id="docM" class="modal-bg hide"><div class="modal" style="max-width:820px;max-height:88vh;overflow:auto">
+    <h3 style="margin:0 0 4px;">계약서 보관함</h3>
+    <p class="muted" id="docWho" style="margin:0 0 12px;"></p>
+    <div id="docList">불러오는 중…</div>
+    <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;">
+      <div class="muted" style="margin-bottom:6px">새 계약서 업로드 <span class="muted">— 사진 여러 장을 고르면 한 문서의 여러 페이지로 저장됩니다</span></div>
+      <div class="form-row"><label>제목</label><input id="docTitle" style="flex:1" placeholder="예: 2026년 프리랜서 용역계약서"></div>
+      <div class="form-row"><label>종류</label>
+        <select id="docType">
+          <option>고용계약서</option><option>프리랜서 용역계약서</option>
+          <option>변경 합의서</option><option>기타</option>
+        </select>
+        <label>문서 일자</label><input id="docDate" type="date">
+      </div>
+      <div class="form-row"><label>메모</label><input id="docMemo" style="flex:1" placeholder="선택"></div>
+      <div class="form-row"><label>사진</label><input id="docFiles" type="file" accept="image/*" multiple></div>
+      <div class="form-row"><button class="btn gold" id="docUpload">업로드</button>
+        <button class="btn sec" id="docClose">닫기</button>
+        <span id="docMsg" class="muted"></span></div>
+    </div>
+  </div></div>
+
+  <!-- 계약서 보기 모달 -->
+  <div id="viewM" class="modal-bg hide"><div class="modal" style="max-width:900px;max-height:92vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <h3 style="margin:0" id="viewTitle"></h3>
+      <div><button class="btn sec sm" id="viewPrint">🖨 인쇄</button>
+        <button class="btn sec sm" id="viewClose">닫기</button></div>
+    </div>
+    <div id="viewBody" style="margin-top:10px"></div>
+  </div></div>
+
   <!-- PDF 렌더 무대(화면 밖) -->
   <div id="pdfStage"><div id="payslipDoc"></div></div>
 
@@ -142,8 +233,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="./payroll_compute.js?v=3"></script>
-  <script src="./hr_common.js?v=3"></script>
-  <script src="./admin_payroll.js?v=9"></script>
+  <script src="./payroll_compute.js?v=4"></script>
+  <script src="./hr_common.js?v=4"></script>
+  <script src="./hr_docs.js?v=1"></script>
+  <script src="./hr_doc_seeds.js?v=1"></script>
+  <script src="./admin_payroll.js?v=10"></script>
 </body>
 </html>

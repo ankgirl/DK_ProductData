@@ -65,6 +65,26 @@
     $('qrEmp').onchange = function () { $('qrArea').innerHTML = ''; };
     $('sendCancel').onclick = function () { $('sendM').classList.add('hide'); };
     $('sendGo').onclick = doSend;
+
+    // 시급 변경 모달
+    $('wageSave').onclick = saveWage;
+    $('wageCancel').onclick = function () { $('wageM').classList.add('hide'); };
+    // 계약서 보관함
+    $('docUpload').onclick = uploadDoc;
+    $('docClose').onclick = function () { $('docM').classList.add('hide'); };
+    $('viewClose').onclick = function () { $('viewM').classList.add('hide'); };
+    // ⑤ 문서함
+    $('tplSelect').onchange = onTplSelect;
+    $('tplNew').onclick = function () { openTplEdit(true); };
+    $('tplEdit').onclick = function () { openTplEdit(false); };
+    $('tplDel').onclick = delTpl;
+    $('tplSeed').onclick = seedTpl;
+    $('tplSave').onclick = saveTpl;
+    $('tplCancel').onclick = function () { $('tplEditArea').classList.add('hide'); onTplSelect(); };
+    $('tplPrint').onclick = tplPrint;
+    $('tplRefresh').onclick = renderTplPreview;
+    $('tplEmp').onchange = autofillFromEmp;
+    loadTemplates();
   }
 
   function initMonthSelect() {
@@ -96,11 +116,16 @@
       var mails = HR.empEmails(e);
       var mailCell = esc(mails[0] || '-') + (mails.length > 1 ? ' <span class="muted">외 ' + (mails.length - 1) + '</span>' : '');
       var t = Payroll.empTypeDef(HR.empType(e));
+      var hist = HR.wageHistory(e);
+      var pending = hist.filter(function (h) { return h.from > HR.todayStr(); })[0];
       return '<tr><td>' + esc(e.name) + '</td><td>' + mailCell + '</td><td>' + esc(e.startDate || '-') + '</td>' +
-        '<td class="r">' + (e.hourlyWage || 11000).toLocaleString() + '원</td>' +
+        '<td class="r">' + HR.currentWage(e).toLocaleString() + '원' +
+        (pending ? '<br><span class="muted">→ ' + pending.wage.toLocaleString() + '원 (' + esc(pending.from) + '~)</span>' : '') +
+        ' <button class="btn sm sec" data-wage="' + e.empId + '">변경</button></td>' +
         '<td class="c"><select data-type="' + e.empId + '" title="' + esc(typeHint(t.key)) + '"></select></td>' +
         '<td class="c">' + (e.active ? '<span class="pill on">재직</span>' : '<span class="pill off">퇴사 ' + (e.endDate || '') + '</span>') + '</td>' +
-        '<td class="c"><button class="btn sm sec" data-emails="' + e.empId + '">✉ 이메일</button> ' +
+        '<td class="c"><button class="btn sm sec" data-docs="' + e.empId + '">📄 계약서</button> ' +
+        '<button class="btn sm sec" data-emails="' + e.empId + '">✉ 이메일</button> ' +
         (e.active ? '<button class="btn sm danger" data-retire="' + e.empId + '">퇴사 처리</button>' : '') + '</td></tr>';
     }).join('');
     $('empTable').innerHTML = '<table><thead><tr><th>이름</th><th>로그인 Gmail</th><th>근무 시작일</th><th class="r">시급</th><th class="c">급여 유형</th><th class="c">상태</th><th class="c">관리</th></tr></thead><tbody>' + rows + '</tbody></table>' +
@@ -133,6 +158,12 @@
         }).catch(function (err) { alert('실패: ' + err.message); });
       };
     });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-wage]'), function (b) {
+      b.onclick = function () { openWage(b.getAttribute('data-wage')); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-docs]'), function (b) {
+      b.onclick = function () { openDocs(b.getAttribute('data-docs')); };
+    });
     Array.prototype.forEach.call(document.querySelectorAll('[data-retire]'), function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-retire');
@@ -148,6 +179,13 @@
       employees.forEach(function (e) { var o = document.createElement('option'); o.value = e.empId; o.textContent = e.name + (e.active ? '' : ' (퇴사)'); sel.appendChild(o); });
       if (prev) sel.value = prev;
     });
+    // 문서함 자동채움용(선택 안 함 옵션 유지)
+    var tsel = $('tplEmp'); if (tsel) {
+      var prevT = tsel.value;
+      tsel.innerHTML = '<option value="">— 선택 안 함 —</option>';
+      employees.forEach(function (e) { var o = document.createElement('option'); o.value = e.empId; o.textContent = e.name; tsel.appendChild(o); });
+      if (prevT) tsel.value = prevT;
+    }
   }
   function onSaveEmp() {
     var name = $('fName').value.trim(), email = $('fEmail').value.trim(), start = $('fStart').value, wage = parseInt($('fWage').value, 10) || 11000;
@@ -159,6 +197,267 @@
       $('addMsg').textContent = '등록 완료'; $('saveEmp').disabled = false; $('addForm').classList.add('hide');
       loadEmployees();
     }).catch(function (e) { $('addMsg').textContent = '실패: ' + e.message; $('saveEmp').disabled = false; });
+  }
+
+  // ---------- 시급 변경 ----------
+  var wageEmpId = null;
+  function empById(id) { return employees.filter(function (e) { return e.empId === id; })[0]; }
+
+  function openWage(empId) {
+    var emp = empById(empId); if (!emp) return;
+    wageEmpId = empId;
+    $('wageWho').innerHTML = '<b>' + esc(emp.name) + '</b> · 현재 시급 <b>' + HR.currentWage(emp).toLocaleString() + '원</b>' +
+      ' <span class="muted">(근무 시작 ' + esc(emp.startDate || '-') + ')</span>';
+    $('wageNew').value = HR.currentWage(emp);
+    $('wageFrom').value = HR.todayStr();
+    $('wageMemo').value = '';
+    $('wageMsg').textContent = '';
+    renderWageHist(emp);
+    $('wageM').classList.remove('hide');
+  }
+  function renderWageHist(emp) {
+    var hist = HR.wageHistory(emp);
+    if (!hist.length) {
+      $('wageHist').innerHTML = '<span class="muted">아직 변경 이력이 없습니다. 지금 시급(' +
+        HR.currentWage(emp).toLocaleString() + '원)이 전 기간에 적용 중이며, 첫 변경을 저장하면 ' +
+        '최초 계약 시급이 근무 시작일부터로 자동 기록됩니다.</span>';
+      return;
+    }
+    var today = HR.todayStr();
+    var rows = hist.slice().reverse().map(function (h) {
+      var future = h.from > today;
+      return '<tr><td>' + esc(h.from) + (future ? ' <span class="tag ch">예정</span>' : '') + '</td>' +
+        '<td class="r">' + (h.wage || 0).toLocaleString() + '원</td>' +
+        '<td>' + esc(h.memo || '') + '</td>' +
+        '<td class="c">' + (hist.length > 1 ? '<button class="btn sm danger" data-wdel="' + esc(h.from) + '">✕</button>' : '') + '</td></tr>';
+    }).join('');
+    $('wageHist').innerHTML = '<table><thead><tr><th>적용 시작일</th><th class="r">시급</th><th>메모</th><th class="c">삭제</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-wdel]'), function (b) {
+      b.onclick = function () {
+        var from = b.getAttribute('data-wdel');
+        if (!confirm(from + ' 부터의 시급 적용을 삭제할까요?\n(그 이후 기간은 이전 시급으로 계산됩니다)')) return;
+        HR.removeWageChange(wageEmpId, from).then(function () {
+          $('wageMsg').textContent = '삭제 완료';
+          return refreshEmpAfterWage();
+        }).catch(function (e) { $('wageMsg').textContent = '실패: ' + e.message; });
+      };
+    });
+  }
+  function refreshEmpAfterWage() {
+    return HR.listEmployees().then(function (list) {
+      employees = list;
+      renderEmpTable();
+      var emp = empById(wageEmpId);
+      if (emp) {
+        renderWageHist(emp);
+        $('wageWho').innerHTML = '<b>' + esc(emp.name) + '</b> · 현재 시급 <b>' + HR.currentWage(emp).toLocaleString() + '원</b>' +
+          ' <span class="muted">(근무 시작 ' + esc(emp.startDate || '-') + ')</span>';
+      }
+      // 정산 화면이 열려 있으면 다시 정산해야 반영됨을 알림
+      if (ctx.emp && ctx.emp.empId === wageEmpId) $('settleResult').classList.add('hide');
+    });
+  }
+  function saveWage() {
+    var wage = parseInt($('wageNew').value, 10);
+    var from = $('wageFrom').value;
+    $('wageSave').disabled = true; $('wageMsg').textContent = '저장 중…';
+    HR.changeWage(wageEmpId, { wage: wage, from: from, memo: $('wageMemo').value.trim() }).then(function () {
+      $('wageMsg').textContent = '저장 완료 — ' + from + '부터 ' + wage.toLocaleString() + '원';
+      $('wageSave').disabled = false;
+      return refreshEmpAfterWage();
+    }).catch(function (e) {
+      $('wageMsg').textContent = '실패: ' + e.message; $('wageSave').disabled = false;
+    });
+  }
+
+  // ---------- 계약서 보관함(직원별) ----------
+  var docEmpId = null;
+  function openDocs(empId) {
+    var emp = empById(empId); if (!emp) return;
+    docEmpId = empId;
+    $('docWho').innerHTML = '<b>' + esc(emp.name) + '</b> <span class="muted">· 사진은 업로드 시 자동 축소되어 저장됩니다</span>';
+    $('docTitle').value = ''; $('docMemo').value = ''; $('docFiles').value = '';
+    $('docDate').value = HR.todayStr(); $('docMsg').textContent = '';
+    $('docList').innerHTML = '불러오는 중…';
+    $('docM').classList.remove('hide');
+    loadDocs();
+  }
+  function loadDocs() {
+    return HRDocs.listContracts(docEmpId).then(function (list) {
+      if (!list.length) { $('docList').innerHTML = '<span class="muted">보관된 계약서가 없습니다.</span>'; return; }
+      var rows = list.map(function (c) {
+        return '<tr><td style="width:74px">' + (c.thumb ? '<img src="' + c.thumb + '" style="width:64px;border:1px solid #ddd;border-radius:4px">' : '') + '</td>' +
+          '<td><b>' + esc(c.title) + '</b><br><span class="muted">' + esc(c.type || '') + (c.memo ? ' · ' + esc(c.memo) : '') + '</span></td>' +
+          '<td class="c">' + esc(c.docDate || '-') + '</td>' +
+          '<td class="c">' + (c.pageCount || 0) + '장</td>' +
+          '<td class="c"><button class="btn sm sec" data-cview="' + c.id + '">보기</button> ' +
+          '<button class="btn sm danger" data-cdel="' + c.id + '">삭제</button></td></tr>';
+      }).join('');
+      $('docList').innerHTML = '<table><thead><tr><th></th><th>제목</th><th class="c">문서 일자</th><th class="c">페이지</th><th class="c">관리</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      Array.prototype.forEach.call(document.querySelectorAll('[data-cview]'), function (b) {
+        b.onclick = function () { viewContract(b.getAttribute('data-cview'), list); };
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('[data-cdel]'), function (b) {
+        b.onclick = function () {
+          var c = list.filter(function (x) { return x.id === b.getAttribute('data-cdel'); })[0];
+          if (!confirm('“' + c.title + '” 을(를) 삭제할까요? 되돌릴 수 없습니다.')) return;
+          HRDocs.deleteContract(docEmpId, c.id).then(loadDocs).catch(function (e) { alert('삭제 실패: ' + e.message); });
+        };
+      });
+    }).catch(function (e) { $('docList').innerHTML = '<span class="neg">불러오기 실패: ' + esc(e.message) + '</span>'; });
+  }
+  function viewContract(cid, list) {
+    var c = list.filter(function (x) { return x.id === cid; })[0];
+    $('viewTitle').textContent = c.title + (c.docDate ? ' (' + c.docDate + ')' : '');
+    $('viewBody').innerHTML = '불러오는 중…';
+    $('viewM').classList.remove('hide');
+    HRDocs.getPages(docEmpId, cid).then(function (pages) {
+      $('viewBody').innerHTML = pages.map(function (p) {
+        return '<img src="' + p.dataUrl + '" style="width:100%;margin-bottom:10px;border:1px solid #ddd;border-radius:6px">';
+      }).join('') || '<span class="muted">페이지가 없습니다.</span>';
+      $('viewPrint').onclick = function () {
+        HRDocs.printHTML(pages.map(function (p) { return '<img src="' + p.dataUrl + '">'; }).join(''), c.title);
+      };
+    }).catch(function (e) { $('viewBody').innerHTML = '<span class="neg">' + esc(e.message) + '</span>'; });
+  }
+  function uploadDoc() {
+    var files = $('docFiles').files;
+    if (!files || !files.length) { $('docMsg').textContent = '사진을 선택하세요.'; return; }
+    $('docUpload').disabled = true;
+    $('docMsg').textContent = '사진 처리 중…';
+    HRDocs.addContract(docEmpId, {
+      title: $('docTitle').value.trim(), type: $('docType').value,
+      docDate: $('docDate').value, memo: $('docMemo').value.trim(),
+    }, files, function (done, total) { $('docMsg').textContent = '사진 처리 중… (' + done + '/' + total + ')'; })
+      .then(function () {
+        $('docMsg').textContent = '업로드 완료';
+        $('docTitle').value = ''; $('docMemo').value = ''; $('docFiles').value = '';
+        $('docUpload').disabled = false;
+        return loadDocs();
+      }).catch(function (e) {
+        $('docMsg').innerHTML = '<span class="neg">실패: ' + esc(e.message) + '</span>';
+        $('docUpload').disabled = false;
+      });
+  }
+
+  // ---------- ⑤ 계약 문서함(재사용 양식) ----------
+  var templates = [];
+  function loadTemplates(selectId) {
+    return HRDocs.listTemplates().then(function (list) {
+      templates = list;
+      var sel = $('tplSelect');
+      sel.innerHTML = '<option value="">— 양식 선택 —</option>';
+      list.forEach(function (t) {
+        var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o);
+      });
+      if (selectId) sel.value = selectId;
+      onTplSelect();
+    }).catch(function (e) { $('tplMsg').innerHTML = '<span class="neg">양식 로드 실패: ' + esc(e.message) + '</span>'; });
+  }
+  function currentTpl() { return templates.filter(function (t) { return t.id === $('tplSelect').value; })[0]; }
+  function onTplSelect() {
+    var t = currentTpl();
+    $('tplEditArea').classList.add('hide');
+    if (!t) { $('tplFillArea').classList.add('hide'); return; }
+    $('tplFillArea').classList.remove('hide');
+    renderTplFields(t);
+  }
+  // {{키}} 를 훑어 입력칸 자동 생성 — 이름에 '일'/'날짜'가 들어가면 날짜 입력칸으로
+  function renderTplFields(t) {
+    var keys = HRDocs.extractKeys(t.body);
+    if (!keys.length) {
+      $('tplFields').innerHTML = '<span class="muted">이 양식에는 바꿀 항목({{…}})이 없습니다. 그대로 인쇄됩니다.</span>';
+      renderTplPreview(); return;
+    }
+    $('tplFields').innerHTML = keys.map(function (k) {
+      var isDate = /(일자|날짜|일$)/.test(k);
+      var def = isDate ? HR.todayStr() : '';
+      return '<div class="form-row"><label>' + esc(k) + '</label>' +
+        '<input data-tk="' + esc(k) + '" type="' + (isDate ? 'date' : 'text') + '" value="' + esc(def) + '" style="' + (isDate ? '' : 'flex:1') + '"></div>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tk]'), function (el) {
+      el.oninput = renderTplPreview;
+    });
+    renderTplPreview();
+  }
+  function tplValues() {
+    var v = {};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tk]'), function (el) {
+      v[el.getAttribute('data-tk')] = el.value;
+    });
+    return v;
+  }
+  function renderTplPreview() {
+    var t = currentTpl(); if (!t) return;
+    $('tplPreview').textContent = HRDocs.fillTemplate(t.body, tplValues());
+  }
+  // 직원 선택 시 성명·시급·계약시작일 자동 채움 (같은 이름의 입력칸이 있을 때만)
+  function autofillFromEmp() {
+    var emp = empById($('tplEmp').value);
+    if (!emp) return;
+    var map = {
+      '성명': emp.name, '이름': emp.name,
+      '시급': String(HR.currentWage(emp)),
+      '계약시작일': emp.startDate || '', '근무시작일': emp.startDate || '',
+      '원계약체결일': emp.startDate || '',
+      '변경전시급': String(HR.currentWage(emp)),
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tk]'), function (el) {
+      var k = el.getAttribute('data-tk');
+      if (map[k] != null && map[k] !== '') el.value = map[k];
+    });
+    renderTplPreview();
+  }
+  function tplPrint() {
+    var t = currentTpl(); if (!t) return;
+    var body = HRDocs.fillTemplate(t.body, tplValues());
+    var left = HRDocs.extractKeys(body);
+    if (left.length && !confirm('아직 채우지 않은 항목이 있습니다: ' + left.join(', ') + '\n그대로 인쇄할까요?')) return;
+    HRDocs.printHTML('<h1>' + esc(t.name) + '</h1><div class="doc">' + esc(body) + '</div>', t.name);
+  }
+  function openTplEdit(isNew) {
+    var t = isNew ? null : currentTpl();
+    if (!isNew && !t) { $('tplMsg').textContent = '편집할 양식을 먼저 선택하세요.'; return; }
+    $('tplEditArea').classList.remove('hide');
+    $('tplFillArea').classList.add('hide');
+    $('tplName').value = t ? t.name : '';
+    $('tplBody').value = t ? t.body : '';
+    $('tplEditArea').setAttribute('data-editing', t ? t.id : '');
+  }
+  function saveTpl() {
+    var id = $('tplEditArea').getAttribute('data-editing') || null;
+    var name = $('tplName').value.trim();
+    if (!name) { $('tplMsg').textContent = '양식 이름을 입력하세요.'; return; }
+    $('tplSave').disabled = true;
+    HRDocs.saveTemplate(id, { name: name, body: $('tplBody').value }).then(function (newId) {
+      $('tplMsg').textContent = '저장 완료';
+      $('tplSave').disabled = false;
+      $('tplEditArea').classList.add('hide');
+      return loadTemplates(newId);
+    }).catch(function (e) { $('tplMsg').innerHTML = '<span class="neg">저장 실패: ' + esc(e.message) + '</span>'; $('tplSave').disabled = false; });
+  }
+  function delTpl() {
+    var t = currentTpl();
+    if (!t) { $('tplMsg').textContent = '삭제할 양식을 선택하세요.'; return; }
+    if (!confirm('“' + t.name + '” 양식을 삭제할까요?')) return;
+    HRDocs.deleteTemplate(t.id).then(function () { return loadTemplates(); })
+      .catch(function (e) { $('tplMsg').textContent = '삭제 실패: ' + e.message; });
+  }
+  // 기본 양식(hr_doc_seeds.js) 등록 — 같은 이름이 이미 있으면 건너뛴다(여러 번 눌러도 중복 없음)
+  function seedTpl() {
+    var seeds = window.HRDocSeeds || [];
+    if (!seeds.length) { $('tplMsg').textContent = '기본 양식 파일을 찾을 수 없습니다.'; return; }
+    var have = {}; templates.forEach(function (t) { have[t.name] = 1; });
+    var todo = seeds.filter(function (s) { return !have[s.name]; });
+    if (!todo.length) { $('tplMsg').textContent = '기본 양식이 이미 모두 등록돼 있습니다.'; return; }
+    $('tplSeed').disabled = true; $('tplMsg').textContent = '등록 중…';
+    var chain = Promise.resolve();
+    todo.forEach(function (s) { chain = chain.then(function () { return HRDocs.saveTemplate(null, s); }); });
+    chain.then(function () {
+      $('tplMsg').textContent = todo.length + '개 등록 완료 (' + todo.map(function (s) { return s.name; }).join(', ') + ')';
+      $('tplSeed').disabled = false;
+      return loadTemplates();
+    }).catch(function (e) { $('tplMsg').textContent = '실패: ' + e.message; $('tplSeed').disabled = false; });
   }
 
   // ---------- 정산 ----------
@@ -184,13 +483,25 @@
     renderSettle();
   }
 
+  // 정산월에 적용된 시급 표기. 달 중간에 바뀌었으면 "11,000원(~08/14) → 12,000원(08/15~)" 로 보여준다.
+  function wageSpansOfMonth() {
+    return Payroll.wageSpans(ctx.year, ctx.month, HR.payrollOpts(ctx.emp));
+  }
+  function wageText() {
+    var spans = wageSpansOfMonth();
+    if (spans.length <= 1) return ((spans[0] && spans[0].wage) || HR.currentWage(ctx.emp)).toLocaleString() + '원';
+    return spans.map(function (s) {
+      return s.wage.toLocaleString() + '원(' + s.from.slice(5).replace('-', '/') + '~' + s.to.slice(5).replace('-', '/') + ')';
+    }).join(' → ');
+  }
+
   function renderSettle() {
     var s = ctx.settle, emp = ctx.emp;
     var nextY = ctx.month === 12 ? ctx.year + 1 : ctx.year, nextM = ctx.month === 12 ? 1 : ctx.month + 1;
     var html = '<div class="card">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
       '<div><b>' + esc(emp.name) + '</b> · ' + ctx.year + '년 ' + ctx.month + '월 정산 <span class="pill type">' + esc(s.typeLabel + ' · ' + s.typeShort) + '</span> ' +
-      '<span class="muted">(시급 ' + (emp.hourlyWage || 11000).toLocaleString() + '원 · 지급예정 ' + nextY + '년 ' + nextM + '월)</span></div>' +
+      '<span class="muted">(시급 ' + wageText() + ' · 지급예정 ' + nextY + '년 ' + nextM + '월)</span></div>' +
       '<div class="muted">주(週) 기준: 월~일 실제 달력</div></div>';
 
     var missing = s.rows.filter(function (r) { return r.missing; });
@@ -284,7 +595,8 @@
     var doc = {
       yearMonth: HR.ymLabel(ctx.year, ctx.month),
       empId: ctx.emp.empId, empName: ctx.emp.name, email: ctx.emp.email,
-      hourlyWage: ctx.emp.hourlyWage || 11000,
+      hourlyWage: HR.wageOn(ctx.emp, HR.ymLabel(ctx.year, ctx.month) + '-01'),
+      wageSpans: wageSpansOfMonth(),   // 그 달에 적용된 시급 구간(사후 대조용)
       settle: stripSettle(s),
       adjustments: ctx.adjustments,
       status: status,
@@ -365,7 +677,7 @@
     var nextM = ctx.month === 12 ? 1 : ctx.month + 1;
     var h = '<h2>' + esc(s.docTitle) + '</h2><div class="sub">' + ctx.year + '년 ' + pad2(ctx.month) + '월</div>';
     h += '<table><tbody><tr><th style="width:90px">성명</th><td>' + esc(emp.name) + '</td><th style="width:90px">지급 예정일</th><td>' + ctx.year + '년 ' + pad2(nextM) + '월</td></tr>' +
-      '<tr><th>계약 시급</th><td>' + (emp.hourlyWage || 11000).toLocaleString() + '원</td><th>정산월</th><td>' + ctx.year + '년 ' + pad2(ctx.month) + '월</td></tr></tbody></table>';
+      '<tr><th>계약 시급</th><td>' + wageText() + '</td><th>정산월</th><td>' + ctx.year + '년 ' + pad2(ctx.month) + '월</td></tr></tbody></table>';
     s.weeks.forEach(function (w, i) {
       h += '<div class="wk">' + weekLabel(s, w, i) + '</div>';
       h += '<table><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>근무시간</th><th>금액</th></tr></thead><tbody>';

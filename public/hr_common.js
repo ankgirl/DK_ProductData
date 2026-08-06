@@ -128,12 +128,69 @@
     return empDoc(empId).update({ email: list[0], emails: list }).then(function () { return list; });
   }
 
+  // ---- 시급 변경 이력 ----
+  // HR/{empId}.wageHistory = [{from:'YYYY-MM-DD', wage, memo, by, at}] (오름차순)
+  //   · hourlyWage 필드는 "오늘 기준 유효 시급"의 비정규화 사본(옛 코드 호환). 화면 표시는 wageOn() 을 쓸 것.
+  //     (미래 날짜 변경을 예약하면 그 날이 오기 전까지 hourlyWage 는 옛 값이므로 신뢰하면 안 됨)
+  function wageHistory(emp) { return (emp && emp.wageHistory) || []; }
+  // 특정 날짜에 유효한 시급 (이력 없으면 기본 시급)
+  function wageOn(emp, date) {
+    return Payroll.wageAt(date, { wage: (emp && emp.hourlyWage) || 11000, wageHistory: wageHistory(emp) });
+  }
+  function currentWage(emp) { return wageOn(emp, todayStr()); }
+
+  // 시급 변경 등록(멱등: 같은 적용일이면 덮어씀).
+  // 이력이 비어 있으면 "최초 계약 시급"을 근무 시작일부터로 자동 기록해 과거 정산이 흔들리지 않게 한다.
+  function changeWage(empId, opts) {
+    opts = opts || {};
+    var from = opts.from;
+    var wage = parseInt(opts.wage, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '')) return Promise.reject(new Error('적용 시작일을 YYYY-MM-DD 로 입력하세요.'));
+    if (!wage || wage <= 0) return Promise.reject(new Error('시급을 올바르게 입력하세요.'));
+    return empDoc(empId).get().then(function (snap) {
+      if (!snap.exists) throw new Error('직원 문서를 찾을 수 없습니다.');
+      var d = snap.data() || {};
+      var hist = (d.wageHistory || []).slice();
+      if (!hist.length) {
+        hist.push({
+          from: d.startDate || '2000-01-01', wage: d.hourlyWage || 11000,
+          memo: '최초 계약 시급(자동 기록)', by: 'system', at: new Date().toISOString(),
+        });
+      }
+      hist = hist.filter(function (h) { return h.from !== from; });
+      hist.push({
+        from: from, wage: wage, memo: opts.memo || '',
+        by: opts.by || currentEmail() || 'admin', at: new Date().toISOString(),
+      });
+      hist.sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+      var base = { wage: d.hourlyWage || 11000, wageHistory: hist };
+      return empDoc(empId).update({
+        wageHistory: hist,
+        hourlyWage: Payroll.wageAt(todayStr(), base),
+      }).then(function () { return hist; });
+    });
+  }
+  // 이력 1건 삭제(오등록 정정). 최초 자동기록까지 지우면 과거가 흔들리므로 1건은 남긴다.
+  function removeWageChange(empId, from) {
+    return empDoc(empId).get().then(function (snap) {
+      var d = snap.data() || {};
+      var hist = (d.wageHistory || []).filter(function (h) { return h.from !== from; });
+      if (!hist.length) throw new Error('최소 1건(최초 계약 시급)은 남아 있어야 합니다.');
+      var base = { wage: d.hourlyWage || 11000, wageHistory: hist };
+      return empDoc(empId).update({
+        wageHistory: hist,
+        hourlyWage: Payroll.wageAt(todayStr(), base),
+      }).then(function () { return hist; });
+    });
+  }
+
   // ---- 급여 계산에 넘길 형태로 변환 ----
   // employee.sojeong → Payroll opts
   function payrollOpts(emp) {
     var so = (emp && emp.sojeong) || {};
     return {
       wage: (emp && emp.hourlyWage) || 11000,
+      wageHistory: wageHistory(emp),   // 기간별 시급(이력 없으면 wage 고정 = 예전 동작)
       sojeongStart: so.start || '09:00',
       sojeongMin: 240,
       sojeongDays: so.days || Payroll.DEFAULT_SOJEONG_DAYS,
@@ -247,6 +304,8 @@
     addEmployee: addEmployee, retireEmployee: retireEmployee,
     normEmails: normEmails, empEmails: empEmails, setEmployeeEmails: setEmployeeEmails,
     empType: empType, setEmploymentType: setEmploymentType,
+    wageHistory: wageHistory, wageOn: wageOn, currentWage: currentWage,
+    changeWage: changeWage, removeWageChange: removeWageChange,
     payrollOpts: payrollOpts, mergeDays: mergeDays, loadRange: loadRange, loadDays: loadDays,
     recordPunch: recordPunch, editAttendance: editAttendance,
     todayStr: todayStr, nowHM: nowHM, prevMonth: prevMonth, thisMonth: thisMonth, ymLabel: ymLabel, ymd: ymd,
